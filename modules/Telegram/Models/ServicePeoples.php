@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Models;
 
+use Modules\Permissions\Models\Traits\DataRange;
+
 use Catch\Base\CatchModel as Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -20,6 +22,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ServicePeoples extends Model
 {
+    use DataRange;
+
+    /**
+     * 所属模块：当前用户没有该模块的功能权限时，该模块数据不可见
+     */
+    protected string $dataModule = 'telegram';
+
     protected $table = 'service_peoples';
 
     protected $fillable = [

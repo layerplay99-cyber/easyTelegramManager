@@ -5,6 +5,7 @@ namespace Modules\Telegram\Http\Controllers;
 
 use Catch\Base\CatchController as Controller;
 use Illuminate\Http\Request;
+use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\TelegramApiUsers;
 
@@ -22,18 +23,15 @@ class BotGroupsController extends Controller
      */
     public function index(Request $request): mixed
     {
-        $user = $this->getLoginUser();
-        return $this->model->setBeforeGetList(function ($query) use ($user, $request) {
+        // 数据范围不需要在这里写：BotGroups 模型 use 了 DataRange trait，
+        // CatchModel::getList() 会自动套上「本人 + 下级 + 角色数据权限 + 已授权模块」。
+        return $this->model->setBeforeGetList(function ($query) use ($request) {
             if ($appId = $request->input('app_id')) {
                 $query->where('app_id', $appId);
             }
 
             if ($botId = $request->input('bot_id')) {
                 $query->where('bot_id', $botId);
-            }
-
-            if (! $user->isSuperAdmin()) {
-                $query->where('creator_id', $this->getLoginUserId());
             }
 
             $query->with(['groupGroup:*']);
@@ -57,7 +55,14 @@ class BotGroupsController extends Controller
      */
     public function show(int|string $id): mixed
     {
-        return $this->model->firstBy($id);
+        // firstBy() 只按主键查，不受列表的数据范围约束，这里补一次越权校验
+        $group = $this->model->firstBy($id);
+
+        if ($group) {
+            app(DataScope::class)->assertVisible($group);
+        }
+
+        return $group;
     }
 
     /**
@@ -76,12 +81,10 @@ class BotGroupsController extends Controller
 
         // $groupIds 直接来自请求体，原来不校验归属，
         // 任意登录用户传任意 id 就能把别人的群划到自己的分组下。
+        // 现在按统一的数据范围收敛：只能改自己可见范围内的群。
         $query = $this->model->whereIn('id', array_map('intval', $groupIds));
 
-        $user = $this->getLoginUser();
-        if (! $user->isSuperAdmin()) {
-            $query->where('creator_id', $this->getLoginUserId());
-        }
+        app(DataScope::class)->apply($query, null, 'telegram', 'creator_id');
 
         $updated = $query->update(['group_id' => $groupGroupIds]);
 
@@ -100,6 +103,12 @@ class BotGroupsController extends Controller
      */
     public function destroy(int|string $id): mixed
     {
+        $group = $this->model->firstBy($id);
+
+        if ($group) {
+            app(DataScope::class)->assertVisible($group);
+        }
+
         return $this->model->deleteBy($id);
     }
 }

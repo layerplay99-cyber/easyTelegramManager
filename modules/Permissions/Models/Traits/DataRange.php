@@ -4,100 +4,64 @@ declare(strict_types=1);
 namespace Modules\Permissions\Models\Traits;
 
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Auth;
-use Modules\Permissions\Models\Departments;
-use Modules\Permissions\Models\Roles;
-use Modules\Permissions\Enums\DataRange as DataRangeEnum;
+use Modules\Permissions\Support\DataScope;
 
 /**
- * @method aliasField(string $field)
+ * 后台数据范围
+ *
+ * CatchModel::init() 会自动识别类名包含 DataRange 的 trait，
+ * 并在 getList() 里调用 dataRange()，所以模型只要 `use DataRange;` 就生效。
+ *
+ * 模型可通过 protected string $dataModule = 'telegram'; 声明所属模块，
+ * 声明后当前用户没有该模块功能权限时，该模块数据完全不可见。
+ *
+ * @method string aliasField(string $field)
  */
 trait DataRange
 {
-
     /**
+     * 列表数据范围
      *
      * @param $query
-     * @param array|Collection $roles
+     * @param array|Collection $roles 兼容旧签名，已由 DataScope 内部按登录用户解析
      * @return mixed
      */
     public function scopeDataRange($query, array|Collection $roles = []): mixed
     {
-        $currenUser = Auth::guard(getGuardName())->user();
-
-        if ($currenUser->isSuperAdmin()) {
-            return $query;
-        }
-
-        $userIds = $this->getDepartmentUserIdsBy($roles, $currenUser);
-
-        if ($userIds->isEmpty()) {
-            return $query;
-        }
-
-        return $query->whereIn($this->aliasField('creator_id'), $userIds);
+        return app(DataScope::class)->apply($query, null, $this->getDataModule(), $this->aliasField('creator_id'));
     }
 
     /**
-     * get department ids
+     * 当前记录是否在登录用户可见范围内
+     */
+    public function isVisibleTo(mixed $user = null): bool
+    {
+        return app(DataScope::class)->isVisible($this, $user);
+    }
+
+    /**
+     * 可见数据的 creator_id 集合，null 表示不限制
+     */
+    public function visibleCreatorIds(mixed $user = null): ?array
+    {
+        return app(DataScope::class)->visibleCreatorIds($user);
+    }
+
+    /**
+     * 模型所属模块
+     */
+    protected function getDataModule(): ?string
+    {
+        return property_exists($this, 'dataModule') ? $this->dataModule : null;
+    }
+
+    /**
+     * 兼容旧签名：按角色数据权限取可见用户 ID
      *
-     * @param array $roles
-     * @param $currentUser
-     * @return Collection
+     * @deprecated 逻辑已收敛到 Modules\Permissions\Support\DataScope
      */
     public function getDepartmentUserIdsBy(array $roles, $currentUser): Collection
     {
-        $userIds = Collection::make();
-
-        if (empty($roles)) {
-            $roles = $currentUser->roles()->get();
-        }
-
-        /* @var Roles $role */
-        foreach ($roles as $role) {
-            if (DataRangeEnum::All_Data->assert($role->data_range)) {
-                return Collection::make();
-            }
-
-            if (DataRangeEnum::Personal_Choose->assert($role->data_range)) {
-                $userIds = $userIds->merge($this->getUserIdsByDepartmentId($role->departments()->pluck('id')));
-            }
-
-            if (DataRangeEnum::Personal_Data->assert($role->data_range)) {
-                $userIds = $userIds->push($currentUser->id);
-            }
-
-            if (DataRangeEnum::Department_Data->assert($role->data_range)) {
-                $userIds = $userIds->merge(
-                    $this->getUserIdsByDepartmentId([$currentUser->department_id])
-                );
-            }
-
-            if (DataRangeEnum::Department_DOWN_Data->assert($role->data_range)) {
-                $departmentsId = [$currentUser->department_id];
-
-                $departmentModel = new Departments();
-
-                $departmentIds = $departmentModel->findFollowDepartments($departmentsId);
-
-                $userIds = $userIds->merge($this->getUserIdsByDepartmentId($departmentIds))->push($currentUser->id);
-            }
-        }
-
-        return $userIds->unique();
-    }
-
-
-    /**
-     * get user ids by department is
-     *
-     * @param array|Collection $departmentIds
-     * @return Collection
-     */
-    protected function getUserIdsByDepartmentId(array|Collection $departmentIds): Collection
-    {
-        $userModel = app(getAuthUserModel());
-
-        return $userModel->whereIn('department_id', $departmentIds)->pluck('id');
+        return Collection::make(app(DataScope::class)->visibleCreatorIds($currentUser) ?? []);
     }
 }

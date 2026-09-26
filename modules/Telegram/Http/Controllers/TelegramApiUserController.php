@@ -32,11 +32,7 @@ class TelegramApiUserController extends Controller
     public function index(Request $request): mixed
     {
         return $this->model->setBeforeGetList(function ($query) use ($request) {
-            // 与 BotsController / BotGroupsController 保持一致：非超管只看自己名下的账号
-            if (! $this->getLoginUser()->isSuperAdmin()) {
-                $query->where('creator_id', $this->getLoginUserId());
-            }
-
+            // 数据范围由 TelegramApiUsers 模型的 DataRange trait 自动生效
             if ($appId = $request->input('app_id')) {
                 $query->where('app_id', $appId);
             }

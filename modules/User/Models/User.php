@@ -2,6 +2,8 @@
 
 namespace Modules\User\Models;
 
+use Modules\Permissions\Models\Traits\DataRange;
+
 use Catch\Base\CatchModel as Model;
 use Catch\Enums\Status;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
@@ -27,6 +29,8 @@ use Illuminate\Auth\Authenticatable;
  */
 class User extends Model implements AuthenticatableContract
 {
+    use DataRange;
+
     use Authenticatable, UserRelations, HasApiTokens;
 
     protected $fillable = [

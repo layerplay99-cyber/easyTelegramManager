@@ -34,13 +34,8 @@ class BotsController extends Controller
      */
     public function index(): mixed
     {
-        $user = $this->getLoginUser();
-        return $this->model->setBeforeGetList(function ($query) use ($user) {
-            if (! $user->isSuperAdmin()) {
-                $query->where('creator_id', $this->getLoginUserId());
-            }
-            return $query;
-        })->getList();
+        // 数据范围由 Bots 模型的 DataRange trait 自动生效
+        return $this->model->getList();
     }
 
     /**

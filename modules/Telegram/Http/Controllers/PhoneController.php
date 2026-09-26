@@ -7,6 +7,7 @@ use Catch\Base\CatchController as Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Http\Requests\PhoneRequest;
 use Modules\Telegram\Jobs\ImportPhonesJob;
 use Modules\Telegram\Models\Phones;
@@ -106,18 +107,9 @@ class PhoneController extends Controller
      */
     public function export()
     {
-        $query = $this->model->setBeforeGetList(function ($query){
-            if ($this->getLoginUser()->isSuperAdmin()) {
-                return $query;
-            }
-
-            $query = $query->where('department_id', $this->getLoginUser()->department_id);
-            if($this->getLoginUser()->parent_id === config('catch.super_admin')){
-                return $query;
-            }
-            $query = $query->where('creator_id', $this->getLoginUserId());
-            return $query;
-        });
+        // 导出不走 getList()，所以数据范围要手动套上
+        // （原来的 parent_id 分支是死代码：users 表没有 parent_id 列，恒为 null）
+        $query = app(DataScope::class)->apply($this->model->newQuery(), null, 'telegram', 'creator_id');
         // 原来 select 的 resource_id / url / username / name / country / works / age
         // 在 phones 表里根本不存在（迁移只建了 id/phone/status/scantime/creator_id/时间戳），
         // 一调用就报 Unknown column；map 里还取了不存在的 source_id，导出列恒为 null。

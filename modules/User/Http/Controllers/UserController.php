@@ -30,9 +30,9 @@ class UserController extends Controller
     public function index()
     {
         return $this->user->setBeforeGetList(function ($query){
+            // 数据范围（本人 + 下级 + 角色数据权限）由 User 模型的 DataRange trait 自动生效
             if (! $this->getLoginUser()->isSuperAdmin()) {
                 $query = $query->where('id', '<>', config('catch.super_admin'));
-                $query->where('department_id', $this->getLoginUser()->department_id);
             }
 
             if (\request()->has('department_id')) {

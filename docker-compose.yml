@@ -23,7 +23,7 @@ services:
         command: cp .env.example .env && php artisan catch:install && php artisan serve --port=8001
     mysql:
         container_name: mysql
-        image: mysql:5.7
+        image: mysql:8.0
         ports:
             - "3306:3306"
         environment:

@@ -1,0 +1,10 @@
+@tailwind base;
+
+@layer base {
+    .table-default {
+        @apply pl-2 pr-2 bg-white dark:bg-regal-dark rounded-lg mt-2 pb-6
+    }
+}
+
+@tailwind components;
+@tailwind utilities;

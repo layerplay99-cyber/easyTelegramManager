@@ -1,0 +1,54 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Modules\Telegram\Models;
+
+use Catch\Base\CatchModel as Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * @property int $id
+ * @property string $name
+ * @property string|null $description
+ * @property int $creator_id
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ *
+ * @property-read \Illuminate\Database\Eloquent\Collection|BotGroups[] $botGroups
+ */
+class GroupGroups extends Model
+{
+
+
+    protected $table = 'group_groups';
+
+    protected $fillable = [ 'id', 'name', 'description', 'creator_id', 'created_at', 'updated_at', 'deleted_at' ];
+
+    /**
+     * @var array
+     */
+    protected array $fields = ['id','name','description','created_at','updated_at'];
+
+    /**
+     * @var array
+     */
+    protected array $form = ['name','description'];
+
+    /**
+     * @var array
+     */
+    public array $searchable = [
+        'name' => 'like',
+
+    ];
+
+    protected bool $isPaginate = true;
+
+    // 关联关系
+    public function botGroups(): HasMany
+    {
+        return $this->hasMany(BotGroups::class, 'group_id', 'id');
+    }
+}

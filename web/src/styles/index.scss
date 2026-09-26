@@ -1,0 +1,12 @@
+// tailwindcss
+@use 'tailwind.css';
+
+// element style 必须在 tailwindcss 之后，不然样式会被 tailwindcss 覆盖
+// issue 在这里 https://github.com/tailwindlabs/tailwindcss/discussions/5969
+@use 'element';
+
+// 后台管理定义的 css 变量
+@use 'var';
+
+// theme
+@use 'theme/index';

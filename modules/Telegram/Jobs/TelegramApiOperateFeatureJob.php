@@ -38,16 +38,23 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
     protected array $payload;
     protected string $type;
     protected MadelineService $service;
+
+    /**
+     * 群发任务 ID（有值时写回执，见 MessageSendLog）
+     */
+    protected ?int $sendId;
+
     /**
      * Create a new job instance.
      */
-    public function __construct($sessionFile, $appId, $appHash, $payload, $type='text')
+    public function __construct($sessionFile, $appId, $appHash, $payload, $type='text', ?int $sendId = null)
     {
         $this->sessionFile = $sessionFile;
         $this->appId = $appId;
         $this->appHash = $appHash;
         $this->payload = $payload;
         $this->type = $type;
+        $this->sendId = $sendId;
     }
 
     public function handle(): void
@@ -74,6 +81,8 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
                 'kick' => $this->kickUser($this->payload),
                 default => throw new Exception("Unsupported type: " . $this->type),
             };
+
+            $this->recordResult('success');
         } catch (Exception|\Throwable $e) {
             // 记录到业务日志，方便按 chat_id 定位是哪一群失败了
             app(\Modules\Telegram\Services\LogMessageService::class)->createLaravelLog(
@@ -105,6 +114,8 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
+        $this->recordResult('failed', mb_substr($exception->getMessage(), 0, 500));
+
         app(\Modules\Telegram\Services\LogMessageService::class)->createLaravelLog(
             'telegram_feature_job_failed_final',
             [
@@ -201,6 +212,35 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
         [$pureText, $entities] = $this->service->parseEffects($payload['text']);
         $payload['text'] = $pureText;
         $mentionEntities = $payload['mention_entities'] ?? [];
-        $payload['entities'] = array_merge($mentionEntities, $entities);
+
+        // 调用方可能已经渲染好实体（自定义 emoji / 文字特效），不能再被覆盖丢掉
+        $payload['entities'] = array_merge($payload['entities'] ?? [], $mentionEntities, $entities);
+    }
+
+    /**
+     * 群发回执：只有传了 sendId 才写
+     */
+    private function recordResult(string $status, ?string $error = null): void
+    {
+        if (! $this->sendId) {
+            return;
+        }
+
+        $chatId = (string) ($this->payload['chat_id'] ?? '');
+
+        \Modules\Telegram\Models\MessageSendLog::query()
+            ->where('send_id', $this->sendId)
+            ->where('chat_id', $chatId)
+            ->update([
+                'status' => $status,
+                'error' => $error,
+                'sent_at' => now(),
+            ]);
+
+        $send = \Modules\Telegram\Models\MessageSend::query()->find($this->sendId);
+
+        if ($send) {
+            $status === 'success' ? $send->incrementSuccess() : $send->incrementFailed();
+        }
     }
 }

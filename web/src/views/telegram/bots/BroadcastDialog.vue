@@ -14,7 +14,35 @@
                             />
                         </el-select>
                     </el-form-item>
-                    <el-form-item :label="$t('groupSelect.messageType')">
+                    <el-form-item label="发送通道">
+                        <el-radio-group v-model="formData.channel">
+                            <el-radio value="bot">Bot（纯文本 / 图文）</el-radio>
+                            <el-radio value="user">Telegram 客服账号（可发自定义 / 动态表情）</el-radio>
+                        </el-radio-group>
+                    </el-form-item>
+                    <el-form-item label="客服账号" v-if="formData.channel === 'user'">
+                        <el-select v-model="formData.telegramUserId" placeholder="选择发送用的客服账号" style="width: 100%">
+                            <el-option
+                                v-for="u in telegramUsers"
+                                :key="u.id"
+                                :label="`${u.nickname || u.phone_number} (${u.app_id})`"
+                                :value="u.id"
+                            />
+                        </el-select>
+                        <div class="text-xs text-gray-400 mt-1">按该客服账号名下的群发送（app_id 匹配）</div>
+                    </el-form-item>
+                    <el-form-item label="消息模板">
+                        <el-select v-model="formData.templateId" placeholder="可选：使用已保存的模板" clearable style="width: 100%">
+                            <el-option v-for="tpl in templates" :key="tpl.id" :label="tpl.title" :value="tpl.id">
+                                <span>{{ tpl.title }}</span>
+                                <el-tag size="small" class="ml-2" :type="tpl.channel === 'user' ? 'success' : 'info'">
+                                    {{ tpl.channel === 'user' ? '客服' : 'Bot' }}
+                                </el-tag>
+                            </el-option>
+                        </el-select>
+                        <div class="text-xs text-gray-400 mt-1">选了模板后以模板内容为准，下方文本会被忽略</div>
+                    </el-form-item>
+                    <el-form-item :label="$t('groupSelect.messageType')" v-if="!formData.templateId">
                         <el-select v-model="formData.type" :placeholder="$t('groupSelect.messageTypePlaceholder')" style="width: 200px">
                             <el-option :label="$t('groupSelect.textType')" value="text" />
                             <el-option :label="$t('groupSelect.photoType')" value="photo" />
@@ -46,7 +74,7 @@
                             class="mt-2"
                         />
                     </el-form-item>
-                    <el-form-item :label="formData.type === 'photo' ? $t('broadcast.caption') : $t('broadcast.messageContent')">
+                    <el-form-item :label="formData.type === 'photo' ? $t('broadcast.caption') : $t('broadcast.messageContent')" v-if="!formData.templateId">
                         <el-input
                             v-model="formData.text"
                             type="textarea"
@@ -138,6 +166,7 @@
 import { ref, watch, nextTick, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
+import http from '@/support/http'
 import { useGroup } from '@/stores/modules/telegram/group'
 import { useBotStore } from '@/stores/modules/telegram/botApi'
 import { useI18n } from 'vue-i18n'
@@ -174,8 +203,33 @@ const formData = ref({
     groupId: null as number | null,
     type: 'text' as 'text' | 'photo',
     text: '',
-    photo: ''
+    photo: '',
+    channel: 'bot' as 'bot' | 'user',
+    telegramUserId: null as number | null,
+    templateId: null as number | null,
 })
+
+// 模板与客服账号（选择发送通道 / 模板用）
+const templates = ref<any[]>([])
+const telegramUsers = ref<any[]>([])
+
+const loadTemplates = async () => {
+    try {
+        const r = await http.get('telegram/message/template', { limit: 100 })
+        templates.value = r.data.data?.data || r.data.data || []
+    } catch (e) {
+        templates.value = []
+    }
+}
+
+const loadTelegramUsers = async () => {
+    try {
+        const r = await http.get('telegram/telegram/api/user', { limit: 100 })
+        telegramUsers.value = r.data.data?.data || r.data.data || []
+    } catch (e) {
+        telegramUsers.value = []
+    }
+}
 
 // 分页相关
 const currentPage = ref(1)
@@ -184,15 +238,22 @@ const total = ref(0)
 
 // 是否可以提交
 const canSubmit = computed(() => {
-    const hasBot = formData.value.botId
+    const hasBot = !!formData.value.botId
     // 满足以下任意一个条件即可：选择了分组、全选、或勾选了单个/多个群组
-    const hasTarget = formData.value.groupId || selectAll.value || selectedChatIds.value.length > 0
+    const hasTarget = !!(formData.value.groupId || selectAll.value || selectedChatIds.value.length > 0)
+    // 客服账号通道必须指定账号（bot 通道用 botId）
+    const hasSender = formData.value.channel === 'user' ? !!formData.value.telegramUserId : true
+
+    // 选了模板就以模板内容为准
+    if (formData.value.templateId) {
+        return hasBot && hasSender && hasTarget
+    }
 
     if (formData.value.type === 'photo') {
-        return hasBot && formData.value.photo.trim() && hasTarget
-    } else {
-        return hasBot && formData.value.text.trim() && hasTarget
+        return hasBot && hasSender && !!formData.value.photo.trim() && hasTarget
     }
+
+    return hasBot && hasSender && !!formData.value.text.trim() && hasTarget
 })
 
 // 获取选中数量（用于按钮显示）
@@ -257,9 +318,16 @@ watch(() => props.modelValue, (newVal) => {
         formData.value.text = ''
         formData.value.photo = ''
         formData.value.groupId = null
+        formData.value.channel = 'bot'
+        formData.value.telegramUserId = null
+        formData.value.templateId = null
 
         // 加载群分组列表
         loadGroupCategories()
+
+        // 模板与客服账号（选通道 / 选模板用）
+        loadTemplates()
+        loadTelegramUsers()
 
         if (props.botId) {
             formData.value.botId = props.botId
@@ -407,21 +475,31 @@ const handleSubmit = async () => {
         return
     }
 
-    if (formData.value.type === 'photo') {
-        if (!formData.value.photo.trim()) {
-            ElMessage({
-                message: t('broadcast.photoRequired'),
-                type: 'warning'
-            })
-            return
-        }
-    } else {
-        if (!formData.value.text.trim()) {
-            ElMessage({
-                message: t('broadcast.messageRequired'),
-                type: 'warning'
-            })
-            return
+    if (formData.value.channel === 'user' && !formData.value.telegramUserId) {
+        ElMessage({
+            message: '请选择发送用的客服账号',
+            type: 'warning'
+        })
+        return
+    }
+
+    if (!formData.value.templateId) {
+        if (formData.value.type === 'photo') {
+            if (!formData.value.photo.trim()) {
+                ElMessage({
+                    message: t('broadcast.photoRequired'),
+                    type: 'warning'
+                })
+                return
+            }
+        } else {
+            if (!formData.value.text.trim()) {
+                ElMessage({
+                    message: t('broadcast.messageRequired'),
+                    type: 'warning'
+                })
+                return
+            }
         }
     }
 
@@ -440,7 +518,7 @@ const handleSubmit = async () => {
         // 如果是全选，传递 "all"，否则传递选中的 chat_id 列表
         const chatIds = selectAll.value ? 'all' : selectedChatIds.value
 
-        const result = await botStore.sendGroupMessage({
+        const payload: Record<string, any> = {
             botId: formData.value.botId,
             groupId: formData.value.groupId || 0,
             chatIds: chatIds as any,
@@ -448,7 +526,19 @@ const handleSubmit = async () => {
             text: formData.value.text,
             photo: formData.value.photo,
             caption: formData.value.type === 'photo' ? formData.value.text : undefined
-        })
+        }
+
+        // 客服账号通道：可发自定义 / 动态表情（后端会校验含表情的内容必须走该通道）
+        if (formData.value.channel === 'user') {
+            payload.channel = 'user'
+            payload.telegram_user_id = formData.value.telegramUserId
+        }
+
+        if (formData.value.templateId) {
+            payload.template_id = formData.value.templateId
+        }
+
+        const result = await botStore.sendGroupMessage(payload as any)
 
         if (result.success) {
             // 如果 data.code 是 10005，不显示成功消息，但也不关闭弹框

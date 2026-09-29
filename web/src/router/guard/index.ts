@@ -30,6 +30,8 @@ const guard = (router: Router) => {
             await userStore.getUserInfo()
             next({ path: '/dashboard' })
           } catch (e) {
+            // 原来这里把异常吞掉，登录后被踢回登录页完全看不出原因
+            console.error('[guard] getUserInfo failed, back to login:', e)
             removeAuthToken()
             next()
           }
@@ -61,6 +63,8 @@ const guard = (router: Router) => {
             }
             next({ ...to, replace: true })
           } catch (e) {
+            // 原来这里把异常吞掉，登录后被踢回登录页完全看不出原因
+            console.error('[guard] init user/routes failed, back to login:', e)
             removeAuthToken()
             next({ path: `${WhiteListPage.LOGIN_PATH}?redirect=/${to.path}` })
           }

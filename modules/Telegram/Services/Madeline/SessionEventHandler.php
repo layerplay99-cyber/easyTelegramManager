@@ -61,7 +61,8 @@ class SessionEventHandler extends SimpleEventHandler
             ],'Collect Emojis Info');
 
             if (!empty($entities)) {
-                CollectEmoji::dispatch($data['session_file'], $entities);
+                // 带上原文：回退字符（alt）要按 UTF-16 offset 从原文里截出来
+                CollectEmoji::dispatch($data['session_file'], $entities, $message->message ?? '');
             } else {
                 app(LogMessageService::class)->createLaravelLog("telegramUserSessionEvent", [
                     'message' => 'No custom emojis found in message',

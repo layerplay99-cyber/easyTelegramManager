@@ -129,20 +129,51 @@ class TelegramMessageService
      */
     public function sendMessageByToken(string $botToken, int|string $chatId, string $text, array $extra = []): bool
     {
+        $payload = array_merge([
+            'chat_id' => $chatId,
+            'text'    => $text,
+            'parse_mode' => 'HTML',
+        ], $extra);
+
+        // 传了 entities 就不能再带 parse_mode：Bot API 里二者互斥，
+        // 同时传会让自定义 emoji 实体被 HTML 解析覆盖掉（表现为 emoji 变成普通字符）。
+        if (isset($extra['entities'])) {
+            unset($payload['parse_mode']);
+        }
+
         return $this->callTelegramApi(
             method: 'sendMessage',
             botToken: $botToken,
-            payload: array_merge([
-                'chat_id' => $chatId,
-                'text'    => $text,
-                'parse_mode' => 'HTML',
-            ], $extra),
+            payload: $payload,
             logContext: [
                 'chat_id' => $chatId,
                 'text' => $text,
                 'extra' => $extra,
             ],
             logTag: 'sendMessageByToken'
+        );
+    }
+
+    /**
+     * 通过 Bot Token 发送贴纸
+     *
+     * 注意：file_id 只对抓到它 / 上传它的那个 bot 有效，换 bot 发会报 file 相关错误，
+     * 所以贴纸素材必须带 owner（见 emojis.owner_type / owner_id）。
+     */
+    public function sendStickerByToken(string $botToken, int|string $chatId, string $fileId): bool
+    {
+        return $this->callTelegramApi(
+            method: 'sendSticker',
+            botToken: $botToken,
+            payload: [
+                'chat_id' => $chatId,
+                'sticker' => $fileId,
+            ],
+            logContext: [
+                'chat_id' => $chatId,
+                'sticker' => $fileId,
+            ],
+            logTag: 'sendStickerByToken'
         );
     }
 

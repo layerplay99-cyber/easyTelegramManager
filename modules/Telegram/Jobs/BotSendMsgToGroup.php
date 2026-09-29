@@ -6,7 +6,18 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\RateLimiter;
+use Modules\Telegram\Models\MessageSend;
+use Modules\Telegram\Models\MessageSendLog;
+use Modules\Telegram\Services\BaseService;
+use Modules\Telegram\Services\LogMessageService;
 
+/**
+ * 群发消息到单个群
+ *
+ * 兼容旧用法（type=text|photo + text/photo/caption），
+ * 并支持结构化内容渲染出的 entities / stickers / effect_id（自定义 emoji、贴纸、消息特效）。
+ */
 class BotSendMsgToGroup implements ShouldQueue
 {
     use Queueable, InteractsWithQueue, SerializesModels;
@@ -17,6 +28,26 @@ class BotSendMsgToGroup implements ShouldQueue
     public string $text;
     public string $photo;
     public string $caption;
+
+    /**
+     * Telegram 消息实体（自定义/动态 emoji）——由 MessageRenderer 渲染而来
+     */
+    public array $entities;
+
+    /**
+     * 贴纸 file_id 列表（文本发完后单独 sendSticker）
+     */
+    public array $stickers;
+
+    /**
+     * 全屏消息特效
+     */
+    public ?string $effectId;
+
+    /**
+     * 群发任务 ID（有值时写回执）
+     */
+    public ?int $sendId;
 
     /**
      * 任务最大尝试次数
@@ -30,6 +61,11 @@ class BotSendMsgToGroup implements ShouldQueue
     public int $timeout = 90;
 
     /**
+     * 同一 bot 每秒最多投递多少条（Telegram 的限制跨群共享）
+     */
+    public const DISPATCH_PER_SECOND = 20;
+
+    /**
      * 失败重试间隔（秒）：命中 Telegram 限流后立刻重试毫无意义
      */
     public function backoff(): array
@@ -40,8 +76,18 @@ class BotSendMsgToGroup implements ShouldQueue
     /**
      * Create a new job instance.
      */
-    public function __construct(?string $chatId, string $type, string $botToken, string $text = '', string $photo = '', string $caption = '')
-    {
+    public function __construct(
+        ?string $chatId,
+        string $type,
+        string $botToken,
+        string $text = '',
+        string $photo = '',
+        string $caption = '',
+        array $entities = [],
+        array $stickers = [],
+        ?string $effectId = null,
+        ?int $sendId = null
+    ) {
         // chat_id 有可能是整型（前端 JSON 传数字），统一转成字符串
         $this->chatId = (string) $chatId;
         $this->type = $type;
@@ -49,6 +95,10 @@ class BotSendMsgToGroup implements ShouldQueue
         $this->text = $text;
         $this->photo = $photo;
         $this->caption = $caption;
+        $this->entities = $entities;
+        $this->stickers = $stickers;
+        $this->effectId = $effectId;
+        $this->sendId = $sendId;
     }
 
     /**
@@ -56,30 +106,51 @@ class BotSendMsgToGroup implements ShouldQueue
      */
     public function handle(): void
     {
-        $baseService = app(\Modules\Telegram\Services\BaseService::class);
-        $LogMessageService = app(\Modules\Telegram\Services\LogMessageService::class);
+        $baseService = app(BaseService::class);
+        $LogMessageService = app(LogMessageService::class);
+
+        $this->throttle();
 
         try {
             if ($this->type === 'photo') {
-                // 发送图片
+                $extra = $this->entities === [] ? [] : ['caption_entities' => $this->entities];
+
                 $result = $baseService->sendPhotoByToken(
                     $this->botToken,
                     $this->chatId,
                     $this->photo,
                     $this->caption,
+                    $extra,
                 );
             } else {
-                // 发送文本消息
+                $extra = [];
+
+                if ($this->entities !== []) {
+                    $extra['entities'] = $this->entities;
+                }
+
+                if ($this->effectId) {
+                    $extra['message_effect_id'] = $this->effectId;
+                }
+
                 $result = $baseService->sendMessageByToken(
                     $this->botToken,
                     $this->chatId,
                     $this->text,
+                    $extra,
                 );
             }
 
             if (!$result) {
                 throw new \Exception('Send message failed');
             }
+
+            // 贴纸要单独发：一条消息只能有一个媒体
+            foreach ($this->stickers as $fileId) {
+                $baseService->sendStickerByToken($this->botToken, $this->chatId, $fileId);
+            }
+
+            $this->recordResult('success');
 
             // 记录成功日志
             $LogMessageService->createLaravelLog('sendGroupMsgSuccess', [
@@ -89,6 +160,8 @@ class BotSendMsgToGroup implements ShouldQueue
             ]);
 
         } catch (\Throwable $e) {
+            $this->recordResult('failed', $e->getMessage());
+
             $LogMessageService->createLaravelLog('sendGroupMsgFail', [
                 'chat_id' => $this->chatId,
                 'type' => $this->type,
@@ -106,11 +179,56 @@ class BotSendMsgToGroup implements ShouldQueue
     }
 
     /**
+     * 兜底限流：dispatch 时已按序号铺开延迟，但多 worker 并发会叠加，
+     * 这里再按任务维度压一层（不 release，避免把 tries 耗光）。
+     */
+    protected function throttle(): void
+    {
+        if (! $this->sendId) {
+            return;
+        }
+
+        if (! RateLimiter::attempt(
+            'telegram-broadcast:' . $this->sendId,
+            self::DISPATCH_PER_SECOND,
+            fn () => true,
+            1
+        )) {
+            sleep(1);
+        }
+    }
+
+    /**
+     * 回执落库：现在只写 log 文件时，后台看不到哪个群失败
+     */
+    protected function recordResult(string $status, ?string $error = null): void
+    {
+        if (! $this->sendId) {
+            return;
+        }
+
+        MessageSendLog::query()
+            ->where('send_id', $this->sendId)
+            ->where('chat_id', $this->chatId)
+            ->update([
+                'status' => $status,
+                'error' => $error ? mb_substr($error, 0, 500) : null,
+                'sent_at' => now(),
+            ]);
+
+        $send = MessageSend::query()->find($this->sendId);
+
+        if ($send) {
+            $status === 'success' ? $send->incrementSuccess() : $send->incrementFailed();
+        }
+    }
+
+    /**
      * 任务失败处理
      */
     public function failed(\Throwable $exception): void
     {
-        $LogMessageService = app(\Modules\Telegram\Services\LogMessageService::class);
+        $LogMessageService = app(LogMessageService::class);
 
         $LogMessageService->createLaravelLog('sendGroupMsgFailedFinal', [
             'chat_id' => $this->chatId,

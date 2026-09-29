@@ -42,7 +42,13 @@ export const useLogin = () => {
     const rules = reactive({
         email: [
             { required: true, message: t('login.verify.email.required'), trigger: 'blur' },
-            { pattern: /^[a-zA-Z0-9]+$/, message: '账号只能包含数字和字母', trigger: 'blur' }
+            // 用户名或邮箱都能登录（后端 AuthController::login 两种都查），
+            // 所以这里不能只放通字母数字，否则 catch@admin.com 这类邮箱会被拦掉
+            {
+                pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$|^[a-zA-Z0-9_.-]+$/,
+                message: '请输入正确的用户名或邮箱',
+                trigger: 'blur'
+            }
         ],
         password: [
             { required: true, message: t('login.verify.password.required'), trigger: 'blur' }

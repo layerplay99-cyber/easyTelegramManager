@@ -13,6 +13,7 @@ use Modules\Telegram\Http\Controllers\TelegramEmojisController;
 use Modules\Telegram\Http\Controllers\ThridConfigController;
 use Modules\Telegram\Http\Controllers\BotGroupGroupController;
 use Modules\Telegram\Http\Controllers\TelegramApiUserController;
+use Modules\Telegram\Http\Controllers\MessageTemplateController;
 
 Route::prefix('telegram')->group(function(){
 
@@ -38,6 +39,13 @@ Route::prefix('telegram')->group(function(){
 
     // 同步机器人所在群（Bot API 无法枚举群，只能基于已知 chat_id 校验归属）
     Route::post('bots/{id}/sync/groups', [BotsController::class, 'syncGroups']);
+
+    // 群发进度（send_id 由 POST bots/...sendToGroup 返回）
+    Route::get('message/send/{sendId}', [BotsController::class, 'sendStatus']);
+
+    // 消息模板（结构化 blocks）
+    Route::apiResource('message/template', MessageTemplateController::class);
+    Route::post('message/template/preview', [MessageTemplateController::class, 'preview']);
 
     // Excel Phone Import & Export
     Route::post('phone/import', [PhoneController::class, 'import']);

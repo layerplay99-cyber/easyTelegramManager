@@ -12,7 +12,9 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "ext-fileinfo": "*",
         "ext-pdo": "*",
+        "ext-redis": "*",
         "ext-zip": "*",
         "aws/aws-sdk-php": "*",
         "catchadmin/core": "^0.4.8",
@@ -30,9 +32,8 @@
         "openai-php/laravel": "^0.17.1",
         "pragmarx/google2fa": "^8.0",
         "pragmarx/google2fa-laravel": "^2.3",
-        "thiagoalessio/tesseract_ocr": "^2.13",
-        "ext-redis": "*",
-        "ext-fileinfo": "*"
+        "predis/predis": "^3.6",
+        "thiagoalessio/tesseract_ocr": "^2.13"
     },
     "require-dev": {
         "fakerphp/faker": "^v1.24.1",

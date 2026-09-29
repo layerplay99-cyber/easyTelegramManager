@@ -17,6 +17,10 @@ interface sendGroupMessageData {
     type: string
     photo?: string
     caption?: string
+    // 发送通道：bot（默认）或 user（telegram 客服账号，可发自定义/动态表情）
+    channel?: 'bot' | 'user'
+    telegram_user_id?: number | string
+    template_id?: number | string
 }
 
 export const useBotStore = defineStore('telegramBotApi', () => {

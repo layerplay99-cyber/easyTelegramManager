@@ -4,24 +4,28 @@ namespace Modules\Telegram\Jobs;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Modules\Telegram\Models\Emojis;
-use Modules\Telegram\Services\Madeline\MadelineService;
 use Modules\Telegram\Services\LogMessageService;
+use Modules\Telegram\Services\Madeline\EmojiService;
+use Modules\Telegram\Services\Message\MessageRenderer;
 
+/**
+ * 采集群消息里的自定义（动态）emoji
+ *
+ * 只存 emoji_id + 回退字符：emoji_id 是全局 document id，任何 bot 都能引用；
+ * 贴纸的 file_id 只对抓到它的账号有效，采了也发不出去，所以不在这里处理。
+ */
 class CollectEmoji implements ShouldQueue
 {
     use Queueable;
 
-    public array $entities;
-    public string $session_file;
-
     /**
      * Create a new job instance.
      */
-    public function __construct(string $session_file, array $entities)
-    {
-        $this->entities = $entities;
-        $this->session_file = $session_file;
+    public function __construct(
+        public string $session_file,
+        public array $entities,
+        public string $text = ''
+    ) {
     }
 
     /**
@@ -31,47 +35,40 @@ class CollectEmoji implements ShouldQueue
     {
         try {
             if (empty($this->entities)) {
-                \logger('CollectEmoji: entities is empty');
                 return;
             }
 
-            \logger('CollectEmoji: processing ' . count($this->entities) . ' entities');
+            $emojiService = app(EmojiService::class);
+            $renderer = app(MessageRenderer::class);
 
             $count = 0;
+
             foreach ($this->entities as $entity) {
-                // 检查是否是 CustomEmoji 类型的数据
-                if (!isset($entity['type']) || $entity['type'] !== 'custom_emoji') {
+                if (($entity['type'] ?? '') !== 'custom_emoji') {
                     continue;
                 }
 
-                if (!isset($entity['document_id'])) {
-                    \logger('CollectEmoji: document_id not found in entity');
+                $documentId = $entity['document_id'] ?? null;
+
+                if (! $documentId) {
                     continue;
                 }
 
-                $emojiId = $entity['document_id'];
-                \logger('CollectEmoji: processing emoji ' . $emojiId);
-
-                // 保存到数据库
-                Emojis::query()->updateOrInsert(
-                    ['id' => $emojiId],
-                    ['png_path' => null]
+                // 回退字符：Telegram 的实体必须覆盖一段真实文本，发送时要用它占位
+                $alt = $renderer->utf16Substr(
+                    $this->text,
+                    (int) ($entity['offset'] ?? 0),
+                    (int) ($entity['length'] ?? 0)
                 );
 
-                // 下载表情
-                $madelineService = app(\Modules\Telegram\Services\User\UserApiFactory::class)->forSession($this->session_file);
-                $result = $madelineService->downloadEmojiToPng($emojiId);
+                $emojiService->storeCustomEmoji((string) $documentId, $alt);
 
-                if ($result) {
-                    \logger('CollectEmoji: successfully downloaded emoji ' . $emojiId);
-                    $count++;
-                } else {
-                    \logger('CollectEmoji: failed to download emoji ' . $emojiId);
-                }
+                $count++;
             }
 
-            \logger('CollectEmoji: processed ' . $count . ' emojis');
-
+            if ($count > 0) {
+                \logger("CollectEmoji: saved {$count} custom emojis");
+            }
         } catch (\Exception|\Throwable $e) {
             \logger('CollectEmoji error: ' . $e->getMessage());
             app(LogMessageService::class)->createLaravelLog("telegram_error", [

@@ -226,6 +226,8 @@ class Request {
           router.push('/login')
         } else {
           Message.error(message || 'Error')
+          // 没有 code 字段的响应也走这里，不打印根本看不出是哪个接口、返回了什么
+          console.error('[http] unexpected response:', response.config?.url, response.status, response.data)
         }
         return Promise.reject(new Error(message || 'Error'))
       },

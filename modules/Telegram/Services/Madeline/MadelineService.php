@@ -740,19 +740,10 @@ class MadelineService
     }
 
     /**
-     * 下载表情包并转换为 PNG
-     * 委托给 EmojiService
-     */
-    public function downloadEmojiToPng(int $emojiId): ?string
-    {
-        return $this->emojiService()->downloadEmojiToPng($emojiId);
-    }
-
-    /**
      * 获取 EmojiService 实例（懒加载，避免循环依赖）
      */
     private function emojiService(): EmojiService
     {
-        return new EmojiService($this, $this->logMessageService);
+        return new EmojiService($this->logMessageService, $this);
     }
 }

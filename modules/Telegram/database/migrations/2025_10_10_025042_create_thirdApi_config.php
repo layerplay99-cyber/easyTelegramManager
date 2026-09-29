@@ -12,11 +12,13 @@ return new class extends Migration {
      */
     public function up()
     {
-        if (Schema::hasTable('thirdApi_config')) {
+        // ⚠️ 表名必须全小写：模型 ThirdapiConfig 查的是 thirdapi_config，
+        // Windows/MySQL 不区分大小写看不出问题，Linux 下会建成 thirdApi_config 导致 1146 表不存在。
+        if (Schema::hasTable('thirdapi_config')) {
             return;
         }
 
-        Schema::create('thirdApi_config', function (Blueprint $table) {
+        Schema::create('thirdapi_config', function (Blueprint $table) {
             $table->id()->unique();
             $table->string('name')->nullable()->comment('名称');
             $table->string('api_url')->nullable()->comment('api');
@@ -40,6 +42,6 @@ return new class extends Migration {
      */
     public function down()
     {
-        Schema::dropIfExists('thirdApi_config');
+        Schema::dropIfExists('thirdapi_config');
     }
 };

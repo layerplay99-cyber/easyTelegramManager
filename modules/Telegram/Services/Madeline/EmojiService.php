@@ -6,15 +6,20 @@ use danog\MadelineProto\EventHandler\Message;
 use danog\MadelineProto\EventHandler\Message\Entities\CustomEmoji;
 use Modules\Telegram\Models\Emojis;
 use Modules\Telegram\Services\LogMessageService;
+use Modules\Telegram\Services\Message\MessageRenderer;
 
 /**
  * 表情包服务 - 表情特效解析、表情包下载与更新
  */
 class EmojiService
 {
+    /**
+     * MadelineService 有必填的 $session 构造参数，容器无法解析，
+     * 所以放在后面且可空 —— 这样 app(EmojiService::class) 也能拿到实例。
+     */
     public function __construct(
-        private MadelineService $madelineService,
         private LogMessageService $logMessageService,
+        private ?MadelineService $madelineService = null,
     ) {}
 
     /**
@@ -40,15 +45,20 @@ class EmojiService
                 $i += mb_strlen($match[0]);
             } else {
                 $char = mb_substr($text, $i, 1);
+
+                // ⚠️ Telegram 的 offset / length 单位是 UTF-16 code unit，不是字符数。
+                // 一个 emoji 占 2 个 unit，原来用 mb_strlen 算会让特效贴到错误的字上。
+                $charOffset = $this->utf16Len($outputText);
+                $charLength = $this->utf16Len($char);
+
                 $outputText .= $char;
-                $charOffset = mb_strlen($outputText) - 1;
 
                 foreach ($currentEffects as $effectId) {
                     $found = false;
                     for ($j = count($entities) - 1; $j >= 0; $j--) {
                         if ($entities[$j]['effect_id'] === $effectId &&
                             $entities[$j]['offset'] + $entities[$j]['length'] === $charOffset) {
-                            $entities[$j]['length'] += 1;
+                            $entities[$j]['length'] += $charLength;
                             $found = true;
                             break;
                         }
@@ -57,7 +67,7 @@ class EmojiService
                         $entities[] = [
                             '_' => 'messageEntityTextEffect',
                             'offset' => $charOffset,
-                            'length' => 1,
+                            'length' => $charLength,
                             'effect_id' => $effectId,
                         ];
                     }
@@ -74,6 +84,13 @@ class EmojiService
     /**
      * 自动更新消息中的自定义表情包
      */
+    /**
+     * 采集消息里的自定义（动态）emoji 入库
+     *
+     * 原来这里把 Telegram 的 document_id 直接塞进主键 id，还写了根本不存在的 png_path 列，
+     * 结果一条都落不了库。现在按 (type, telegram_id) 去重，顺带把回退字符（alt）存下来 ——
+     * 发送时实体必须覆盖 alt 才能在不支持的一端正常显示。
+     */
     public function autoUpdateEmojis(Message $msg): int
     {
         if (empty($msg->entities)) {
@@ -87,14 +104,10 @@ class EmojiService
                 continue;
             }
 
-            $emojiId = $entity->documentId;
-
-            Emojis::query()->updateOrInsert(
-                ['id' => $emojiId],
-                ['png_path' => null]
+            $this->storeCustomEmoji(
+                (string) $entity->documentId,
+                $this->utf16Substr($msg->message ?? '', $entity->offset, $entity->length)
             );
-
-            $this->downloadEmojiToPng($emojiId);
 
             $count++;
         }
@@ -103,49 +116,48 @@ class EmojiService
     }
 
     /**
-     * 下载表情包并转换为 PNG
+     * 落库（按 type + telegram_id 去重）
      */
-    public function downloadEmojiToPng(int $emojiId): ?string
+    public function storeCustomEmoji(string $emojiId, string $alt = ''): void
     {
-        try {
-            $emojiPath = storage_path('app/public/emojis');
-            if (!is_dir($emojiPath)) {
-                @mkdir($emojiPath, 0755, true);
-            }
-            $tgs = $emojiPath . "/$emojiId.tgs";
-            $png = $emojiPath . "/$emojiId.png";
-
-            // 下载 TGS
-            $this->madelineService->getApi()->downloadToFile(
-                ['_' => 'inputDocument', 'id' => $emojiId],
-                $tgs
-            );
-
-            // 转 PNG（第一帧）
-            $cmd = "lottie_convert.py {$tgs} {$png}";
-            exec($cmd);
-
-            if (!file_exists($png)) {
-                $this->logMessageService->createLaravelLog(
-                    'madeline_error',
-                    ['emoji_id' => $emojiId],
-                    '转换表情包 PNG 失败'
-                );
-                return null;
-            }
-
-            Emojis::query()->where('id', $emojiId)->update([
-                'png_path' => "/emojis/$emojiId.png"
-            ]);
-
-            return $png;
-        } catch (\Throwable $e) {
-            $this->logMessageService->createLaravelLog(
-                'madeline_error',
-                ['emoji_id' => $emojiId, 'error' => $e->getMessage()],
-                '下载表情包失败: ' . $e->getMessage()
-            );
-            return null;
+        if ($emojiId === '') {
+            return;
         }
+
+        Emojis::query()->updateOrInsert(
+            ['type' => 'custom_emoji', 'telegram_id' => $emojiId],
+            [
+                'name' => $alt !== '' ? $alt : 'emoji_' . $emojiId,
+                'unicode' => $alt !== '' ? $alt : null,
+                'source' => 'collected',
+            ]
+        );
+    }
+
+    /**
+     * UTF-16 长度（Telegram 的 offset / length 单位）
+     */
+    protected function utf16Len(string $text): int
+    {
+        return app(MessageRenderer::class)->utf16Len($text);
+    }
+
+    /**
+     * 按 UTF-16 offset 截取（取 emoji 的回退字符）
+     */
+    protected function utf16Substr(string $text, int $offset, int $length): string
+    {
+        return app(MessageRenderer::class)->utf16Substr($text, $offset, $length);
+    }
+
+    /**
+     * 取指定 emoji 的回退字符
+     */
+    public function preview(string $emojiId): ?string
+    {
+        return Emojis::query()
+            ->where('type', 'custom_emoji')
+            ->where('telegram_id', $emojiId)
+            ->value('unicode');
     }
 }

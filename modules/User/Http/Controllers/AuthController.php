@@ -26,12 +26,17 @@ class AuthController extends Controller
 
     public function login(Request $request): array
     {
-        $email = $request->get('email');
+        $account = $request->get('email');
         $password = $request->get('password');
         $code = $request->get('code'); // 2FA验证码
 
+        // 后台登录框只允许字母数字（前端校验），实际填的是用户名；
+        // 但历史账号习惯用邮箱登录，这里两种都支持。
         /* @var User $user */
-        $user = User::query()->where('email', $email)->first();
+        $user = User::query()
+            ->where('email', $account)
+            ->orWhere('username', $account)
+            ->first();
 
         if (!$user) {
             throw new FailedException('登录失败！请检查账号或者密码');

@@ -116,4 +116,9 @@ class BaseService
     {
         return $this->telegramMessageService->sendPhotoByToken($botToken, $chatId, $photo, $caption, $extra);
     }
+
+    public function sendStickerByToken(string $botToken, int|string $chatId, string $fileId): bool
+    {
+        return $this->telegramMessageService->sendStickerByToken($botToken, $chatId, $fileId);
+    }
 }

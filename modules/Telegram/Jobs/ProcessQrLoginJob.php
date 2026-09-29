@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Jobs;
 
-use danog\MadelineProto\Exception;
+use danog\MadelineProto\API;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -11,8 +11,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Modules\Telegram\Enums\LoginStatus;
 use Modules\Telegram\Models\TelegramApiUsers;
-use Modules\Telegram\Services\Madeline\MadelineService;
 use Modules\Telegram\Services\LogMessageService;
+use Modules\Telegram\Services\User\UserApiFactory;
 
 class ProcessQrLoginJob implements ShouldQueue
 {
@@ -20,22 +20,24 @@ class ProcessQrLoginJob implements ShouldQueue
 
     private const LOG_FILE = 'process_qr_login_job';
 
-    protected $userId;
-    protected $sessionFile;
-    protected $appId;
-    protected $appHash;
+    protected int $userId;
+    protected string $sessionFile;
+    protected int $appId;
+    protected string $appHash;
 
-    public $timeout = 180; // 设置任务超时时间为 180 秒
+    public int $timeout = 180; // 设置任务超时时间为 180 秒
 
-    public function __construct($userId, $sessionFile, $appId, $appHash)
+    public function __construct(int $userId, string $sessionFile, int|string $appId, ?string $appHash)
     {
+        $appId = (int) $appId;
+        $appHash = (string) $appHash;
         $this->userId = $userId;
         $this->sessionFile = $sessionFile;
         $this->appId = $appId;
         $this->appHash = $appHash;
     }
 
-    public function handle(LogMessageService $logMessageService)
+    public function handle(LogMessageService $logMessageService): void
     {
         try {
             $logMessageService->createLaravelLog(
@@ -86,7 +88,20 @@ class ProcessQrLoginJob implements ShouldQueue
                 'info'
             );
 
-            $qrLogin = $api->qrLogin();
+            // qrLogin() 返回可空，拿不到二维码直接记日志退出，别在 null 上调用方法
+            $qrLogin = $madelineService->qrLogin();
+
+            if ($qrLogin === null) {
+                $logMessageService->createLaravelLog(
+                    self::LOG_FILE,
+                    ['user_id' => $this->userId],
+                    'ProcessQrLoginJob 获取二维码失败',
+                    'warning'
+                );
+
+                return;
+            }
+
             $qrLogin->waitForLoginOrQrCodeExpiration();
 
             // 检查登录是否完成
@@ -102,8 +117,8 @@ class ProcessQrLoginJob implements ShouldQueue
                 'info'
             );
 
-            // 检查是否完全登录（状态码 3）
-            if ($authorization === 3) {
+            // 检查是否完全登录
+            if ($authorization === API::LOGGED_IN) {
                 $user->login_status = LoginStatus::LOGINED;
                 $user->save();
                 $logMessageService->createLaravelLog(
@@ -115,8 +130,8 @@ class ProcessQrLoginJob implements ShouldQueue
                 return;
             }
 
-            // 检查是否需要2FA（状态码 2）
-            if ($authorization === 2) {
+            // 检查是否需要2FA（等待密码）
+            if ($authorization === API::WAITING_PASSWORD) {
                 $user->login_status = LoginStatus::WAITINPUTCODE;
                 $user->save();
                 $logMessageService->createLaravelLog(
@@ -139,7 +154,7 @@ class ProcessQrLoginJob implements ShouldQueue
                 'warning'
             );
 
-        } catch (Exception|\Throwable $e) {
+        } catch (\Throwable $e) {
             $logMessageService->createLaravelLog(
                 self::LOG_FILE,
                 [
@@ -170,15 +185,13 @@ class ProcessQrLoginJob implements ShouldQueue
                     );
                 }
             }
-        } finally {
-            return ;
         }
     }
 
     /**
      * 任务失败处理
      */
-    public function failed(\Throwable $exception)
+    public function failed(\Throwable $exception): void
     {
         app(LogMessageService::class)->createLaravelLog(
             self::LOG_FILE,

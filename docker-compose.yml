@@ -29,8 +29,6 @@ services:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
             - ./docker-stack/php/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
-            # vendor 放命名卷：Linux 下仍建议隔离，避免污染项目目录
-            - vendor:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/vendor
         environment:
             DB_HOST: mysql
             DB_PORT: 3306
@@ -62,7 +60,6 @@ services:
         volumes:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
-            - vendor:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/vendor
         command: php artisan queue:work redis --queue=default --sleep=3 --tries=3 --timeout=180
         environment:
             DB_HOST: mysql
@@ -81,7 +78,6 @@ services:
         volumes:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
-            - vendor:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/vendor
         command: php artisan reverb:start --host=0.0.0.0 --port=8080
         environment:
             DB_HOST: mysql
@@ -99,7 +95,6 @@ services:
         volumes:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
-            - vendor:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/vendor
         command: php artisan telegram:multi-listen
         environment:
             DB_HOST: mysql
@@ -109,7 +104,6 @@ services:
             - stack
 
 volumes:
-    vendor:
     node_modules:
 
 networks:

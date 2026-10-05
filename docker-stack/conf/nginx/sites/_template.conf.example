@@ -2,8 +2,11 @@
 # 新项目 vhost 模板
 # ----------------------------------------------------------------------------
 # 用法：复制本文件为 <project>.conf，替换下列占位符后放到
-#       /opt/docker-stack/conf/nginx/sites/，然后 reload nginx：
-#       docker compose -f /opt/docker-stack/docker-compose.yml exec nginx nginx -s reload
+#       docker-stack/conf/nginx/sites/，然后 reload nginx：
+#       docker compose -f docker-stack/docker-compose.yml exec nginx nginx -s reload
+#
+# 注意：本文件扩展名为 .example，不会被 nginx 的 include *.conf 加载；
+#       复制为 .conf 后才生效。
 #
 # 占位符：
 #   <DOMAIN_LIST>  对外域名列表（空格分隔，支持多个域名 / 子域名指向同一项目）

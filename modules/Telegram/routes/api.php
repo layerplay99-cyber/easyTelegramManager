@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Telegram\Http\Controllers\Api\CollectPhoneApiController;
+use Modules\Telegram\Http\Controllers\Api\TelethonEventController;
 use Modules\Telegram\Http\Controllers\Api\WebHookController;
 use Modules\Telegram\Http\Controllers\BotsController;
 use Modules\Telegram\Http\Controllers\TelegramApiUserController;
@@ -81,5 +82,15 @@ Route::prefix('api')->group(function () {
     Route::prefix('bot')->middleware(['validate.apikey', 'throttle:20,1'])->group(function () {
         Route::post('send/group', [BotsController::class, 'sendToGroup'])
             ->name('api.bot.sendToGroup');
+    });
+
+    // Telethon（Python）事件回调 - 由 telegram-py 服务调用，无需 apikey（控制器内用 X-Token 鉴权）
+    Route::prefix('telegram/events')->group(function () {
+        Route::post('emoji', [TelethonEventController::class, 'emoji'])
+            ->middleware(['throttle:120,1'])
+            ->name('api.telethon.event.emoji');
+        Route::post('member', [TelethonEventController::class, 'member'])
+            ->middleware(['throttle:120,1'])
+            ->name('api.telethon.event.member');
     });
 });

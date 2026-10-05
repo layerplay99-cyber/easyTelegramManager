@@ -87,8 +87,32 @@ services:
         networks:
             - stack
 
-    # ---------------------------------------------------------- Telegram 常驻监听
-    # MadelineProto 仅支持 Linux/Mac，必须进容器运行。
+    # ---------------------------------------------------------- Telethon（Python MTProto 服务）
+    # 真实用户账号的 MTProto 能力全部由它承担；事件回调 Laravel。
+    telegram-py:
+        build:
+            context: ./telegram-service
+            dockerfile: Dockerfile
+        image: tgbot-telethon:latest
+        container_name: tgbot-telethon
+        working_dir: /app
+        environment:
+            SESSIONS_DIR: /data/sessions
+            MEDIA_DIR: /data/media
+            LARAVEL_BASE_URL: http://php
+            CALLBACK_TOKEN: ${TELETHON_CALLBACK_TOKEN}
+            REDIS_URL: redis://redis:6379/0
+        volumes:
+            - tgbot_media:/data
+        ports:
+            - "8081:8081"
+        restart: unless-stopped
+        networks:
+            - stack
+
+    # ---------------------------------------------------------- 旧版 MadelineProto 常驻监听（默认不启动）
+    # 事件处理已改由 Python Telethon 负责，默认关闭以避免双处理。
+    # 如需回退：docker compose --profile madeline-legacy up -d telegram
     telegram:
         image: stack-php:8.4
         container_name: tgbot-telegram
@@ -101,11 +125,13 @@ services:
             DB_HOST: mysql
             REDIS_HOST: redis
         restart: unless-stopped
+        profiles: ["madeline-legacy"]
         networks:
             - stack
 
 volumes:
     node_modules:
+    tgbot_media:
 
 networks:
     stack:

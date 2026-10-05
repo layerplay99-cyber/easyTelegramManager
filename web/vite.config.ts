@@ -82,7 +82,7 @@ export default defineConfig(({ command, mode }) => {
       }
     },
     server: {
-      host: '127.0.0.1',
+      host: true, // 监听所有网卡，容器内/跨机均可访问；HMR 客户端使用页面真实 host
       port: 8001,
       open: true, // 自动打开浏览器
       cors: true, // 允许跨域

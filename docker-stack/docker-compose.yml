@@ -1,0 +1,128 @@
+# ============================================================================
+# 公共 Docker 栈（单一共享栈）
+# ----------------------------------------------------------------------------
+# 部署位置：/opt/docker-stack
+# 作用：向所有项目提供 php(镜像) / node(镜像+共享环境) / mysql / redis /
+#       pgsql / nginx 六类公共能力。各项目只跑自己的 app 容器，并通过
+#       external 网络 `stack` 接入本栈。
+#
+# 配置：复制 .env.example 为 .env 后按需修改（STACK_ROOT / PROJECTS_ROOT 等）。
+#
+# 常用命令：
+#   构建公共镜像（php / node）：
+#     docker compose build php node
+#   启动共享基础设施：
+#     docker compose up -d mysql redis pgsql nginx node
+#   查看状态：
+#     docker compose ps
+# ============================================================================
+
+name: stack
+
+services:
+    # ---------------------------------------------------------- PHP 基础镜像
+    # 仅作为镜像构建目标，打 tag 为 stack-php:8.4。
+    # 各项目 app 容器直接引用该镜像（image: stack-php:8.4），无需各自 build。
+    # command: ["true"] 使其不参与运行时；启动共享栈时显式列出服务（不含 php）即可。
+    php:
+        build:
+            context: ./php
+            dockerfile: Dockerfile
+        image: stack-php:8.4
+        command: ["true"]
+
+    # ---------------------------------------------------------- Node 基础镜像 + 共享环境
+    # 常驻一个公共 node 环境，任何项目/开发者可随时执行：
+    #   docker compose run --rm node npm -v
+    #   docker compose run --rm -w /opt/projects/telegram-bot/web node npm install
+    node:
+        build:
+            context: ./node
+            dockerfile: Dockerfile
+        image: stack-node:20
+        command: ["tail", "-f", "/dev/null"]
+        working_dir: /opt/projects
+        volumes:
+            - ${PROJECTS_ROOT}:/opt/projects
+        networks: [stack]
+
+    # ---------------------------------------------------------- MySQL（共享）
+    mysql:
+        image: mysql:8.0
+        container_name: stack-mysql
+        command: --default-authentication-plugin=mysql_native_password
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            TZ: ${TZ}
+        ports:
+            - "${MYSQL_PORT}:3306"
+        volumes:
+            - ${STACK_ROOT}/data/mysql:/var/lib/mysql
+            - ./initdb/mysql:/docker-entrypoint-initdb.d:ro
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+            interval: 5s
+            timeout: 5s
+            retries: 30
+        networks: [stack]
+
+    # ---------------------------------------------------------- Redis（共享）
+    redis:
+        image: redis:7-alpine
+        container_name: stack-redis
+        command: ["redis-server", "--appendonly", "yes"]
+        ports:
+            - "${REDIS_PORT}:6379"
+        volumes:
+            - ${STACK_ROOT}/data/redis:/data
+        networks: [stack]
+
+    # ---------------------------------------------------------- PostgreSQL（共享）
+    pgsql:
+        image: postgres:16-alpine
+        container_name: stack-pgsql
+        environment:
+            POSTGRES_USER: ${PGSQL_USER}
+            POSTGRES_PASSWORD: ${PGSQL_PASSWORD}
+            POSTGRES_DB: ${PGSQL_DATABASE}
+            TZ: ${TZ}
+        ports:
+            - "${PGSQL_PORT}:5432"
+        volumes:
+            - ${STACK_ROOT}/data/pgsql:/var/lib/postgresql/data
+            - ./initdb/pgsql:/docker-entrypoint-initdb.d:ro
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${PGSQL_USER}"]
+            interval: 5s
+            timeout: 5s
+            retries: 30
+        networks: [stack]
+
+    # ---------------------------------------------------------- Nginx（共享反向代理）
+    nginx:
+        image: nginx:1.27-alpine
+        container_name: stack-nginx
+        ports:
+            - "${NGINX_HTTP_PORT}:80"
+            - "${NGINX_HTTPS_PORT}:443"
+        volumes:
+            - ./conf/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+            - ./conf/nginx/conf.d:/etc/nginx/conf.d:ro
+            - ./conf/nginx/sites:/etc/nginx/sites:ro
+            # 项目代码（静态资源 + fastcgi SCRIPT_FILENAME 需要），只读挂载
+            - ${PROJECTS_ROOT}:/opt/projects:ro
+        depends_on:
+            - mysql
+            - redis
+            - pgsql
+        networks: [stack]
+
+volumes: {}
+
+networks:
+    stack:
+        name: stack
+        driver: bridge

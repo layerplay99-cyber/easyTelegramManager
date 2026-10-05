@@ -1,0 +1,4 @@
+-- 共享栈 PostgreSQL 初始化
+-- POSTGRES_USER(stack) 已是超级用户，可直接创建任意数据库，各项目用它建库即可。
+-- 如需一个独立的、仅能建库的角色，取消下面注释：
+-- CREATE ROLE pgapp LOGIN PASSWORD 'pgapp123456' CREATEDB;

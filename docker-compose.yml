@@ -42,13 +42,14 @@ services:
         image: stack-node:20
         container_name: tgbot-frontend
         working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}/web
-        command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+        command: sh -c "yarn install && yarn dev --host 0.0.0.0 --port 5173"
         volumes:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}/web:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/web
             # node_modules 放容器卷，避免跨平台二进制互相覆盖
             - node_modules:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/web/node_modules
         ports:
             - "5173:5173"
+        restart: unless-stopped
         networks:
             - stack
 

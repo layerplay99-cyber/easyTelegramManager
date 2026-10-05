@@ -24,13 +24,13 @@ services:
     php:
         image: stack-php:8.4
         container_name: tgbot-php
-        working_dir: /opt/projects/${PROJECT_DIR}
+        working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
         volumes:
-            - ${PROJECTS_ROOT}/${PROJECT_DIR}:/opt/projects/${PROJECT_DIR}
+            - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
             - ./docker-stack/php/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
             # vendor 放命名卷：Linux 下仍建议隔离，避免污染项目目录
-            - vendor:/opt/projects/${PROJECT_DIR}/vendor
+            - vendor:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/vendor
         environment:
             DB_HOST: mysql
             DB_PORT: 3306
@@ -43,12 +43,12 @@ services:
     frontend:
         image: stack-node:20
         container_name: tgbot-frontend
-        working_dir: /opt/projects/${PROJECT_DIR}/web
+        working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}/web
         command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
         volumes:
-            - ${PROJECTS_ROOT}/${PROJECT_DIR}/web:/opt/projects/${PROJECT_DIR}/web
+            - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}/web:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/web
             # node_modules 放容器卷，避免跨平台二进制互相覆盖
-            - node_modules:/opt/projects/${PROJECT_DIR}/web/node_modules
+            - node_modules:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/web/node_modules
         ports:
             - "5173:5173"
         networks:
@@ -58,11 +58,11 @@ services:
     queue:
         image: stack-php:8.4
         container_name: tgbot-queue
-        working_dir: /opt/projects/${PROJECT_DIR}
+        working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
         volumes:
-            - ${PROJECTS_ROOT}/${PROJECT_DIR}:/opt/projects/${PROJECT_DIR}
+            - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
-            - vendor:/opt/projects/${PROJECT_DIR}/vendor
+            - vendor:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/vendor
         command: php artisan queue:work redis --queue=default --sleep=3 --tries=3 --timeout=180
         environment:
             DB_HOST: mysql
@@ -75,13 +75,13 @@ services:
     reverb:
         image: stack-php:8.4
         container_name: tgbot-reverb
-        working_dir: /opt/projects/${PROJECT_DIR}
+        working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
         ports:
             - "8080:8080"
         volumes:
-            - ${PROJECTS_ROOT}/${PROJECT_DIR}:/opt/projects/${PROJECT_DIR}
+            - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
-            - vendor:/opt/projects/${PROJECT_DIR}/vendor
+            - vendor:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/vendor
         command: php artisan reverb:start --host=0.0.0.0 --port=8080
         environment:
             DB_HOST: mysql
@@ -95,11 +95,11 @@ services:
     telegram:
         image: stack-php:8.4
         container_name: tgbot-telegram
-        working_dir: /opt/projects/${PROJECT_DIR}
+        working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
         volumes:
-            - ${PROJECTS_ROOT}/${PROJECT_DIR}:/opt/projects/${PROJECT_DIR}
+            - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
-            - vendor:/opt/projects/${PROJECT_DIR}/vendor
+            - vendor:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/vendor
         command: php artisan telegram:multi-listen
         environment:
             DB_HOST: mysql

@@ -2,8 +2,8 @@
 # 构建后打 tag stack-node:20，供所有项目前端容器复用。
 FROM node:20-bookworm
 
-# 全局安装 pnpm / yarn，避免每个项目重复安装
-RUN npm install -g pnpm@9 yarn
+# node:20 基础镜像已自带 yarn，只需补充安装 pnpm（避免重装 yarn 升级成 berry v4）
+RUN npm install -g pnpm@9
 
 WORKDIR /opt/projects
 

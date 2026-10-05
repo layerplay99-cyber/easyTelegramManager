@@ -2,12 +2,17 @@
 # telegram-bot 项目接入层（只跑本项目 app 容器，接入共享栈 `stack` 网络）
 # ----------------------------------------------------------------------------
 # 前置：先在 /opt/docker-stack 部署并启动共享栈（见 docker-stack/README.md）
-#   docker compose -f /opt/docker-stack/docker-compose.yml up -d mysql redis pgsql nginx node
-#   docker compose -f /opt/docker-stack/docker-compose.yml build php node
+#   cd /opt/docker-stack
+#   cp .env.example .env        # 设 STACK_ROOT / PROJECTS_ROOT（PROJECTS_ROOT 要与本项目一致）
+#   docker compose build php node
+#   docker compose up -d mysql redis pgsql nginx node
 #
-# 本项目的公共镜像（stack-php:8.4 / stack-node:20）由共享栈构建，这里直接引用，
-# 不再各自 build。项目代码统一挂到 /opt/projects/telegram-bot，与共享 Nginx
-# 的 SCRIPT_FILENAME / 静态资源路径保持一致。
+# 本项目 .env 需设置：
+#   PROJECTS_ROOT=/var/www        # 与共享栈 .env 的 PROJECTS_ROOT 保持一致（即项目代码所在的根目录）
+#   PROJECT_DIR=easyTelegramManager  # 本项目在 PROJECTS_ROOT 下的目录名
+#
+# 项目代码统一挂到 /opt/projects/<PROJECT_DIR>，与共享 Nginx 的
+# SCRIPT_FILENAME / 静态资源路径保持一致。
 #
 # 启动：docker compose up -d
 # ============================================================================
@@ -19,13 +24,13 @@ services:
     php:
         image: stack-php:8.4
         container_name: tgbot-php
-        working_dir: /opt/projects/telegram-bot
+        working_dir: /opt/projects/${PROJECT_DIR}
         volumes:
-            - ${PROJECTS_ROOT}/telegram-bot:/opt/projects/telegram-bot
+            - ${PROJECTS_ROOT}/${PROJECT_DIR}:/opt/projects/${PROJECT_DIR}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
             - ./docker-stack/php/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
             # vendor 放命名卷：Linux 下仍建议隔离，避免污染项目目录
-            - vendor:/opt/projects/telegram-bot/vendor
+            - vendor:/opt/projects/${PROJECT_DIR}/vendor
         environment:
             DB_HOST: mysql
             DB_PORT: 3306
@@ -38,12 +43,12 @@ services:
     frontend:
         image: stack-node:20
         container_name: tgbot-frontend
-        working_dir: /opt/projects/telegram-bot/web
+        working_dir: /opt/projects/${PROJECT_DIR}/web
         command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
         volumes:
-            - ${PROJECTS_ROOT}/telegram-bot/web:/opt/projects/telegram-bot/web
+            - ${PROJECTS_ROOT}/${PROJECT_DIR}/web:/opt/projects/${PROJECT_DIR}/web
             # node_modules 放容器卷，避免跨平台二进制互相覆盖
-            - node_modules:/opt/projects/telegram-bot/web/node_modules
+            - node_modules:/opt/projects/${PROJECT_DIR}/web/node_modules
         ports:
             - "5173:5173"
         networks:
@@ -53,11 +58,11 @@ services:
     queue:
         image: stack-php:8.4
         container_name: tgbot-queue
-        working_dir: /opt/projects/telegram-bot
+        working_dir: /opt/projects/${PROJECT_DIR}
         volumes:
-            - ${PROJECTS_ROOT}/telegram-bot:/opt/projects/telegram-bot
+            - ${PROJECTS_ROOT}/${PROJECT_DIR}:/opt/projects/${PROJECT_DIR}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
-            - vendor:/opt/projects/telegram-bot/vendor
+            - vendor:/opt/projects/${PROJECT_DIR}/vendor
         command: php artisan queue:work redis --queue=default --sleep=3 --tries=3 --timeout=180
         environment:
             DB_HOST: mysql
@@ -70,13 +75,13 @@ services:
     reverb:
         image: stack-php:8.4
         container_name: tgbot-reverb
-        working_dir: /opt/projects/telegram-bot
+        working_dir: /opt/projects/${PROJECT_DIR}
         ports:
             - "8080:8080"
         volumes:
-            - ${PROJECTS_ROOT}/telegram-bot:/opt/projects/telegram-bot
+            - ${PROJECTS_ROOT}/${PROJECT_DIR}:/opt/projects/${PROJECT_DIR}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
-            - vendor:/opt/projects/telegram-bot/vendor
+            - vendor:/opt/projects/${PROJECT_DIR}/vendor
         command: php artisan reverb:start --host=0.0.0.0 --port=8080
         environment:
             DB_HOST: mysql
@@ -90,11 +95,11 @@ services:
     telegram:
         image: stack-php:8.4
         container_name: tgbot-telegram
-        working_dir: /opt/projects/telegram-bot
+        working_dir: /opt/projects/${PROJECT_DIR}
         volumes:
-            - ${PROJECTS_ROOT}/telegram-bot:/opt/projects/telegram-bot
+            - ${PROJECTS_ROOT}/${PROJECT_DIR}:/opt/projects/${PROJECT_DIR}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
-            - vendor:/opt/projects/telegram-bot/vendor
+            - vendor:/opt/projects/${PROJECT_DIR}/vendor
         command: php artisan telegram:multi-listen
         environment:
             DB_HOST: mysql

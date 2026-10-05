@@ -6,8 +6,8 @@ FROM node:20-bookworm
 # classic 读不了 berry 的 yarn.lock，所以必须用 corepack 启用 berry（避免 npm 直接装 yarn 与预装 classic 冲突 EEXIST）。
 RUN corepack enable && corepack prepare yarn@4.0.0 --activate
 
-# 保留 pnpm 作通用能力（项目同时含 pnpm-lock.yaml，但主锁文件是 yarn）
-RUN npm install -g pnpm@9
+# 通过 corepack 启用 pnpm（node:20 已带 pnpm shim，用 prepare 指定版本避免 npm 直接装冲突 EEXIST）
+RUN corepack prepare pnpm@9 --activate
 
 WORKDIR /opt/projects
 

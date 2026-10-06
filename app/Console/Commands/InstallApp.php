@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use Illuminate\Console\Application;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Process;
 
 /**
  * 容器内 / 生产环境可用的 CatchAdmin 安装命令（幂等、可重复执行）。
@@ -25,7 +27,7 @@ class InstallApp extends Command
     private const BYPASS_ENV = 'local';
 
     /** @var string */
-    protected $signature = 'app:install {--seed}';
+    protected $signature = 'app:install {--no-seed}';
 
     /** @var string */
     protected $description = '安装 CatchAdmin（容器内 / production 可用，幂等可重复执行）';
@@ -40,9 +42,9 @@ class InstallApp extends Command
         try {
             $this->runMigrations();
 
-            // 默认不跑 seed：模块安装流程内部已经跑过，
-            // 重复执行会因 vendor 的 require_once 缺陷而失败（见 runSeeds 注释）。
-            if ($this->option('seed')) {
+            // 默认跑 seed：后台菜单/权限数据来自各模块的 MenusSeeder，
+            // 不跑会导致菜单缺失（如 Develop 的 schema）。seed 幂等，可安全重复执行。
+            if (! $this->option('no-seed')) {
                 $this->runSeeds();
             }
         } catch (\Throwable $e) {
@@ -105,29 +107,31 @@ class InstallApp extends Command
     }
 
     /**
-     * 数据填充。
+     * 数据填充：后台菜单 / 权限来自各模块的 MenusSeeder，必须跑。
      *
-     * ⚠️ 注意 vendor 缺陷（SeedRun.php:71-72）：
-     *     $class = require_once $file->getRealPath();
-     *     $class = new $class();
-     * require_once 只在首次加载时返回类名，之后再调用返回 true，
-     * 于是 `new true()` 抛 "Class name must be a valid object or a string"。
-     * 即：同一进程内重复 seed 必然失败；跨进程（单独 artisan 调用）则正常。
-     * 因此这里对失败只告警、不阻断安装。
+     * ⚠️ 必须用子进程（Process::run）而不是 $this->call()。
+     *    vendor 缺陷（SeedRun.php:71-72）：
+     *        $class = require_once $file->getRealPath();
+     *        $class = new $class();
+     *    require_once 只在首次返回类名、之后返回 true，
+     *    于是同一进程内第二次 seed 会 `new true()` 抛
+     *    "Class name must be a valid object or a string"。
+     *    每个模块单独起进程即可规避。
+     *
+     * 幂等性：各 MenusSeeder 走 importTreeData()，按
+     * permission_name + module + permission_mark 先查后插，不会重复写入。
      */
     private function runSeeds(): void
     {
-        foreach (['user', 'permissions'] as $module) {
-            try {
-                $exitCode = $this->call('catch:db:seed', ['module' => $module]);
-                if ($exitCode !== 0) {
-                    $this->warn("模块 [{$module}] seed 未执行（退出码 {$exitCode}），不影响安装结果");
-                }
-            } catch (\Throwable $e) {
-                $this->warn("模块 [{$module}] seed 异常（多为重复执行所致，可忽略）：{$e->getMessage()}");
-            }
-        }
+        foreach ($this->orderedModules() as $module) {
+            $result = Process::run(Application::formatCommandString('catch:db:seed ' . $module));
 
-        $this->line('  数据填充阶段结束');
+            if ($result->failed()) {
+                $this->warn("模块 [{$module}] seed 未成功（可稍后单独重试），不影响安装继续");
+                continue;
+            }
+
+            $this->line("  模块 [{$module}] 数据填充完成");
+        }
     }
 }

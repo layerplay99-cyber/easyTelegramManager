@@ -78,6 +78,10 @@ php artisan app:install
 php artisan app:module:install cms
 php artisan app:module:install system
 php artisan app:module:install telegram
+
+# 若 permissions 缺失（app:install 正常会自动装），补一次：
+php artisan app:module:install permissions
+
 php artisan telegram:scan-activity
 
 php artisan storage:link
@@ -95,13 +99,92 @@ diff composer.json composer.json.bak   || cp composer.json.bak composer.json
 php artisan config:clear
 ```
 
-- `app:install` 已完成：`key:generate`、发布配置、`user`/`develop` 迁移与 seed、安装 `permissions` 模块。
+- `app:install` 已完成：`key:generate`、发布配置、`user` / `develop` 的迁移与 seed、安装 `permissions` 模块。
   **`cms` / `system` / `telegram` 必须再单独安装**，否则后台对应菜单、路由、权限都不会注册。
+
+  模块清单（项目共 7 个模块目录，只有带 `Installer.php` 的能用 `module:install` 安装）：
+
+  | 模块 | 是否有 Installer | 安装方式 |
+  |---|---|---|
+  | `permissions` | ✅ | `app:install` 内部自动安装；缺失时 `app:module:install permissions` 补 |
+  | `cms` | ✅ | `app:module:install cms` |
+  | `system` | ✅ | `app:module:install system` |
+  | `telegram` | ✅ | `app:module:install telegram` |
+  | `user` | ❌（default） | 迁移 + seed 由 `app:install` 内的 `catch:migrate user` / `catch:db:seed user` 完成，**不用** `module:install` |
+  | `develop` | ❌（default） | 迁移由 `app:install` 内的 `catch:migrate develop` 完成 |
+  | `common` | ❌（default） | 无 `database/` 目录，无迁移，无需操作 |
+
+  `user` / `develop` / `common` 属于 `config('catch.module.default')`，会被 `app:module:install` 的
+  已安装检测判定为「已安装」并跳过——这是正常行为，不是漏装。
+
+- 核对已安装模块与表是否齐全：
+
+  ```bash
+  php artisan about --only=environment   # 或
+  cat storage/app/modules.json           # 已安装模块注册表
+  mysql -uroot -p -e "SHOW TABLES FROM bots LIKE 'bot_dayang_%';"
+  ```
 - 初始账号：`catch@admin.com` / `catchadmin`，上线后立即改密码。
 - 模块安装结果写入 `storage/app/modules.json`（不进 git，由命令生成）；丢失后重跑对应
   `php artisan app:module:install {module}` 可重建。
 - 若之前误用了 `catch:module:install` 并失败：模块已被写进 `modules.json` 但表没建，
   先 `php artisan catch:migrate {module} --force` 补建表，再跑 `app:module:install {module}`。
+- ⚠️ **Provider 不得在 boot 阶段依赖未迁移的表**：`ConfigCacheServiceProvider`
+  原本在 boot 时直接 `ThirdApiConfig::all()`，全新安装时表尚未创建 → 抛 1146，
+  导致**所有** artisan 命令（含 migrate）都无法执行，形成死锁（装模块要 migrate，migrate 又要先 boot provider）。
+  已改为先 `Schema::hasTable()` 判断，表不存在就跳过缓存。
+
+---
+
+## 3b. 模块清单与安装顺序
+
+| 模块 | 是否有 `Installer.php` | 安装命令 | 说明 |
+|---|---|---|---|
+| `permissions` | ✅ | `php artisan app:module:install permissions` | `app:install` 内部会自动装；若后台权限菜单缺失则补跑一次 |
+| `cms` | ✅ | `php artisan app:module:install cms` | 内容管理 |
+| `system` | ✅ | `php artisan app:module:install system` | 系统管理 |
+| `telegram` | ✅ | `php artisan app:module:install telegram` | 本项目核心 |
+| `user` | ❌ | **无需 `module:install`** | 属 `config('catch.module.default')`，迁移+seed 由 `app:install` 内的 `catch:migrate user` / `catch:db:seed user` 完成 |
+| `develop` | ❌ | **无需 `module:install`** | default 模块，迁移由 `app:install` 内的 `catch:migrate develop` 完成 |
+| `common` | ❌ | **无需任何操作** | 无 `database/` 目录，本身没有迁移 |
+
+**注意**：`modules.json` 里看不到 `user` / `develop` / `common` 是**正常现象**——它们是 config 里的默认模块，不进模块注册表，不代表漏装。
+
+**完整安装顺序**：
+
+```bash
+cd /var/www/easyTelegramManager
+
+# 1) 核心安装（含 permissions 模块、user/develop 的 migrate+seed）
+php artisan app:install
+
+# 2) 四个带 Installer 的模块（app:install 已装 permissions，这里补跑其余）
+php artisan app:module:install cms
+php artisan app:module:install system
+php artisan app:module:install telegram
+
+# 3) 一次性命令
+php artisan telegram:scan-activity
+
+# 4) 收尾
+php artisan storage:link
+php artisan config:clear
+sudo chown -R www-data:www-data storage bootstrap/cache
+sudo chmod -R 775 storage bootstrap/cache
+```
+
+**核对是否装全**：
+
+```bash
+# 已安装模块注册表（应有 permissions / cms / system / telegram）
+cat storage/app/modules.json
+
+# 表是否齐全
+mysql -uroot -p -e "SHOW TABLES FROM bots LIKE 'bot_dayang_%';"
+
+# 确认没有漏掉 permissions 的表
+mysql -uroot -p -e "SHOW TABLES FROM bots LIKE 'bot_dayang_%permission%';"
+```
 - ⚠️ `app:install`（原 `catch:install`）会用 vendor 版本**强制覆盖 `config/catch.php`**（`vendor:publish --tag=catch-config --force`），
   本项目对该文件的定制（`LocaleMiddleware`、`listen_db_log=false`、`super_admin` 走 env）会被还原成框架默认值。
   装完请确认该文件仍是仓库版本，若被覆盖需恢复并 `php artisan config:clear`。
@@ -331,8 +414,10 @@ sudo systemctl reload nginx
 - [ ] `.env` 已配：`APP_DEBUG=false`、`BROADCAST_DRIVER=reverb`、`QUEUE_CONNECTION=redis`、`REVERB_*` 与前端一致
 - [ ] `app:install` 已跑（容器内 / production 不要用 `catch:install`），初始账号已改密码
 - [ ] 被覆盖的 `config/catch.php` / `composer.json` 已按备份恢复，`.env` 仍在（未被安装命令删掉）
-- [ ] `cms` / `system` / `telegram` 已用 **`app:module:install`** 单独安装，`storage/app/modules.json` 含全部模块
-- [ ] 各模块的表确实建出来了（`SHOW TABLES` 核对），没出现 `1146 Table doesn't exist`
+- [ ] `permissions` / `cms` / `system` / `telegram` 四个带 Installer 的模块均已安装（前三个由 `app:install`+手工补，见第 3 节）
+- [ ] `user` / `develop` 的迁移已执行（`app:install` 内部完成）；`common` 无迁移
+- [ ] 各模块的表确实建出来了（`SHOW TABLES FROM bots LIKE 'bot_dayang_%'` 核对），没出现 `1146 Table doesn't exist`
+- [ ] `storage/app/modules.json` 内容与预期模块一致
 - [ ] `telegram:scan-activity` 已执行
 - [ ] `storage:link` 已建，`storage` / `bootstrap/cache` 属主为 `www-data`
 - [ ] 前端 `web/.env.production` 指向生产域名，已 `yarn build`

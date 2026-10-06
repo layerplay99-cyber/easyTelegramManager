@@ -75,12 +75,11 @@ php artisan app:install
 # —— 表象是「表不存在」，实际是迁移被静默取消。
 # app:module:install（app/Console/Commands/ModuleInstall.php）让子进程继承
 # 非 production 的 APP_ENV 跳过该确认。
+php artisan app:module:install permissions
+
 php artisan app:module:install cms
 php artisan app:module:install system
 php artisan app:module:install telegram
-
-# 若 permissions 缺失（app:install 正常会自动装），补一次：
-php artisan app:module:install permissions
 
 php artisan telegram:scan-activity
 
@@ -129,6 +128,18 @@ php artisan config:clear
   `php artisan app:module:install {module}` 可重建。
 - 若之前误用了 `catch:module:install` 并失败：模块已被写进 `modules.json` 但表没建，
   先 `php artisan catch:migrate {module} --force` 补建表，再跑 `app:module:install {module}`。
+- **`app:install` 幂等，可安全重复执行**：核心迁移显示 `Nothing to migrate`、
+  已注册模块会「跳过 create，仅补跑迁移与 seed」，不会重建表、不会清空数据，也**不会删除 `.env`**。
+- **seed 默认不重复执行**：`app:install` 不带参数时不跑 seed（模块安装流程内部已跑过）。
+  需要时显式加 `--seed`。原因是 vendor 缺陷（`SeedRun.php:71-72`）：
+  它用 `require_once` 取类名，而 `require_once` 只有首次返回类名、之后返回 `true`，
+  于是同一进程内第二次 seed 会 `new true()` 抛
+  `Class name must be a valid object or a string`。
+  单独执行 `php artisan catch:db:seed {module}`（新进程）则正常。
+- ⚠️ **迁移存在跨模块依赖，务必按序执行**。`telegram` 模块的迁移会查询
+  `permissions` 表，若 `permissions` 尚未建表就会抛
+  `1146 Table 'xxx_permissions' doesn't exist`。
+  正确顺序：**`permissions` → `cms` → `system` → `telegram`**。
 - ⚠️ **Provider 不得在 boot 阶段依赖未迁移的表**：`ConfigCacheServiceProvider`
   原本在 boot 时直接 `ThirdApiConfig::all()`，全新安装时表尚未创建 → 抛 1146，
   导致**所有** artisan 命令（含 migrate）都无法执行，形成死锁（装模块要 migrate，migrate 又要先 boot provider）。

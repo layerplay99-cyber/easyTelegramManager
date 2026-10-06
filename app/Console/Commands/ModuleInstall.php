@@ -50,27 +50,52 @@ class ModuleInstall extends Command
             $_SERVER['APP_ENV'] = self::BYPASS_ENV;
         }
 
-        // 先判断是否已安装：catch:module:install 在已安装时会 $this->error(...) 后直接 exit，
-        // 那会让本命令后续代码（成功提示）根本执行不到，看起来像静默退出。
-        if (! $this->option('force') && $this->isInstalled($module)) {
-            $this->warn("模块 [{$module}] 已安装，跳过。如需强制重新安装请加 --force。");
+        $registered = $this->isInstalled($module);
+
+        if ($registered) {
+            /*
+             * 关键：模块已注册时，绝不能再调 `catch:module:install`（即便带 --f）。
+             * vendor 的 ModuleInstallCommand::initialize() 会在 install 之外判断，
+             * 带 --f 只表示「跳过检查」，随后 Installer::create() 仍会撞上
+             * 已存在的模块而抛 "Module [x] has been created" —— 于是首次失败后
+             * 永远无法重装，形成死局。
+             *
+             * 正确做法：跳过 create，只补跑「迁移 + seed」。
+             * 这两步都是幂等的（已执行的迁移会跳过），可以安全地反复执行。
+             */
+            $this->info("模块 [{$module}] 已注册，跳过 create，仅补跑迁移与 seed。");
+
+            try {
+                $exitCode = $this->call('catch:migrate', ['module' => $module, '--force' => true]);
+                if ($exitCode !== 0) {
+                    $this->error("模块 [{$module}] 迁移失败（退出码 {$exitCode}），请查看上方输出。");
+                    return $exitCode;
+                }
+                $exitCode = $this->call('catch:db:seed', ['module' => $module]);
+            } catch (\Throwable $e) {
+                $this->newLine();
+                $this->error("模块 [{$module}] 安装抛出异常：");
+                $this->line('  ' . $e->getMessage());
+                if ($this->output->isVerbose()) {
+                    $this->line($e->getTraceAsString());
+                }
+                return self::FAILURE;
+            }
+
+            if ($exitCode !== 0) {
+                $this->error("模块 [{$module}] seed 失败（退出码 {$exitCode}），请查看上方输出。");
+                return $exitCode;
+            }
+
+            $this->info("模块 [{$module}] 补装成功 ✅");
             return self::SUCCESS;
         }
 
         $this->info("开始安装模块 [{$module}]（已跳过 migrate 的交互确认）");
 
-        $params = ['module' => $module];
-        if ($this->option('force')) {
-            // 对应 catch:module:install 的 --f：跳过已安装检查，强制重装
-            $params['--f'] = true;
-        }
-
         try {
-            // 用 $this->call() 而不是 Artisan::call()：
-            // Artisan::call() 会把子命令输出全部吞进缓冲区，终端看不到任何内容，
-            // 异常也被 Symfony 捕获写进缓冲区，导致成功/失败都是静默的。
-            // $this->call() 会把输出透传到当前终端。
-            $exitCode = $this->call('catch:module:install', $params);
+
+            $exitCode = $this->call('catch:module:install', ['module' => $module]);
         } catch (\Throwable $e) {
             $this->newLine();
             $this->error("模块 [{$module}] 安装抛出异常：");

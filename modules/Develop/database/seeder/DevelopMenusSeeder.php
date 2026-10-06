@@ -42,7 +42,7 @@ return new class extends Seeder
                 'module'          => 'develop',
                 'permission_mark' => '',
                 'component'       => '/layout/index.vue',
-                'redirect'        => '/develop/schema',
+                'redirect'        => '/develop/schemas',
                 'keepalive'       => 1,
                 'type'            => 1,
                 'hidden'          => 0,
@@ -55,7 +55,7 @@ return new class extends Seeder
                 'children'        => [
                     [
                         'permission_name' => 'Schema',
-                        'route'           => '/develop/schema',
+                        'route'           => 'schemas',
                         'icon'            => 'database',
                         'module'          => 'develop',
                         'permission_mark' => '',
@@ -72,13 +72,31 @@ return new class extends Seeder
                         'updated_at'      => $now,
                         'deleted_at'      => 0,
                     ],
-                    // 注意：「代码生成」不能做成菜单项。
-                    // 它的路由是 /develop/generate/:schema（需要 schema 参数，静态路由里 hidden:true），
-                    // 是从 Schema 列表点击某条记录进入的下钻页；作为菜单直连会因缺少参数，
+                    // 代码生成：用 generates + generator 组件（与静态路由一致，且不需要参数）。
+                    // 注意不能写成 /develop/generate —— 那对应 generate/:schema 下钻页
+                    // （从 Schema 列表点某条记录进入），作为菜单直连会因缺少 schema 参数，
                     // 后端 Generator 拿到 null 报 "Attempt to read property \"name\" on null"。
                     [
+                        'permission_name' => '代码生成',
+                        'route'           => 'generates',
+                        'icon'            => 'code',
+                        'module'          => 'develop',
+                        'permission_mark' => 'generate',
+                        'component'       => '/develop/generator/index.vue',
+                        'redirect'        => '',
+                        'keepalive'       => 1,
+                        'type'            => 2,
+                        'hidden'          => 0,
+                        'sort'            => 2,
+                        'active_menu'     => '',
+                        'creator_id'      => 1,
+                        'created_at'      => $now,
+                        'updated_at'      => $now,
+                        'deleted_at'      => 0,
+                    ],
+                    [
                         'permission_name' => '模块管理',
-                        'route'           => '/develop/module',
+                        'route'           => 'modules',
                         'icon'            => 'appstore',
                         'module'          => 'develop',
                         'permission_mark' => '',

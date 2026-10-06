@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Application;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 
 /**
@@ -46,6 +47,8 @@ class InstallApp extends Command
             // 不跑会导致菜单缺失（如 Develop 的 schema）。seed 幂等，可安全重复执行。
             if (! $this->option('no-seed')) {
                 $this->runSeeds();
+                $this->ensureMenusVisible();
+                $this->fixMissingComponents();
             }
         } catch (\Throwable $e) {
             $this->newLine();
@@ -104,6 +107,61 @@ class InstallApp extends Command
             }
             $this->line("  模块 [{$module}] 安装完成");
         }
+    }
+
+    /**
+     * 统一修正菜单可见性。
+     *
+     * 前端菜单渲染逻辑（web/src/layout/components/Menu/index.vue）：
+     *     if (!menu.meta?.hidden) { 渲染该菜单 }
+     * 即 **hidden 为真 → 菜单不显示**。
+     *
+     * 而各模块的 MenusSeeder 里 hidden 默认就是 1，导入后菜单「存在于库但不可见」，
+     * 表现为：父菜单在、所有子菜单消失（或整个模块菜单消失）。
+     * 这里统一把目录(1)/页面(2)的 hidden 置 0，保证菜单可见。
+     * 按钮(3)不在菜单里显示，不受影响。
+     */
+    private function ensureMenusVisible(): void
+    {
+        // ① 目录(1)/页面(2) 统一可见
+        DB::table('permissions')->whereIn('type', [1, 2])->update(['hidden' => 0]);
+
+        // ② route 含 :param 的是「下钻页」（如 system 的 dictionary/values/:id、
+        //    develop 的 generate/:schema），只能从上级页面点某条记录进入。
+        //    作为菜单直连会因缺少参数而空白/报错，因此隐藏，不出现在侧边栏。
+        DB::table('permissions')
+            ->whereIn('type', [1, 2])
+            ->where('route', 'like', '%:%')
+            ->update(['hidden' => 1]);
+
+        $this->line('  菜单可见性已修正（目录/页面 hidden=0，下钻页 hidden=1）');
+    }
+
+    /**
+     * 补 seeded 里缺失的 component。
+     *
+     * 部分模块（如 cms）的 MenusSeeder 中「设置」「文章」的 component 是空的。
+     * 前端按 component 去 import.meta.glob 的 map 里取组件，取不到就渲染空白，
+     * 且不会发出任何请求（表现为「点了没反应」）。这里按前端真实存在的文件补全。
+     */
+    private function fixMissingComponents(): void
+    {
+        $map = [
+            ['module' => 'cms', 'route' => 'setting',  'component' => '/cms/setting/general/index.vue'],
+            ['module' => 'cms', 'route' => 'articles', 'component' => '/cms/post/index.vue'],
+        ];
+
+        foreach ($map as $fix) {
+            DB::table('permissions')
+                ->where('module', $fix['module'])
+                ->where('route', $fix['route'])
+                ->where(function ($query) {
+                    $query->whereNull('component')->orWhere('component', '');
+                })
+                ->update(['component' => $fix['component']]);
+        }
+
+        $this->line('  缺失的菜单组件已补全');
     }
 
     /**

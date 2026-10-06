@@ -28,6 +28,9 @@ async def _get_redis():
 async def _post(path: str, payload: dict):
     url = settings.LARAVEL_BASE_URL.rstrip("/") + path
     headers = {"X-Token": settings.CALLBACK_TOKEN}
+    # nginx 按 server_name 匹配 vhost，必须覆盖 Host，否则命中 default_server 返回 404
+    if settings.LARAVEL_HOST:
+        headers["Host"] = settings.LARAVEL_HOST
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(url, json=payload, headers=headers)

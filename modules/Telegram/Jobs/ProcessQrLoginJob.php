@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Jobs;
 
-use danog\MadelineProto\API;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -79,8 +78,6 @@ class ProcessQrLoginJob implements ShouldQueue
                 $this->appHash
             );
 
-            $api = $madelineService->getApi();
-
             $logMessageService->createLaravelLog(
                 self::LOG_FILE,
                 ['user_id' => $this->userId],
@@ -88,24 +85,11 @@ class ProcessQrLoginJob implements ShouldQueue
                 'info'
             );
 
-            // qrLogin() 返回可空，拿不到二维码直接记日志退出，别在 null 上调用方法
-            $qrLogin = $madelineService->qrLogin();
-
-            if ($qrLogin === null) {
-                $logMessageService->createLaravelLog(
-                    self::LOG_FILE,
-                    ['user_id' => $this->userId],
-                    'ProcessQrLoginJob 获取二维码失败',
-                    'warning'
-                );
-
-                return;
-            }
-
-            $qrLogin->waitForLoginOrQrCodeExpiration();
+            // Telethon：等待扫码成功 / 需要 2FA / QR 过期（受 job timeout 180s 约束）
+            $madelineService->waitAuthorization(150);
 
             // 检查登录是否完成
-            $authorization = $api->getAuthorization();
+            $authorization = $madelineService->getAuthorization();
 
             $logMessageService->createLaravelLog(
                 self::LOG_FILE,
@@ -118,7 +102,8 @@ class ProcessQrLoginJob implements ShouldQueue
             );
 
             // 检查是否完全登录
-            if ($authorization === API::LOGGED_IN) {
+            // 3 = 已登录（沿用历史魔数，与 MadelineProto::LOGGED_IN 一致）
+            if ($authorization === 3) {
                 $user->login_status = LoginStatus::LOGINED;
                 $user->save();
                 $logMessageService->createLaravelLog(
@@ -131,7 +116,8 @@ class ProcessQrLoginJob implements ShouldQueue
             }
 
             // 检查是否需要2FA（等待密码）
-            if ($authorization === API::WAITING_PASSWORD) {
+            // 2 = 等待两步验证密码
+            if ($authorization === 2) {
                 $user->login_status = LoginStatus::WAITINPUTCODE;
                 $user->save();
                 $logMessageService->createLaravelLog(

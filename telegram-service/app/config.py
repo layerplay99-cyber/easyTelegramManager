@@ -18,8 +18,10 @@ class Settings:
     SESSIONS_DIR = os.getenv("SESSIONS_DIR", "/data/sessions")
     MEDIA_DIR = os.getenv("MEDIA_DIR", "/data/media")
 
-    # 事件回调到 Laravel
-    LARAVEL_BASE_URL = os.getenv("LARAVEL_BASE_URL", "http://php")
+    # 事件回调到 Laravel（需指向提供 HTTP 的 nginx，而非 php-fpm）
+    LARAVEL_BASE_URL = os.getenv("LARAVEL_BASE_URL", "http://stack-nginx")
+    # nginx 按 server_name 路由，需覆盖 Host 头命中项目 vhost
+    LARAVEL_HOST = os.getenv("LARAVEL_HOST", "tgbot.local")
     CALLBACK_TOKEN = os.getenv("CALLBACK_TOKEN", "")
 
     # 采集表情开关用的 Redis（与 Laravel 共用）

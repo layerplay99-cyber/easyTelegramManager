@@ -9,7 +9,7 @@ use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\GroupMembers;
 use Modules\Telegram\Models\ServicePeoples;
 use Modules\Telegram\Services\LogMessageService;
-use Modules\Telegram\Services\Madeline\MadelineService;
+use Modules\Telegram\Services\Telethon\TelegramUserApi;
 
 class SyncUserGroupService
 {
@@ -111,12 +111,12 @@ class SyncUserGroupService
      * 原来的落库逻辑写在 MadelineService::syncForGroups() 里（API 调用与 DB 写混在一起），
      * 这里只负责「落库编排」：从传入的 MadelineService（只读 getGroups()）取数据再写库。
      *
-     * @param MadelineService $madelineService  已初始化的真实用户客户端（提供 getGroups()）
+     * @param TelegramUserApi $madelineService  已初始化的真实用户客户端（提供 getGroups()）
      * @param string $appId  TelegramApiUser 的 app_id
      * @param int $loginUserId  操作人
      * @return bool
      */
-    public function syncBotGroups(MadelineService $madelineService, string $appId, int $loginUserId): bool
+    public function syncBotGroups(TelegramUserApi $madelineService, string $appId, int $loginUserId): bool
     {
         $allGroups = $madelineService->getGroups();
 
@@ -202,13 +202,13 @@ class SyncUserGroupService
     /**
      * 主动拉取群成员并同步到 GroupMembers 表
      *
-     * @param MadelineService $madelineService  已初始化的 MadelineService 实例
+     * @param TelegramUserApi $madelineService  已初始化的 MadelineService 实例
      * @param string $appId  TelegramApiUser 的 app_id
      * @param string $chatId  群 chat_id
      * @param int|null $creatorId  操作人
      * @return int  同步的成员数量
      */
-    public function syncGroupMembersFromApi(MadelineService $madelineService, string $appId, string $chatId, ?int $creatorId = null): int
+    public function syncGroupMembersFromApi(TelegramUserApi $madelineService, string $appId, string $chatId, ?int $creatorId = null): int
     {
         try {
             $participants = $madelineService->getGroupMembers($chatId);

@@ -7,7 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Modules\Telegram\Services\Madeline\MadelineService;
+use Modules\Telegram\Services\Telethon\TelegramUserApi;
 use Modules\Telegram\Services\User\UserApiFactory;
 
 class TelegramApiOperateFeatureJob implements ShouldQueue
@@ -37,7 +37,7 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
     protected string $appHash;
     protected array $payload;
     protected string $type;
-    protected MadelineService $service;
+    protected TelegramUserApi $service;
 
     /**
      * 群发任务 ID（有值时写回执，见 MessageSendLog）
@@ -60,17 +60,8 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
     public function handle(): void
     {
         try {
-            $sessionFile = $this->sessionFile;
-            if (!str_starts_with($sessionFile, 'storage/')) {
-                $sessionFile = 'storage/' . $sessionFile;
-            }
-
-            $absolutePath = base_path($sessionFile);
-            if (!file_exists($absolutePath)) {
-                throw new Exception("Session file not found: " . $this->sessionFile . " (checked: " . $absolutePath . ")");
-            }
-
-            $this->service = app(UserApiFactory::class)->forSession($sessionFile, $this->appId, $this->appHash);
+            // Telethon 的 session 由 Python 服务持有，PHP 侧不再校验本地文件是否存在
+            $this->service = app(UserApiFactory::class)->forSession($this->sessionFile, $this->appId, $this->appHash);
 
             $this->type = $this->type ?: 'text';
 

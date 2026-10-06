@@ -13,7 +13,6 @@ use Modules\Telegram\Models\TelegramApiUsers;
 use Modules\Telegram\Services\CollectServer;
 use Modules\Telegram\Services\Feature\RealMan\RealManFeatureRegistry;
 use Modules\Telegram\Services\FeatureOperateService;
-use Modules\Telegram\Services\Madeline\MadelineService;
 use Modules\Telegram\Services\Madeline\SyncUserGroupService;
 
 

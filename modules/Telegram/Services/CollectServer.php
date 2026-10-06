@@ -7,7 +7,7 @@ use danog\MadelineProto\Exception;
 use Illuminate\Support\Facades\Storage;
 use Modules\Telegram\Enums\LoginStatus;
 use Modules\Telegram\Jobs\SyncCollect;
-use Modules\Telegram\Services\Madeline\MadelineService;
+use Modules\Telegram\Services\Telethon\TelegramUserApi;
 use Modules\Telegram\Services\User\UserApiFactory;
 use Throwable;
 
@@ -20,7 +20,7 @@ class CollectServer
     private const QR_LOGIN_CHECK_DELAY = 2;
     private const LOG_FILE = 'collect_server';
 
-    protected MadelineService $MadelineProto;
+    protected TelegramUserApi $MadelineProto;
 
     public function __construct(
         protected LogMessageService $logMessageService
@@ -46,8 +46,7 @@ class CollectServer
                 $users->app_hash
             );
 
-            $api = $this->MadelineProto->getApi();
-            $authorization = $api->getAuthorization();
+            $authorization = $this->MadelineProto->getAuthorization();
 
             if ($authorization === 3) {
                 $this->updateUserLoginStatus($users, LoginStatus::LOGINED, $sessionPath);
@@ -66,10 +65,10 @@ class CollectServer
                 ];
             }
 
-            $qrLogin = $this->MadelineProto->qrLogin();
+            $qrSvg = $this->MadelineProto->getQrSvg();
 
-            if (!$qrLogin) {
-                $authorization = $api->getAuthorization();
+            if (!$qrSvg) {
+                $authorization = $this->MadelineProto->getAuthorization();
                 if ($authorization === 2) {
                     $this->updateUserLoginStatus($users, LoginStatus::WAITINPUTCODE, $sessionPath);
                     return [
@@ -82,7 +81,6 @@ class CollectServer
             }
 
             $this->updateUserLoginStatus($users, LoginStatus::WAITINPUTCODE, $sessionPath);
-            $qrSvg = $qrLogin->getQRSvg(self::QR_CODE_SIZE);
 
             // 传递相对路径给 Job
             \Modules\Telegram\Jobs\ProcessQrLoginJob::dispatch(
@@ -131,8 +129,7 @@ class CollectServer
         try {
             $this->MadelineProto = app(UserApiFactory::class)->forTelegramUser($users);
 
-            $api = $this->MadelineProto->getApi();
-            $authorization = $api->getAuthorization();
+            $authorization = $this->MadelineProto->getAuthorization();
 
             // 完全登录状态（状态码 3）
             if ($authorization === 3) {
@@ -199,11 +196,9 @@ class CollectServer
 
         $this->MadelineProto = app(UserApiFactory::class)->forTelegramUser($users);
 
-        $qrCode = $this->MadelineProto->qrLogin();
-
         return [
             'logged_in' => false,
-            'svg' => $qrCode->getQRSvg(self::QR_CODE_SIZE),
+            'svg' => $this->MadelineProto->getQrSvg(),
         ];
     }
 
@@ -228,22 +223,30 @@ class CollectServer
         }
 
         try {
-            // 等待扫码或 QR Code 过期
-            $qrCode = $this->MadelineProto->qrLogin();
-            $result = $qrCode->waitForLoginOrQrCodeExpiration();
+            // 等待扫码成功 / 需要 2FA / QR 过期换新码
+            $result = $this->MadelineProto->waitAuthorization(60);
 
-            if ($result instanceof \danog\MadelineProto\TL\Types\LoginQrCode) {
-                // QR Code 过期，返回新的
+            if (!empty($result['require_2fa'])) {
+                $users->login_status = LoginStatus::WAITINPUTCODE;
+                $users->save();
                 return [
                     'logged_in' => false,
-                    'svg' => $result->getQRSvg(self::QR_CODE_SIZE),
+                    'require_2fa' => true,
+                    'message' => '需要输入两步验证密码'
                 ];
             }
 
-            // 登录成功
-            $users->login_status = LoginStatus::LOGINED;
-            $users->save();
-            return ['logged_in' => true];
+            if (!empty($result['logged_in'])) {
+                $users->login_status = LoginStatus::LOGINED;
+                $users->save();
+                return ['logged_in' => true];
+            }
+
+            // QR Code 过期，返回新的
+            return [
+                'logged_in' => false,
+                'svg' => $result['svg'] ?? '',
+            ];
         } catch (\Exception $e) {
             // 检查是否需要两步验证
             if ($this->is2FAException($e)) {
@@ -303,8 +306,6 @@ class CollectServer
         }
 
         $this->MadelineProto = app(UserApiFactory::class)->forTelegramUser($users);
-        $this->MadelineProto->start();
-
         $this->MadelineProto->completeLogin($code);
         $users->login_status = LoginStatus::LOGINED;
         $users->save();
@@ -323,6 +324,14 @@ class CollectServer
         }
 
         try {
+            // Telethon 的 session 由 Python 服务持有，先通知它登出
+            try {
+                $this->MadelineProto = app(UserApiFactory::class)->forTelegramUser($users);
+                $this->MadelineProto->logout();
+            } catch (\Throwable $e) {
+                // 远程登出失败不阻断本地状态清理
+            }
+
             $sessionFilePath = storage_path($users->session_file);
             if (file_exists($sessionFilePath)) {
                 if (is_dir($sessionFilePath)) {

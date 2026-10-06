@@ -29,6 +29,8 @@ services:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
             - ./docker-stack/php/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
+            # 与 telegram-py 共享：Python 下载的头像，PHP 侧要能读到
+            - tgbot_media:/data/media
         environment:
             DB_HOST: mysql
             DB_PORT: 3306
@@ -61,6 +63,8 @@ services:
         volumes:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
+            # SyncCollect 读取 Python 下载的头像
+            - tgbot_media:/data/media
         command: php artisan queue:work redis --queue=default --sleep=3 --tries=3 --timeout=180
         environment:
             DB_HOST: mysql
@@ -99,7 +103,10 @@ services:
         environment:
             SESSIONS_DIR: /data/sessions
             MEDIA_DIR: /data/media
-            LARAVEL_BASE_URL: http://php
+            # php 容器是 php-fpm(9000 fastcgi)，不提供 HTTP；必须走共享栈的 nginx
+            LARAVEL_BASE_URL: http://stack-nginx
+            # nginx 按 server_name 路由，请求需带正确 Host，否则落到 default_server 返回 404
+            LARAVEL_HOST: tgbot.local
             CALLBACK_TOKEN: ${TELETHON_CALLBACK_TOKEN}
             REDIS_URL: redis://redis:6379/0
         volumes:

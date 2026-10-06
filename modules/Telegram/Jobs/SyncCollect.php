@@ -12,7 +12,6 @@ use Modules\Telegram\Models\Phones;
 use Modules\Telegram\Models\Scanlogs;
 use Modules\Telegram\Models\TelegramApiUsers;
 use Modules\Telegram\Services\LogMessageService;
-use Modules\Telegram\Services\Madeline\MadelineService;
 use Modules\Telegram\Services\User\UserApiFactory;
 
 class SyncCollect implements ShouldQueue
@@ -53,8 +52,6 @@ class SyncCollect implements ShouldQueue
 
             $madelineService = app(UserApiFactory::class)->forTelegramUser($this->tUsers);
 
-            $protoAPI = $madelineService->getApi();
-
             if ($this->tUsers->scan_date != today()->toDateString()) {
                 $this->tUsers->scan_count = 0;
                 $this->tUsers->scan_date = today()->toDateString();
@@ -75,18 +72,16 @@ class SyncCollect implements ShouldQueue
                     $phone->status = 'processing';
                     $phone->save();
 
-                    $user = $protoAPI->contacts->resolvePhone($phone->phone);
+                    $user = $madelineService->resolvePhone($phone->phone);
 
                     if (! empty($user['user'])) {
                         $u = $user['user'];
 
                         $avatarPath = null;
-                        if (! empty($u['photo'])) {
+                        if (! empty($u['has_photo'])) {
                             try {
-                                $photo = $u['photo'];
-                                $filePath = 'telegram/avatars/' . $u['id'] . '.jpg';
-                                $protoAPI->downloadToFile($photo, $filePath);
-                                $avatarPath = $filePath;
+                                // Telethon 把头像下载到共享媒体卷，返回容器内绝对路径
+                                $avatarPath = $madelineService->downloadUserAvatar((int) $u['id']);
                             } catch (\Throwable $e) {
                                 $avatarPath = null;
                             }

@@ -226,9 +226,51 @@ mysql -uroot -p -e "SHOW TABLES FROM bots LIKE 'bot_dayang_%permission%';"
 | `REDIS_HOST` `REDIS_PORT` `REDIS_PASSWORD` | 实际 Redis |
 | `REVERB_APP_ID` `REVERB_APP_KEY` `REVERB_APP_SECRET` | 与前端 `VITE_REVERB_*` 一致 |
 | `REVERB_HOST` / `REVERB_PORT` / `REVERB_SCHEME` | `botwss.dg178.top` / `443` / `https` |
-| `SANCTUM_STATEFUL_DOMAINS` / `SESSION_DOMAIN` | `botmg.dg178.top` / `.dg178.top` |
+| `SANCTUM_STATEFUL_DOMAINS` / `SESSION_DOMAIN` | 见下方说明（与容器间通信无关） |
 | `EXTERNAL_API_KEY` | 与前端 `VITE_API_KEY` 一致 |
 | `MAIL_*` / `AWS_*` / `ALIOSS_*` / `OPENAI_*` | 按需填写 |
+
+### 4.1 `SANCTUM_STATEFUL_DOMAINS` / `SESSION_DOMAIN` 怎么配
+
+> ⚠️ **这两个变量与容器间通信无关**。
+> 容器内部（PHP ↔ MySQL / Redis / `telegram-py`）走 Docker 网络服务名（`mysql`、`redis`、`telegram-py:8081`），
+> 不经过浏览器 cookie，因此这两个变量**完全不参与**。
+> 它们只影响 **浏览器 → Nginx → PHP** 这一跳（依据请求头的 Origin / Host 判定）。
+
+| 变量 | 含义 | 取值规则 |
+|---|---|---|
+| `SANCTUM_STATEFUL_DOMAINS` | 哪些来源的请求走 **cookie** 认证（stateful） | 浏览器地址栏的**域名**，不含协议；端口非 80/443 时要带端口 |
+| `SESSION_DOMAIN` | session cookie 的 domain | 带前导点（`.dg178.top`）= 允许**子域共享**；单域名用不带点的完整域名更精确安全 |
+
+**单域名方案（前端与 API 同域，推荐）**：
+
+```bash
+SANCTUM_STATEFUL_DOMAINS=bot.dg178.top
+SESSION_DOMAIN=bot.dg178.top
+```
+
+docker 开发环境（入口 `tgbot.local）则改为 `tgbot.local`。
+
+**例外**：若前端 dev server 直连（`:5173`）跨端口访问 API，属于跨源，需：
+
+```bash
+SANCTUM_STATEFUL_DOMAINS=bot.dg178.top,localhost:5173,127.0.0.1:5173
+```
+
+并同步配置 `config/cors.php`：`allowed_origins` 包含这些源、`supports_credentials => true`。
+
+### 4.2 密钥字段清单（模板里是空的，部署时必填）
+
+`.env.example` 里密钥一律留空是**有意为之**（模板进 git，写密钥等于泄露）。
+新环境部署时需自行生成/填写，对应关系如下：
+
+| 变量 | 来源 / 约束 |
+|---|---|
+| `APP_KEY` | `php artisan key:generate` 自动生成 |
+| `EXTERNAL_API_KEY` | 与前端 `VITE_API_KEY` **必须一致** |
+| `REVERB_APP_ID` / `REVERB_APP_KEY` / `REVERB_APP_SECRET` | 与前端 `VITE_REVERB_*` 一致 |
+| `TELETHON_CALLBACK_TOKEN` | 与 `telegram-py` 服务的 `CALLBACK_TOKEN` **必须一致** |
+| `DB_PASSWORD` / `REDIS_PASSWORD` | 按共享栈实际凭证 |
 
 ---
 

@@ -361,6 +361,49 @@ yarn install
 yarn build          # = vite build --mode production，产物 web/dist
 ```
 
+#### ⚠️ `yarn dev` 不会产出 dist（500 循环的根因）
+
+前端容器有两种运行模式，**不能混用**：
+
+| 模式 | 命令 | 产物 | nginx 该怎么配 |
+|---|---|---|---|
+| **开发服务器** | `yarn dev --host 0.0.0.0 --port 5173` | **无 dist**（仅内存编译，带 HMR） | `location /` 必须**反代**到 `http://tgbot-frontend:5173` |
+| **构建模式**（当前） | `yarn build --watch` | **产出 `web/dist`** | `location /` 用 `root .../web/dist` + `try_files` |
+
+若 nginx 用 `try_files $uri $uri/ /index.html` 读静态文件、但前端跑的是 `yarn dev`（dist 不存在），就会触发：
+
+```
+[error] rewrite or internal redirection cycle while internally redirecting to "/index.html"
+```
+
+→ nginx 返回 **500**。判断方法：
+
+```bash
+ls -l /var/www/easyTelegramManager/web/dist/index.html   # 不存在就是没构建
+```
+
+首次构建约需 **90 秒**，期间 `dist/index.html` 尚不存在，访问会 500 —— 等 `built in xxxms` 出现后再访问。
+
+**修改前端代码后**：`yarn build --watch` 会自动重新构建，无需手动操作；生产部署则在发布流程里执行一次 `yarn build`。
+
+#### 前端容器启动日志中的「无害噪声」
+
+`tgbot-frontend` 启动后可能打印以下内容，**均非故障**，看到不必处理：
+
+| 日志 | 说明 |
+|---|---|
+| `Error: spawn xdg-open ENOENT` | `web/vite.config.ts` 中 `open: true` 会尝试自动打开浏览器，容器内无桌面环境故失败。compose 已设 `BROWSER: none` 消除。dev server 本身正常。 |
+| `Browserslist: caniuse-lite is 13 months old` / `baseline-browser-mapping` | 浏览器兼容性数据过期提示，仅影响极旧的浏览器前缀判定，不影响构建与运行。可选更新：`npx update-browserslist-db@latest`。 |
+| `YN0060` / `YN0002`（yarn） | peer 依赖版本不匹配警告（如 eslint 与 eslint-config-standard），非致命，`yarn install` 仍返回 0。 |
+
+**判断前端是否真的起来了**，看这一行即可：
+
+```
+VITE v6.x.x  ready in xxx ms
+➜  Local:   http://localhost:5173/
+➜  Network: http://<容器 IP>:5173/
+```
+
 构建后注意：
 
 - 产物在 `web/dist`，Nginx 的 `root` 需指向它（见第 6 节）。

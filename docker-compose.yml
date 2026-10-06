@@ -44,7 +44,18 @@ services:
         image: stack-node:20
         container_name: tgbot-frontend
         working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}/web
-        command: sh -c "yarn install && yarn dev --host 0.0.0.0 --port 5173"
+        # 用 build --watch 而不是 yarn dev：
+        #   yarn dev    = 开发服务器（HMR），只在内存里编译，**不会产出 web/dist**
+        #   yarn build  = 产出 web/dist（nginx 静态托管读的就是它）
+        #   加 --watch  = 构建完不退出，持续监听源码变化并自动重新构建
+        # 若前端要改回走 vite dev server，这里换回 `yarn dev --host 0.0.0.0 --port 5173`，
+        # 同时 nginx 的 location / 必须改成反代 http://tgbot-frontend:5173（见 telegram-bot.conf）
+        command: sh -c "yarn install && yarn build --watch"
+        environment:
+            # vite.config.ts 中 open: true（自动打开浏览器）。容器内无桌面环境，
+            # 会报 "Error: spawn xdg-open ENOENT" —— 无害但刷屏。
+            # BROWSER=none 禁掉自动打开即可消除，不影响 dev server 本身。
+            BROWSER: none
         volumes:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}/web:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/web
             # node_modules 放容器卷，避免跨平台二进制互相覆盖

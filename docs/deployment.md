@@ -1,7 +1,8 @@
 # 部署文档：Telegram 机器人后台管理系统
 
-> 最后更新：2026-09-26
+> 最后更新：2026-10-06
 > 后端 Laravel 12 + CatchAdmin（PHP 8.2），前端 Vue3 + Vite（目录 `web/`，构建产物 `web/dist`）
+> 真实用户（MTProto）能力由 Python `telegram-py` 服务（Telethon）提供，Laravel 通过 HTTP 调用它
 
 ---
 
@@ -16,6 +17,7 @@
 | Web | Nginx ≥ 1.20 + php-fpm |
 | 进程管理 | Supervisor ≥ 4 |
 | 前端构建 | Node ≥ 18（yarn / npm） |
+| Telegram 账号能力 | Python 3.12 + Telethon（`telegram-py` 服务，端口 8081） |
 | 其它 | `tesseract-ocr`（OCR 功能依赖） |
 
 ```bash
@@ -42,11 +44,25 @@ cd telegram-bot
 ```bash
 composer install --no-dev --optimize-autoloader
 
-cp .env.example .env      # 必须先有 .env，否则 catch:install 会进入交互式建库流程
-cp .env .env.bak          # catch:install 出错时会删 .env，先备份
-# 按第 4 节填好 .env（尤其 DB_*、APP_URL、REVERB_*）
+cp .env.example .env      # 必须先有 .env，否则安装命令会进入交互式建库流程
 
-php artisan catch:install
+# ⚠️ 安装命令有副作用，执行前务必备份这三个文件
+cp .env .env.bak
+cp config/catch.php config/catch.php.bak
+cp composer.json composer.json.bak
+# 按第 4 节填好 .env（尤其 DB_*、APP_URL、REVERB_*、TELETHON_*）
+
+# 用 app:install，不要用 catch:install
+# ---------------------------------------------------------------
+# catch:install 内部以「子进程」执行 `artisan migrate`（见
+# vendor/catchadmin/core/src/Commands/InstallCommand.php::publishConfig()）。
+# 子进程没有 TTY，而 APP_ENV=production 时 migrate 会要求人工确认，
+# 拿不到输入就取消：APPLICATION IN PRODUCTION. Command cancelled.
+# 该命令又没有 --force 选项，所以 -it 也救不了（卡住的是子进程）。
+# app:install（app/Console/Commands/InstallApp.php）继承原命令，
+# 让子进程继承非 production 的 APP_ENV 跳过确认，容器内 / 生产环境可直接跑。
+php artisan app:install
+
 php artisan catch:module:install cms
 php artisan catch:module:install system
 php artisan catch:module:install telegram
@@ -57,16 +73,26 @@ sudo chown -R www-data:www-data storage bootstrap/cache
 sudo chmod -R 775 storage bootstrap/cache
 ```
 
-- `catch:install` 已完成：`key:generate`、发布配置、`user`/`develop` 迁移与 seed、安装 `permissions` 模块。
+装完**必须核对**被强制覆盖的文件并恢复（详见下方注意事项）：
+
+```bash
+diff config/catch.php config/catch.php.bak || cp config/catch.php.bak config/catch.php
+diff composer.json composer.json.bak   || cp composer.json.bak composer.json
+# 若安装失败导致 .env 被删除（命令出错时会 File::delete 掉它）
+[ -f .env ] || cp .env.bak .env
+php artisan config:clear
+```
+
+- `app:install` 已完成：`key:generate`、发布配置、`user`/`develop` 迁移与 seed、安装 `permissions` 模块。
   **`cms` / `system` / `telegram` 必须再单独安装**，否则后台对应菜单、路由、权限都不会注册。
 - 初始账号：`catch@admin.com` / `catchadmin`，上线后立即改密码。
 - 模块安装结果写入 `storage/app/modules.json`（不进 git，由命令生成）；丢失后重跑对应
   `php artisan catch:module:install {module}` 可重建。
-- ⚠️ `catch:install` 会用 vendor 版本**强制覆盖 `config/catch.php`**（`vendor:publish --tag=catch-config --force`），
+- ⚠️ `app:install`（原 `catch:install`）会用 vendor 版本**强制覆盖 `config/catch.php`**（`vendor:publish --tag=catch-config --force`），
   本项目对该文件的定制（`LocaleMiddleware`、`listen_db_log=false`、`super_admin` 走 env）会被还原成框架默认值。
   装完请确认该文件仍是仓库版本，若被覆盖需恢复并 `php artisan config:clear`。
 - 部署**不要用 `--reinstall`**（会 DROP 整个数据库）。
-- 仓库需带 `web/` 目录，缺失时 `catch:install` 会尝试从 Gitee 克隆前端。
+- 仓库需带 `web/` 目录，缺失时 `app:install` 会尝试从 Gitee 克隆前端。
 
 ---
 
@@ -210,15 +236,21 @@ stdout_logfile=/var/www/telegram-bot/storage/logs/queue.log
 numprocs=2
 process_name=%(program_name)s_%(process_num)02d
 
-[program:telegram-listener]
-command=php /var/www/telegram-bot/artisan telegram:multi-listen
-directory=/var/www/telegram-bot
-user=www-data
-autostart=true
-autorestart=true
-redirect_stderr=true
-stdout_logfile=/var/www/telegram-bot/storage/logs/telegram-listener.log
-stopwaitsecs=15
+; ⚠️ [已废弃] Telegram 常驻监听改由 Python Telethon 服务（`telegram-py` 容器）负责。
+; 不要再启动下面这个 program —— PHP(MadelineProto) 与 Python(Telethon) 同时监听会
+; 重复处理同一条消息/事件，导致表情与群成员数据重复落库。
+; docker compose 部署时 telegram-py 会自动启动；旧的 php 版 telegram 服务已加
+; profiles:["madeline-legacy"]，默认不启动（docker compose up -d 不会带起它）。
+;
+; [program:telegram-listener]
+; command=php /var/www/telegram-bot/artisan telegram:multi-listen
+; directory=/var/www/telegram-bot
+; user=www-data
+; autostart=true
+; autorestart=true
+; redirect_stderr=true
+; stdout_logfile=/var/www/telegram-bot/storage/logs/telegram-listener.log
+; stopwaitsecs=15
 ```
 
 ```bash
@@ -272,11 +304,14 @@ sudo systemctl reload nginx
 
 - [ ] PHP 8.2 扩展齐全、`tesseract-ocr` 已装
 - [ ] `.env` 已配：`APP_DEBUG=false`、`BROADCAST_DRIVER=reverb`、`QUEUE_CONNECTION=redis`、`REVERB_*` 与前端一致
-- [ ] `catch:install` 已跑，初始账号已改密码
+- [ ] `app:install` 已跑（容器内 / production 不要用 `catch:install`），初始账号已改密码
+- [ ] 被覆盖的 `config/catch.php` / `composer.json` 已按备份恢复，`.env` 仍在（未被安装命令删掉）
 - [ ] `cms` / `system` / `telegram` 三个模块已单独安装，`storage/app/modules.json` 含全部模块
 - [ ] `telegram:scan-activity` 已执行
 - [ ] `storage:link` 已建，`storage` / `bootstrap/cache` 属主为 `www-data`
 - [ ] 前端 `web/.env.production` 指向生产域名，已 `yarn build`
 - [ ] `nginx -t` 通过并已 reload
-- [ ] Supervisor 三个进程 RUNNING
+- [ ] Supervisor 进程 RUNNING（`reverb` + `queue` 两个；`telegram-listener` 已废弃，改由 `telegram-py` 负责）
+- [ ] `telegram-py` 容器 Up，`curl http://telegram-py:8081/health` 返回 `{"ok":true}`
+- [ ] 旧的 `tgbot-telegram` 容器**未运行**（`docker ps` 里不应出现），避免事件双处理
 - [ ] 防火墙只开 80/443；8080 / 9000 / 3306 / 6379 仅内网

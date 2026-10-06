@@ -63,9 +63,21 @@ cp composer.json composer.json.bak
 # 让子进程继承非 production 的 APP_ENV 跳过确认，容器内 / 生产环境可直接跑。
 php artisan app:install
 
-php artisan catch:module:install cms
-php artisan catch:module:install system
-php artisan catch:module:install telegram
+# 模块同样要用 app:module:install，不要用 catch:module:install
+# ---------------------------------------------------------------
+# catch:module:install 流程 = create -> catch:migrate {module} -> catch:db:seed {module}。
+# 而 catch:migrate 内部是（MigrateRun.php）：
+#     Artisan::call('migrate', ['--path' => $path, '--force' => $this->option('force')]);
+# Installer::migrate() 调用它时并没有带 --force，于是 APP_ENV=production 下
+# migrate 被安全确认拦截而取消（**不建表**）；但 MigrateRun 不检查返回码，
+# 照样打印 "migrate success"，紧接着 seed 访问表就报
+#     1146 Table 'xxx_cms_options' doesn't exist
+# —— 表象是「表不存在」，实际是迁移被静默取消。
+# app:module:install（app/Console/Commands/ModuleInstall.php）让子进程继承
+# 非 production 的 APP_ENV 跳过该确认。
+php artisan app:module:install cms
+php artisan app:module:install system
+php artisan app:module:install telegram
 php artisan telegram:scan-activity
 
 php artisan storage:link
@@ -87,11 +99,22 @@ php artisan config:clear
   **`cms` / `system` / `telegram` 必须再单独安装**，否则后台对应菜单、路由、权限都不会注册。
 - 初始账号：`catch@admin.com` / `catchadmin`，上线后立即改密码。
 - 模块安装结果写入 `storage/app/modules.json`（不进 git，由命令生成）；丢失后重跑对应
-  `php artisan catch:module:install {module}` 可重建。
+  `php artisan app:module:install {module}` 可重建。
+- 若之前误用了 `catch:module:install` 并失败：模块已被写进 `modules.json` 但表没建，
+  先 `php artisan catch:migrate {module} --force` 补建表，再跑 `app:module:install {module}`。
 - ⚠️ `app:install`（原 `catch:install`）会用 vendor 版本**强制覆盖 `config/catch.php`**（`vendor:publish --tag=catch-config --force`），
   本项目对该文件的定制（`LocaleMiddleware`、`listen_db_log=false`、`super_admin` 走 env）会被还原成框架默认值。
   装完请确认该文件仍是仓库版本，若被覆盖需恢复并 `php artisan config:clear`。
 - 部署**不要用 `--reinstall`**（会 DROP 整个数据库）。
+- ⚠️ **长表前缀会导致 MySQL 索引名超长**：索引名上限 64 字符，而 Laravel 自动生成的索引名
+  = `{表前缀}{表名}_{列1}_{列2}_index|_unique`。生产库前缀 `bot_dayang_`（11 字符）较长，
+  已踩过两处并修复（均改为显式短索引名）：
+  - `database/migrations/2019_12_14_000001_create_personal_access_tokens_table.php`
+    （不用 `morphs()`，改 `pat_tokenable_index`，原名 67 字符）
+  - `modules/Telegram/.../2025_01_27_000003_create_exchange_rates_table.php`
+    （`uk_exchange_rate`，原名 69 字符）
+  新增多列索引时务必显式命名并核算长度；报错特征：`SQLSTATE[42000] 1059 Identifier name ... is too long`。
+  若反复踩，最彻底的办法是缩短 `DB_PREFIX`（如 `bd_`）后重建表。
 - 仓库需带 `web/` 目录，缺失时 `app:install` 会尝试从 Gitee 克隆前端。
 
 ---
@@ -279,12 +302,14 @@ cd /var/www/telegram-bot
 git pull origin main
 composer install --no-dev --optimize-autoloader
 
-php artisan migrate
-php artisan catch:migrate user
-php artisan catch:migrate develop
-php artisan catch:migrate cms
-php artisan catch:migrate system
-php artisan catch:migrate telegram
+# production 下必须加 --force，否则 migrate 会被安全确认拦截而静默跳过
+#（catch:migrate 甚至会打印 "migrate success" 但实际没执行，见第 3 节说明）
+php artisan migrate --force
+php artisan catch:migrate user --force
+php artisan catch:migrate develop --force
+php artisan catch:migrate cms --force
+php artisan catch:migrate system --force
+php artisan catch:migrate telegram --force
 php artisan telegram:scan-activity
 
 php artisan config:clear && php artisan config:cache
@@ -306,7 +331,8 @@ sudo systemctl reload nginx
 - [ ] `.env` 已配：`APP_DEBUG=false`、`BROADCAST_DRIVER=reverb`、`QUEUE_CONNECTION=redis`、`REVERB_*` 与前端一致
 - [ ] `app:install` 已跑（容器内 / production 不要用 `catch:install`），初始账号已改密码
 - [ ] 被覆盖的 `config/catch.php` / `composer.json` 已按备份恢复，`.env` 仍在（未被安装命令删掉）
-- [ ] `cms` / `system` / `telegram` 三个模块已单独安装，`storage/app/modules.json` 含全部模块
+- [ ] `cms` / `system` / `telegram` 已用 **`app:module:install`** 单独安装，`storage/app/modules.json` 含全部模块
+- [ ] 各模块的表确实建出来了（`SHOW TABLES` 核对），没出现 `1146 Table doesn't exist`
 - [ ] `telegram:scan-activity` 已执行
 - [ ] `storage:link` 已建，`storage` / `bootstrap/cache` 属主为 `www-data`
 - [ ] 前端 `web/.env.production` 指向生产域名，已 `yarn build`

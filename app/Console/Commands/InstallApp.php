@@ -27,6 +27,9 @@ class InstallApp extends InstallCommand
     /** 子进程用来跳过 migrate 确认的环境名 */
     private const BYPASS_ENV = 'local';
 
+    /** 安装过程中是否发生失败（由 publishConfig() 记录，因为父类吞异常） */
+    private bool $installFailed = false;
+
     /** @var string */
     protected $signature = 'app:install {--reinstall}';
 
@@ -43,6 +46,41 @@ class InstallApp extends InstallCommand
             $_SERVER['APP_ENV'] = self::BYPASS_ENV;
         }
 
+        $this->info('开始安装 CatchAdmin（已跳过 migrate 的交互确认）');
+
+        // 注意：parent::handle() 内部就 catch 了异常（还会 File::delete 掉 .env），
+        // 不会向外抛，所以这里拿不到异常，只能靠下面两个信号判断是否失败。
+        $envPath = app()->environmentFilePath();
+        $envExisted = file_exists($envPath);
+
         parent::handle();
+
+        $envDeleted = $envExisted && ! file_exists($envPath);
+        $failed = $this->installFailed || $envDeleted;
+
+        $this->newLine();
+        if ($failed) {
+            $this->error('CatchAdmin 安装失败 ❌ —— 请看上方错误输出。');
+            if ($envDeleted) {
+                $this->error("注意：安装失败时原命令会删除 {$envPath}，请从备份恢复后重试。");
+            }
+            return;
+        }
+
+        $this->info('CatchAdmin 安装完成 ✅');
+    }
+
+    /**
+     * 父类把异常包成 FailedException 抛给 handle() 的 catch（该 catch 会删 .env 并打印错误）。
+     * 这里插一脚记录失败状态，好让 handle() 能给出明确结论。
+     */
+    protected function publishConfig(): void
+    {
+        try {
+            parent::publishConfig();
+        } catch (\Throwable $e) {
+            $this->installFailed = true;
+            throw $e;
+        }
     }
 }

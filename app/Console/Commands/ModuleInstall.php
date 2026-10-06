@@ -2,8 +2,9 @@
 
 namespace App\Console\Commands;
 
+use Catch\Facade\Module;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Collection;
 
 /**
  * 容器内 / 生产环境可用的 CatchAdmin 模块安装命令。
@@ -33,13 +34,15 @@ class ModuleInstall extends Command
     private const BYPASS_ENV = 'local';
 
     /** @var string */
-    protected $signature = 'app:module:install {module}';
+    protected $signature = 'app:module:install {module} {--force}';
 
     /** @var string */
     protected $description = '安装 CatchAdmin 模块（容器内 / production 可用，自动跳过 migrate 的交互确认）';
 
     public function handle(): int
     {
+        $module = (string) $this->argument('module');
+
         // 只影响子进程 / 被调用的 Artisan 命令读到的环境，不改变当前进程已加载的配置
         if ($this->laravel->environment() === 'production') {
             putenv('APP_ENV=' . self::BYPASS_ENV);
@@ -47,8 +50,56 @@ class ModuleInstall extends Command
             $_SERVER['APP_ENV'] = self::BYPASS_ENV;
         }
 
-        return Artisan::call('catch:module:install', [
-            'module' => $this->argument('module'),
-        ]);
+        // 先判断是否已安装：catch:module:install 在已安装时会 $this->error(...) 后直接 exit，
+        // 那会让本命令后续代码（成功提示）根本执行不到，看起来像静默退出。
+        if (! $this->option('force') && $this->isInstalled($module)) {
+            $this->warn("模块 [{$module}] 已安装，跳过。如需强制重新安装请加 --force。");
+            return self::SUCCESS;
+        }
+
+        $this->info("开始安装模块 [{$module}]（已跳过 migrate 的交互确认）");
+
+        $params = ['module' => $module];
+        if ($this->option('force')) {
+            // 对应 catch:module:install 的 --f：跳过已安装检查，强制重装
+            $params['--f'] = true;
+        }
+
+        try {
+            // 用 $this->call() 而不是 Artisan::call()：
+            // Artisan::call() 会把子命令输出全部吞进缓冲区，终端看不到任何内容，
+            // 异常也被 Symfony 捕获写进缓冲区，导致成功/失败都是静默的。
+            // $this->call() 会把输出透传到当前终端。
+            $exitCode = $this->call('catch:module:install', $params);
+        } catch (\Throwable $e) {
+            $this->newLine();
+            $this->error("模块 [{$module}] 安装抛出异常：");
+            $this->line('  ' . $e->getMessage());
+            if ($this->output->isVerbose()) {
+                $this->line($e->getTraceAsString());
+            }
+            return self::FAILURE;
+        }
+
+        $this->newLine();
+        if ($exitCode !== 0) {
+            $this->error("模块 [{$module}] 安装失败（退出码 {$exitCode}），请查看上方输出定位原因。");
+            return $exitCode;
+        }
+
+        $this->info("模块 [{$module}] 安装成功 ✅");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * 复用 vendor 的判断逻辑：已启用模块 + config('catch.module.default') 视为已安装。
+     */
+    private function isInstalled(string $module): bool
+    {
+        return Module::getEnabled()
+            ->pluck('name')
+            ->merge(Collection::make(config('catch.module.default')))
+            ->contains(lcfirst($module));
     }
 }

@@ -28,7 +28,9 @@ return new class extends Migration
             $table->deletedAt();
 
             // 索引
-            $table->unique(['from_currency', 'to_currency', 'deleted_at']);
+            // 显式命名：自动生成名 = {前缀}exchange_rates_from_currency_to_currency_deleted_at_unique，
+            // 长表前缀下会超过 MySQL 索引名 64 字符上限（报错 1059）。
+            $table->unique(['from_currency', 'to_currency', 'deleted_at'], 'uk_exchange_rate');
             $table->index('status');
         });
     }

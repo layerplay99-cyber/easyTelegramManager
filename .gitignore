@@ -12,6 +12,9 @@
 nohup.out
 .env.backup
 .env.production
+# 前端本地开发配置（docker 环境的接口地址 + API key），不进仓库；
+# 模板见 web/.env.development.example
+.env.development
 .phpunit.result.cache
 .php-cs-fixer.cache
 Homestead.json

@@ -42,7 +42,9 @@ return new class extends Seeder
                 'module'          => 'develop',
                 'permission_mark' => '',
                 'component'       => '/layout/index.vue',
-                'redirect'        => '/develop/schemas',
+                // 同 TelegramMenusSeeder：父菜单有 children 时前端渲染为可展开菜单，
+                // 设 redirect 会造成重定向循环，故留空。
+                'redirect'        => '',
                 'keepalive'       => 1,
                 'type'            => 1,
                 'hidden'          => 0,

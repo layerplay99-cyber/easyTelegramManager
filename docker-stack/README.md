@@ -61,7 +61,13 @@ sudo cp -r /path/to/telegram-bot/. /opt/projects/telegram-bot/
 #    REVERB_HOST=tgbot.local
 #    VITE_BASE_URL=http://tgbot.local/api/
 #    VITE_REVERB_HOST=tgbot.local
-#    （仓库根 .env 里额外加一行：PROJECTS_ROOT=/opt/projects）
+#    # 项目代码位置（两处 PROJECTS_ROOT 必须一致！）：
+#    PROJECTS_ROOT=/var/www            # 项目代码所在的根目录（共享栈的 nginx 也按它挂载）
+#    PROJECT_DIR=easyTelegramManager   # 本项目在 PROJECTS_ROOT 下的目录名
+#
+# 说明：项目不必非得放在 /opt/projects 下。只要「共享栈 .env 的 PROJECTS_ROOT」
+#      和「项目 .env 的 PROJECTS_ROOT」指向同一个父目录，且 PROJECT_DIR 等于项目
+#      实际目录名，挂载与 nginx 的 SCRIPT_FILENAME 就能对上。
 
 # 3. 启动本项目 app 容器（复用 stack-php / stack-node 镜像，接入 stack 网络）
 cd /opt/projects/telegram-bot
@@ -131,3 +137,16 @@ docker compose exec nginx nginx -s reload
 ```
 
 完整的新项目接入流程见「二、接入一个项目」+ 本章六、七。
+
+## 八、常见排错
+
+- **`The "PROJECTS_ROOT" variable is not set`**：项目 `.env` 里缺少 `PROJECTS_ROOT`
+  （`.env` 被 gitignore，部署时容易漏）。补上 `PROJECTS_ROOT` 与 `PROJECT_DIR` 即可。
+- **`pull access denied for stack-php` / `No such image: stack-php:8.4`**：公共镜像还没构建。
+  共享栈必须先 `docker compose build php node` 再 `up -d mysql redis pgsql nginx node`，
+  项目 compose 用的是 `image: stack-php:8.4` 本地镜像，不会自己 build，也不会去拉 registry。
+- **502 / `Primary script unknown`**：nginx 的 `SCRIPT_FILENAME` 路径与 php 容器挂载路径不一致。
+  核对共享栈 `PROJECTS_ROOT` 与项目 `PROJECTS_ROOT`/`PROJECT_DIR` 是否一致，
+  以及 vhost 里的 `/opt/projects/<PROJECT_DIR>/public` 是否正确。
+- **php 容器启动即退出**：项目 compose 的 php 服务使用 `image:` 而非 `build:`，不会自己构建镜像；
+  必须先在共享栈构建好 `stack-php:8.4`。

@@ -64,7 +64,10 @@ return new class extends Seeder
                 'module'          => 'telegram',
                 'permission_mark' => '',
                 'component'       => '/layout/index.vue',
-                'redirect'        => '/collect/phone',
+                // 不要设 redirect：父菜单有 children 时前端渲染为「可展开 subMenu」
+                // （点击展开子菜单，不跳转路由）。若再给父路由加 redirect 指向子路由，
+                // 访问子路径时会反复命中父路由的 redirect，造成重定向死循环（页面刷屏）。
+                'redirect'        => '',
                 'keepalive'       => 1,
                 'type'            => 1,
                 'hidden'          => 0,
@@ -89,7 +92,7 @@ return new class extends Seeder
                 'module'          => 'telegram',
                 'permission_mark' => '',
                 'component'       => '/layout/index.vue',
-                'redirect'        => '/activity/funs',
+                'redirect'        => '',
                 'keepalive'       => 1,
                 'type'            => 1,
                 'hidden'          => 0,
@@ -110,7 +113,7 @@ return new class extends Seeder
                 'module'          => 'telegram',
                 'permission_mark' => '',
                 'component'       => '/layout/index.vue',
-                'redirect'        => '/telegram/apiuser',
+                'redirect'        => '',
                 'keepalive'       => 1,
                 'type'            => 1,
                 'hidden'          => 0,

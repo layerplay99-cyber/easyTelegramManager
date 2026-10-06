@@ -72,24 +72,10 @@ return new class extends Seeder
                         'updated_at'      => $now,
                         'deleted_at'      => 0,
                     ],
-                    [
-                        'permission_name' => '代码生成',
-                        'route'           => '/develop/generate',
-                        'icon'            => 'code',
-                        'module'          => 'develop',
-                        'permission_mark' => '',
-                        'component'       => '/develop/generate/index.vue',
-                        'redirect'        => '',
-                        'keepalive'       => 1,
-                        'type'            => 2,
-                        'hidden'          => 0,
-                        'sort'            => 2,
-                        'active_menu'     => '',
-                        'creator_id'      => 1,
-                        'created_at'      => $now,
-                        'updated_at'      => $now,
-                        'deleted_at'      => 0,
-                    ],
+                    // 注意：「代码生成」不能做成菜单项。
+                    // 它的路由是 /develop/generate/:schema（需要 schema 参数，静态路由里 hidden:true），
+                    // 是从 Schema 列表点击某条记录进入的下钻页；作为菜单直连会因缺少参数，
+                    // 后端 Generator 拿到 null 报 "Attempt to read property \"name\" on null"。
                     [
                         'permission_name' => '模块管理',
                         'route'           => '/develop/module',

@@ -234,7 +234,69 @@ mysql -uroot -p -e "SHOW TABLES FROM bots LIKE 'bot_dayang_%permission%';"
 
 ## 5. 前端构建
 
-`VITE_*` 在**构建时**注入，改了必须重新 build。
+### 5.1 先搞清楚：web/ 下有好几个 env 文件，该复制哪个？
+
+`VITE_*` 在**构建时**注入（不是运行时），改了必须重新 `yarn build`。
+
+Vite 按 **mode** 加载不同文件，同名 key 以高优先级为准：
+
+| 命令 | mode | 加载顺序（后者覆盖前者） |
+|---|---|---|
+| `yarn dev` | development | `.env.development` > `.env` |
+| `yarn build` | production | `.env.production` > `.env` |
+
+`web/` 下各文件的分工：
+
+| 文件 | 用途 | 是否入库 |
+|---|---|---|
+| `web/.env` | 兜底默认值，两个 mode 都会读 | ❌ 已忽略（含真实 KEY） |
+| `web/.env.development` | **本地开发**（`yarn dev` 读），走共享栈 `http://tgbot.local/api` | ❌ 已忽略（含真实 KEY） |
+| `web/.env.development.example` | 本地开发模板，直连 `127.0.0.1:8088` | ✅ 入库 |
+| `web/.env.example` | **生产构建**模板 → 复制成 `.env.production` | ✅ 入库 |
+| `web/.env.production` | 生产构建实际读取的文件 | ❌ 已忽略 |
+
+**结论**：
+
+- **本地开发**：直接用仓库里现成的 `web/.env.development`，**不用复制任何文件**。
+  只有想直连本地后端端口（不走 nginx 域名）时才：
+  ```bash
+  cd web && cp .env.development.example .env.development    # 然后填 VITE_API_KEY
+  ```
+
+#### 单域名 + path 区分（推荐，当前方案）
+
+前后端共用一个域名，靠 path 分流：
+
+| path | 去向 |
+|---|---|
+| `/` | 前端页面（`web/dist` 静态，或 dev 模式下反代 vite :5173） |
+| `/api` | 后端接口（php-fpm） |
+| `/app` | Reverb WebSocket（反代到 `tgbot-reverb:8080`） |
+
+对应的 `web/.env*`：
+
+| 变量 | HTTP 取值 | HTTPS 取值 |
+|---|---|---|
+| `VITE_BASE_URL` | `http://<域名>/api` | `https://<域名>/api` |
+| `VITE_REVERB_HOST` | `<域名>` | `<域名>` |
+| `VITE_REVERB_PORT` | **`80`** | **`443`** |
+| `VITE_REVERB_SCHEME` | `http` | `https` |
+| `VITE_REVERB_USE_TLS` | `false` | `true` |
+| `VITE_WSS_URL` | `ws://<域名>/app` | `wss://<域名>/app` |
+
+> ⚠️ **最常见的坑**：`VITE_REVERB_PORT` 要填 **Nginx 的端口（80/443）**，
+> 不是 Reverb 的 `8080` —— 因为 WebSocket 走的是 Nginx 的 `/app` 反代。
+> 若填 `8080` 且前端写成 `ws://<域名>:8080`，则是**绕过 Nginx 直连 Reverb**，
+> 需要 Reverb 端口对公网放开（不推荐）。
+
+Nginx 侧见 `docker-stack/conf/nginx/sites/telegram-bot.conf`（已按此约定配置）；
+生产请把 `location /` 切换为 `web/dist` 静态托管，并加 HTTPS（配置示例见该文件末尾注释）。
+- **生产构建**：复制 `.env.example`（见 5.2）。
+
+> ⚠️ 别把 `web/.env.development` 拷到生产 —— 它指向 `tgbot.local` 且是明文 KEY。
+> 这三个含密钥的文件都被根 `.gitignore` 忽略（第 11/14/17 行），不会进仓库。
+
+### 5.2 生产构建
 
 ```bash
 cd web
@@ -256,6 +318,13 @@ cp .env.example .env.production
 yarn install
 yarn build          # = vite build --mode production，产物 web/dist
 ```
+
+构建后注意：
+
+- 产物在 `web/dist`，Nginx 的 `root` 需指向它（见第 6 节）。
+- 改了任何 `VITE_*` 都要**重新 `yarn build`**，否则不生效（dev 模式改了也只在 dev 生效）。
+- `VITE_API_KEY` 必须与后端 `.env` 的 `EXTERNAL_API_KEY` 一致，否则外部 API 调用签名校验失败。
+- `VITE_REVERB_*` 与后端 `.env` 的 `REVERB_*` 保持一致，否则 WebSocket 连不上。
 
 ---
 

@@ -41,8 +41,11 @@
                 </el-table-column>
                 <el-table-column prop="created_at" label="创建时间" />
                 <el-table-column prop="updated_at" label="更新时间" />
-                <el-table-column label="操作" width="380">
+                <el-table-column label="操作" width="460">
                     <template #default="scope">
+                        <el-button type="info" size="small" :loading="scope.row.infoLoading" @click="handleViewWebhook(scope.row)">
+                            <Icon name="info" className="w-4 h-4 mr-1" /> 查看状态
+                        </el-button>
                         <el-button type="success" size="small" @click="openBotBroadcastDialog(scope.row)">
                             <Icon name="paper-plane" className="w-4 h-4 mr-1" /> 群发
                         </el-button>
@@ -64,6 +67,46 @@
             :bot-id="broadcastDialog.botId"
             @success="handleBroadcastSuccess"
         />
+
+        <!-- Webhook 状态查看对话框 -->
+        <el-dialog v-model="webhookInfoVisible" title="Webhook 状态" width="640px" destroy-on-close>
+            <div v-loading="webhookInfoLoading">
+                <el-alert
+                    v-if="webhookInfo"
+                    :type="webhookStatusType"
+                    :title="webhookStatusTitle"
+                    :description="webhookStatusDesc"
+                    show-icon
+                    class="mb-3"
+                />
+                <el-descriptions v-if="webhookInfo" :column="1" border size="small">
+                    <el-descriptions-item label="回调地址（Telegram 实际注册）">
+                        {{ webhookInfo.url || '（未设置）' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="最后错误时间">
+                        {{ webhookInfo.last_error_date ? formatTs(webhookInfo.last_error_date) : '—' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="最后错误信息">
+                        <span :class="webhookInfo.last_error_message ? 'text-red-500' : ''">
+                            {{ webhookInfo.last_error_message || '无' }}
+                        </span>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="积压更新数">
+                        {{ webhookInfo.pending_update_count ?? '—' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="最大连接数">
+                        {{ webhookInfo.max_connections ?? '—' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="允许更新类型">
+                        {{ (webhookInfo.allowed_updates && webhookInfo.allowed_updates.length) ? webhookInfo.allowed_updates.join(', ') : '全部' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="自建证书">
+                        {{ webhookInfo.has_custom_certificate ? '是' : '否' }}
+                    </el-descriptions-item>
+                </el-descriptions>
+                <div v-else class="text-gray-400 text-sm">暂无数据</div>
+            </div>
+        </el-dialog>
     </div>
 </template>
 
@@ -139,6 +182,56 @@ const openBotBroadcastDialog = (row: any) => {
 // 消息群发成功回调
 const handleBroadcastSuccess = () => {
     // 不需要在这里显示提示，子组件已经处理了
+}
+
+// Webhook 状态查看
+const webhookInfoVisible = ref(false)
+const webhookInfoLoading = ref(false)
+const webhookInfo = ref<any>(null)
+
+const webhookStatusType = computed<'success' | 'warning' | 'error' | 'info'>(() => {
+    if (!webhookInfo.value) return 'info'
+    if (!webhookInfo.value.url) return 'warning'
+    if (webhookInfo.value.last_error_message) return 'error'
+    return 'success'
+})
+const webhookStatusTitle = computed(() => {
+    if (!webhookInfo.value) return ''
+    if (!webhookInfo.value.url) return '尚未设置 Webhook'
+    if (webhookInfo.value.last_error_message) return 'Webhook 异常'
+    return 'Webhook 正常'
+})
+const webhookStatusDesc = computed(() => {
+    if (!webhookInfo.value) return ''
+    if (!webhookInfo.value.url) return '该机器人未向 Telegram 注册回调地址，请先在列表开启「激活」。'
+    if (webhookInfo.value.last_error_message) return 'Telegram 最近一次投递失败：多为回调地址无法公网访问、非 HTTPS、证书问题或 secret_token 不匹配。'
+    return 'Telegram 已成功注册回调地址，机器人可正常接收消息。'
+})
+
+const formatTs = (ts: number) => {
+    if (!ts) return '—'
+    return new Date(ts * 1000).toLocaleString()
+}
+
+const handleViewWebhook = async (row: any) => {
+    row.infoLoading = true
+    webhookInfoLoading.value = true
+    webhookInfo.value = null
+    try {
+        const result = await telegramStore.getWebhookInfo(row.id)
+        const payload = result.data
+        if (result.success && payload?.status === 'ok') {
+            webhookInfo.value = payload.data
+            webhookInfoVisible.value = true
+        } else {
+            Message.error(payload?.message || result.message || '获取状态失败')
+        }
+    } catch (e) {
+        Message.error('获取状态失败')
+    } finally {
+        row.infoLoading = false
+        webhookInfoLoading.value = false
+    }
 }
 
 onMounted(() => {

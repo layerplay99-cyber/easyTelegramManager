@@ -42,6 +42,9 @@ Route::prefix('api')->group(function () {
             Route::put('del/{id}', [WebHookController::class, 'deleteWebhook'])
                 ->whereNumber('id')
                 ->name('api.webhook.delete');
+            Route::get('info/{id}', [WebHookController::class, 'getWebhookInfo'])
+                ->whereNumber('id')
+                ->name('api.webhook.info');
         });
     });
 

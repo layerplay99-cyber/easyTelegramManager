@@ -126,6 +126,15 @@ export const useTelegramStore = defineStore('telegram', () => {
     }, signatureHeaders)
   }
 
+  // 查看机器人 webhook 状态（Telegram 端实际注册的回调地址与错误）
+  const getWebhookInfo = async (botId: number): Promise<ApiResponse> => {
+    const signatureHeaders = await generateApiSignature()
+
+    return apiRequest(`webhook/info/${botId}`, {
+      method: 'GET',
+    }, signatureHeaders)
+  }
+
   // 获取用户列表
   const getUserList = async (params?: Record<string, any>): Promise<ApiResponse> => {
     const queryString = params ? `?${new URLSearchParams(params).toString()}` : ''
@@ -271,5 +280,6 @@ export const useTelegramStore = defineStore('telegram', () => {
     loadThirdConfigList,
     setBotWebHook,
     delBotWebHook,
+    getWebhookInfo,
   }
 })

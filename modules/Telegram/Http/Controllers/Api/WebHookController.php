@@ -177,4 +177,44 @@ class WebHookController extends CatchController
             ], 500);
         }
     }
+
+    /**
+     * 获取 Webhook 信息（Telegram 端实际注册的回调地址与错误状态）
+     *
+     * 用于后台「查看状态」：返回 Telegram 实际登记的 url、最近错误、积压更新数等，
+     * 比我们库里存的 webhook_url 更权威（setWebhook 成功不代表 URL 真的可达）。
+     */
+    public function getWebhookInfo(int|string $id): JsonResponse
+    {
+        try {
+            $bot = $this->bots->find($id);
+
+            if (! $bot || empty($bot->api_token)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Bot not found or api_token is empty',
+                ], 404);
+            }
+
+            $telegram = $this->botApiFactory->forBot($bot);
+            $info = $telegram->getWebhookInfo();
+
+            return response()->json([
+                'status' => 'ok',
+                'data' => method_exists($info, 'toArray') ? $info->toArray() : (array) $info,
+            ]);
+        } catch (\Throwable $e) {
+            $this->logMessageService->createLaravelLog(
+                'telegram_error',
+                ['trace' => $e->getTraceAsString()],
+                'Get Telegram Webhook Info Error: ' . $e->getMessage(),
+                'error'
+            );
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

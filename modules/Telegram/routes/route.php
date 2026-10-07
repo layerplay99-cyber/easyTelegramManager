@@ -24,6 +24,15 @@ Route::prefix('telegram')->group(function(){
     Route::apiResource('bot/group/group', BotGroupGroupController::class);
     Route::apiResource('bot/group/config', GroupConfigController::class);
     Route::apiResource('bot/group/cp', ServicePeopleController::class);
+
+    // 注意：这些 features/xxx 具体路由必须注册在 apiResource('features') 之前。
+    // apiResource 会生成 GET features/{feature}，两段路径的 features/drivers、
+    // features/custom、features/options 会被 {feature} 抢先匹配成 show('drivers')，
+    // 导致返回空数据（后台执行器下拉没内容）。
+    Route::get('features/drivers', [FeaturesController::class, 'drivers']);
+    Route::get('features/custom', [FeaturesController::class, 'customFeatures']);
+    Route::get('features/options', [FeaturesController::class, 'options']);
+
     Route::apiResource('features', FeaturesController::class);
     Route::apiResource('feature/bind', FeatureBindsController::class);
     Route::apiResource('third/config', ThridConfigController::class);
@@ -40,10 +49,7 @@ Route::prefix('telegram')->group(function(){
     // 代码里已实现的斜杠命令清单（后台新增命令时选，避免手敲 handler）
     Route::get('features/slash/commands', [FeaturesController::class, 'slashCommands']);
 
-    // 功能列表无代码化：执行器schema（前端自动渲染表单）/ 自定义功能清单 / 功能下的命令管理
-    Route::get('features/drivers', [FeaturesController::class, 'drivers']);
-    Route::get('features/custom', [FeaturesController::class, 'customFeatures']);
-    Route::get('features/options', [FeaturesController::class, 'options']);
+    // 功能下的命令管理（{id} 占位，三段路径，不会与上面的具体路由冲突）
     Route::get('features/{id}/commands', [FeaturesController::class, 'commands']);
     Route::post('features/{id}/commands', [FeaturesController::class, 'saveCommands']);
 

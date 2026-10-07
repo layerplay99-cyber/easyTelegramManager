@@ -433,9 +433,12 @@ const emit = defineEmits(['close'])
 onMounted(() => {
   close(() => emit('close'))
   loadDrivers()
-  if (!props.primary) {
-    // 新建时给个默认
-    ;(formData.value as any).driver = 'telegram.api'
+
+  if (!props.primary && formData.value) {
+    // 新建时不再硬塞默认值：执行器需要用户显式选择，
+    // 否则会出现「有默认 driver 但下拉里没对应选项」的困惑。
+    // 只给触发方式一个常用默认值。
+    ;(formData.value as any).driver = ''
     ;(formData.value as any).trigger = 'command'
   }
 })

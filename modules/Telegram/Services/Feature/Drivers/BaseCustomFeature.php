@@ -100,11 +100,16 @@ abstract class BaseCustomFeature implements FeatureDriver
     // ------------------------------------------------------------------
 
     /**
-     * 功能唯一标识，用于幂等 upsert，默认用类名
+     * 功能唯一标识，用于幂等 upsert
+     *
+     * 默认用「短类名」（不含命名空间），避免出现
+     * Modules\Telegram\Services\Feature\Drivers\Custom\Xxx 这种把代码目录结构
+     * 暴露到数据库里的长标识。需要更语义化的标识时覆盖本方法即可，
+     * 例如 return 'merchant_balance';
      */
     public static function featureKey(): string
     {
-        return static::class;
+        return class_basename(static::class);
     }
 
     public static function featureDescription(): string

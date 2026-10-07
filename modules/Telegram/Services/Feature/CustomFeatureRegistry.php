@@ -88,7 +88,21 @@ class CustomFeatureRegistry
     {
         $key = 'custom:' . $class::featureKey();
 
+        // 兼容旧数据：早期 featureKey 默认返回完整类名，标识很长且暴露目录结构。
+        // 先按新（短）标识找，找不到再按旧的完整类名找，找到就把它迁移到短标识，
+        // 避免产生两条重复功能记录。
         $existing = Features::query()->where('feature', $key)->first();
+
+        if (! $existing) {
+            $legacyKey = 'custom:' . $class;
+
+            $existing = Features::query()->where('feature', $legacyKey)->first();
+
+            if ($existing) {
+                $existing->feature = $key;
+                $existing->save();
+            }
+        }
 
         $payload = [
             'name' => $class::featureName(),

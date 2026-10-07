@@ -15,8 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $username
  * @property string $status
  * @property bool $is_bot
- * @property \Illuminate\Support\Carbon|null $joined_at
- * @property \Illuminate\Support\Carbon|null $left_at
+ * @property int|null $joined_at  Unix 时间戳
+ * @property int|null $left_at  Unix 时间戳
  * @property int $creator_id
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
@@ -85,9 +85,23 @@ class GroupMembers extends Model
 
     protected $casts = [
         'is_bot' => 'boolean',
-        'joined_at' => 'datetime',
-        'left_at' => 'datetime',
     ];
+
+    /**
+     * 把 joined_at / left_at 也登记为日期列
+     *
+     * Laravel 12 的 getDates() 硬编码只返回 created_at/updated_at（$dates 属性已失效），
+     * 自定义时间列必须覆写此方法登记。否则 fill()/setAttribute() 不会调用
+     * fromDateTime()，Carbon 被原样交给 PDO 转成 'Y-m-d H:i:s' 字符串，
+     * 存入 unsigned int 列时报 1265 Data truncated。
+     * 登记后由基类 $dateFormat='U' 统一格式化为 Unix 整数。
+     *
+     * 注意：不能用 'datetime' / 'timestamp' cast——它们同样会输出字符串。
+     */
+    public function getDates(): array
+    {
+        return array_merge(parent::getDates(), ['joined_at', 'left_at']);
+    }
 
     // 关联关系
     public function botGroup(): BelongsTo

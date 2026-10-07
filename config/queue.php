@@ -66,7 +66,11 @@ return [
             'driver' => 'redis',
             'connection' => 'default',
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => 90,
+            // 必须大于 worker 的 --timeout（docker-compose 里是 180）。
+            // 否则任务还在执行，redis 已把同一任务重新投递给另一个 worker，
+            // 造成同一条消息被重复发送（本项目历史上出现过）。
+            // 取 timeout 的 2 倍，留出网络/DB 抖动余量。
+            'retry_after' => 360,
             'block_for' => null,
             'after_commit' => false,
         ],

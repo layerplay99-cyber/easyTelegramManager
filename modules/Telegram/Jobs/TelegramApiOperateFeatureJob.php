@@ -229,14 +229,19 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
 
         $chatId = (string) ($this->payload['chat_id'] ?? '');
 
+        // 必须用 Eloquent 逐条更新，不能用 Query Builder 的 update()：
+        // Query Builder 不做日期转换，now() 会被 PDO 转成 'Y-m-d H:i:s' 字符串，
+        // 写入 unsigned int 的 sent_at 列时报 1265 Data truncated。
         \Modules\Telegram\Models\MessageSendLog::query()
             ->where('send_id', $this->sendId)
             ->where('chat_id', $chatId)
-            ->update([
-                'status' => $status,
-                'error' => $error,
-                'sent_at' => now(),
-            ]);
+            ->get()
+            ->each(function ($log) use ($status, $error) {
+                $log->status = $status;
+                $log->error = $error;
+                $log->sent_at = now();
+                $log->save();
+            });
 
         $send = \Modules\Telegram\Models\MessageSend::query()->find($this->sendId);
 

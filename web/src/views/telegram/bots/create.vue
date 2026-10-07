@@ -69,12 +69,13 @@ if (!props.primary) {
 const webhookTarget = ref<'platform' | 'custom'>('platform')
 const platformWebhookUrl = computed(() => `${window.location.origin}/api/webhook/pull`)
 
-// 切换到「当前平台」时清空输入，交由后端默认填充
+// 切换到「当前平台」时清空输入，交由后端默认填充。
+// 用 immediate 让新建时也在挂载即清空（否则初始 null 不会触发 watch，导致 webhook_url 以 null 提交、后端不填充）。
 watch(webhookTarget, (val) => {
   if (val === 'platform') {
     formData.value.webhook_url = ''
   }
-})
+}, { immediate: true })
 
 // 编辑回填：根据已存 webhook_url 判断是平台回调还是自定义外链
 if (props.primary) {

@@ -17,7 +17,8 @@ class TelegramFeatureService
     public function __construct(
         public TelegramModuleLoader $moduleLoader,
         public LogMessageService $logMessageService,
-        public Command\SlashCommandDispatcher $commandDispatcher
+        public Command\SlashCommandDispatcher $commandDispatcher,
+        public Command\FeatureCommandDispatcher $featureCommandDispatcher
     ) {}
 
     /**
@@ -54,6 +55,11 @@ class TelegramFeatureService
     protected function handleCommandInteraction($bot, $update, int|string $chatId, string $text): void
     {
         try {
+            // 无代码命令（feature_commands 表配置）优先，未命中再回退旧的类命令
+            if ($this->featureCommandDispatcher->dispatch($bot, $update, $text)) {
+                return;
+            }
+
             $this->commandDispatcher->dispatch($bot, $update, $text);
         } catch (\Throwable $e) {
             $this->logMessageService->createLaravelLog(

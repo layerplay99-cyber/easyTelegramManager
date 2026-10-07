@@ -65,6 +65,11 @@ class FeaturesBinds extends Model
         'enabled',
     ];
 
+    protected $casts = [
+        'config' => 'array',
+        'enabled' => 'boolean',
+    ];
+
     public array $searchable = [
         'bot_id' => '=',
         'chat_id' => '=',

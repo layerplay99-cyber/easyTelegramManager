@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Telegram\Http\Controllers\Api\CollectPhoneApiController;
+use Modules\Telegram\Http\Controllers\Api\HookController;
 use Modules\Telegram\Http\Controllers\Api\TelethonEventController;
 use Modules\Telegram\Http\Controllers\Api\WebHookController;
 use Modules\Telegram\Http\Controllers\BotsController;
@@ -91,6 +92,12 @@ Route::prefix('api')->group(function () {
         Route::post('send/group', [BotsController::class, 'sendToGroup'])
             ->name('api.bot.sendToGroup');
     });
+
+    // 第三方推送回调入口（第三块功能）：上游回调 POST /api/hooks/{token}
+    // 不用平台 Api-Key —— 上游只会带自己的 token，由控制器按 token 定位功能。
+    Route::post('hooks/{token}', [HookController::class, 'handle'])
+        ->middleware(['throttle:120,1'])
+        ->name('api.hook.handle');
 
     // Telethon（Python）事件回调 - 由 telegram-py 服务调用，无需 apikey（控制器内用 X-Token 鉴权）
     Route::prefix('telegram/events')->group(function () {

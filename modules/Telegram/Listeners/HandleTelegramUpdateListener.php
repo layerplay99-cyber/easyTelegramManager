@@ -41,8 +41,19 @@ readonly class HandleTelegramUpdateListener implements ShouldQueue
 
             if ($this->isGroupMembershipEvent($update)) {
                 $botInGroupService->handleUpdate($bot, $update);
-            } elseif (($update->getMessage() && $update->getMessage()->has('photo')) || $update->isType('callback_query')) {
-                $featureService->handleInteraction($bot, $update);
+            } else {
+                // 文本消息（含所有斜杠命令）、图片、按钮回调都交给功能分发。
+                // 原来这里只放行 photo / callback_query，导致 message.text 被排除，
+                // 斜杠命令永远进不了功能分发（后台配了命令也从不触发）。
+                $isTextMessage = $update->getMessage() !== null
+                    && $update->getMessage()->has('text');
+
+                if ($isTextMessage
+                    || ($update->getMessage() && $update->getMessage()->has('photo'))
+                    || $update->isType('callback_query')
+                ) {
+                    $featureService->handleInteraction($bot, $update);
+                }
             }
         } catch (\Throwable $e) {
             // 记录错误日志

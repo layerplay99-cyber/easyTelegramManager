@@ -46,6 +46,8 @@ class Features extends Model
         'category',
         'type',
         'requestType',
+        'driver',
+        'trigger',
         'location',
         'feature',
         'description',
@@ -67,6 +69,8 @@ class Features extends Model
         'category',
         'type',
         'requestType',
+        'driver',
+        'trigger',
         'location',
         'feature',
         'description',
@@ -85,6 +89,8 @@ class Features extends Model
         'category',
         'type',
         'requestType',
+        'driver',
+        'trigger',
         'location',
         'feature',
         'description',
@@ -96,6 +102,13 @@ class Features extends Model
     /**
      * @var array
      */
+    protected $casts = [
+        // config 存驱动配置（driver 的 configSchema 声明的结构），必须按数组读写，
+        // 否则 json 数组会被当字符串拼接，报 Array to string conversion。
+        'config' => 'array',
+        'enabled' => 'boolean',
+    ];
+
     public array $searchable = [
         'name' => 'like',
         'category' => '=',

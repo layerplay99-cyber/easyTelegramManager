@@ -109,6 +109,13 @@ class WebHookController extends CatchController
         try {
             $bot = $this->bots->findOrFail($id);
 
+            // 兜底：webhook_url 为空（如早期编辑未走 BotsRequest 填充、或库里已是空值）时，
+            // 按当前平台默认回调地址补上并落库，避免空 URL 触发 Telegram 的 Invalid URL Provided。
+            if (empty($bot->webhook_url)) {
+                $bot->webhook_url = rtrim(config('app.url'), '/') . '/api/webhook/pull';
+                $bot->save();
+            }
+
             $telegram = $this->botApiFactory->forBot($bot);
 
             $result = $telegram->setWebhook([

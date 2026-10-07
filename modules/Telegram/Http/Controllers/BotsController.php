@@ -68,10 +68,10 @@ class BotsController extends Controller
 
     /**
      * @param int|string $id
-     * @param Request $request
+     * @param BotsRequest $request
      * @return mixed
      */
-    public function update(int|string $id, Request $request): mixed
+    public function update(int|string $id, BotsRequest $request): mixed
     {
         return $this->model->updateBy($id, $request->all());
     }

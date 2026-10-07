@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\Cache;
 use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\GroupAdmins;
+use Modules\Telegram\Models\TelegramApiUsers;
 use Modules\Telegram\Services\Bot\BotApiFactory;
+use Modules\Telegram\Services\User\UserApiFactory;
 use Telegram\Bot\Api;
 use Telegram\Bot\Exceptions\TelegramSDKException;
 
@@ -37,6 +39,7 @@ class BotGroupSyncService
 
     public function __construct(
         protected readonly LogMessageService $logMessageService,
+        protected readonly UserApiFactory $userApiFactory,
     ) {}
 
     /**
@@ -164,6 +167,12 @@ class BotGroupSyncService
 
     /**
      * 候选 chat_id：库里出现过的所有群（含其它机器人 / 真人号同步进来的）
+     * + 所有已登录用户号（Telethon 账号）对话框里出现的群。
+     *
+     * 为什么要把用户号对话框也算进来：Bot API 没有「列出机器人所在群」的接口，
+     * bot 自己永远列不出群；但同在群里的一个用户号可以经 getDialogs 枚举到该群。
+     * 把它纳入候选后，syncForBot 用 getChatMember(bot) 逐个确认，
+     * 就能把「bot 早已在群、但系统里还没登记」的群补登进来（一次点击即可发现）。
      */
     private function candidateChatIds(): array
     {
@@ -175,7 +184,65 @@ class BotGroupSyncService
             static fn ($chatId) => $chatId !== ''
         )));
 
+        // 纳入用户号对话框里的群（容错：失败只跳过，不影响原有候选）
+        $chatIds = array_values(array_unique(array_merge($chatIds, $this->candidateFromUserAccounts())));
+
         return array_slice($chatIds, 0, self::MAX_CANDIDATES);
+    }
+
+    /**
+     * 从所有已登录用户号（Telethon 账号）的对话框里收集候选群 chat_id。
+     *
+     * 容错原则：Telethon 服务不可用 / session 失效 / 网络抖动都只记日志、跳过，
+     * 绝不抛异常中断整个同步。
+     *
+     * @return string[]
+     */
+    private function candidateFromUserAccounts(): array
+    {
+        $ids = [];
+
+        try {
+            // login_status = 3 即 LOGINED（代码里 authorization===3 → LOGINED），
+            // 只有已登录、且 session_file 存在的账号才有可用会话去拉对话框。
+            $accounts = TelegramApiUsers::query()
+                ->where('login_status', 3)
+                ->whereNotNull('session_file')
+                ->where('session_file', '<>', '')
+                ->get();
+        } catch (\Throwable $e) {
+            $this->logMessageService->createLaravelLog(
+                self::LOG_FILE,
+                ['error' => $e->getMessage()],
+                '读取用户号列表失败，跳过用户号候选',
+                'warning'
+            );
+
+            return $ids;
+        }
+
+        foreach ($accounts as $account) {
+            try {
+                $client = $this->userApiFactory->forTelegramUser($account);
+                $groups = $client->getGroups();
+
+                foreach ($groups as $group) {
+                    $chatId = (string) ($group['id'] ?? '');
+                    if ($chatId !== '' && $chatId !== '0') {
+                        $ids[] = $chatId;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $this->logMessageService->createLaravelLog(
+                    self::LOG_FILE,
+                    ['app_id' => $account->app_id ?? null, 'error' => $e->getMessage()],
+                    '用户号对话框同步失败，已跳过该账号',
+                    'warning'
+                );
+            }
+        }
+
+        return $ids;
     }
 
     /**

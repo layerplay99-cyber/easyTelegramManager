@@ -12,6 +12,11 @@ return new class extends Seeder
      */
     public function run(): void
     {
+        // 幂等：已存在 catchadmin 则跳过，避免 app:module:install 反复跑 seed 时重复插入
+        if (User::where('username', 'catchadmin')->exists()) {
+            return;
+        }
+
         $user = new User([
             'username' => 'catchadmin',
 

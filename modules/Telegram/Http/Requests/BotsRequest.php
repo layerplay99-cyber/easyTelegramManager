@@ -32,7 +32,7 @@ class BotsRequest extends Request
 
     protected function prepareForValidation()
     {
-        // 设置 webhook_url 默认值为 APP_URL.'/api/bot/cb/webhook'
+        // webhook_url 留空时，默认用当前平台回调地址（与 api/webhook/pull 路由一致）
         if ($this->missing('webhook_url') || $this->input('webhook_url') === '') {
             $default = rtrim(config('app.url'), '/') . '/api/webhook/pull';
             $this->merge(['webhook_url' => $default]);

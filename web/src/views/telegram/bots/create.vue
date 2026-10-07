@@ -9,8 +9,23 @@
         <el-form-item label="Url_Token" prop="url_token">
             <el-input v-model="formData.url_token" name="url_token" clearable />
         </el-form-item>
+        <el-form-item label="Webhook 指向" prop="webhook_target">
+            <el-radio-group v-model="webhookTarget">
+                <el-radio value="platform">当前平台</el-radio>
+                <el-radio value="custom">自定义外链</el-radio>
+            </el-radio-group>
+        </el-form-item>
         <el-form-item label="WebHookUrl" prop="webhook_url">
-            <el-input v-model="formData.webhook_url" name="webhook_url" clearable />
+            <el-input
+                v-model="formData.webhook_url"
+                name="webhook_url"
+                clearable
+                :disabled="webhookTarget === 'platform'"
+                :placeholder="webhookTarget === 'platform' ? '使用当前平台回调（无需填写）' : '请输入外部 Webhook URL'"
+            />
+            <div v-if="webhookTarget === 'platform'" class="text-gray-400 text-xs mt-1">
+                将自动使用当前平台回调地址：{{ platformWebhookUrl }}
+            </div>
         </el-form-item>
         <el-form-item label="Bot描述" prop="description">
             <el-input v-model="formData.description" name="description" clearable />
@@ -29,7 +44,7 @@
 <script lang="ts" setup>
 import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
     primary: [String, Number],
@@ -43,8 +58,31 @@ const enabled = ref([
 
 const { formData, form, loading, submitForm, close } = useCreate(props.api, props.primary)
 
+// Webhook 指向：默认「当前平台」。选当前平台时不需要填写 webhook_url，
+// 提交时留空，由后端 BotsRequest 默认填 APP_URL.'/api/webhook/pull'（当前平台回调）。
+const webhookTarget = ref<'platform' | 'custom'>('platform')
+const platformWebhookUrl = computed(() => `${window.location.origin}/api/webhook/pull`)
+
+// 切换到「当前平台」时清空输入，交由后端默认填充
+watch(webhookTarget, (val) => {
+    if (val === 'platform') {
+        formData.webhook_url = ''
+    }
+})
+
+// 编辑回填：根据已存 webhook_url 判断是平台回调还是自定义外链
 if (props.primary) {
-    useShow(props.api, props.primary, formData)
+    const show = useShow(props.api, props.primary, formData)
+    show.afterShow.value = () => {
+        const url = (formData.webhook_url || '') as string
+        // 以平台回调路径后缀识别：命中则为「当前平台」，否则视为「自定义外链」
+        if (url && !url.endsWith('/api/webhook/pull')) {
+            webhookTarget.value = 'custom'
+        } else {
+            webhookTarget.value = 'platform'
+            formData.webhook_url = ''
+        }
+    }
 }
 
 const emit = defineEmits(['close'])

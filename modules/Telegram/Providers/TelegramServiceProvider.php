@@ -29,10 +29,10 @@ class TelegramServiceProvider extends CatchModuleServiceProvider
         $this->loadRoutes();
 
         // Register events and listeners
-        Event::listen([
-            \Modules\Telegram\Events\TelegramUpdateReceivedEvent::class => \Modules\Telegram\Listeners\HandleTelegramUpdateListener::class,
-            \Modules\Telegram\Events\UserGroupMembershipEvent::class => \Modules\Telegram\Listeners\HandleUserGroupMembershipListener::class,
-        ]);
+        // 注意：Event::listen() 的数组写法 Event::listen([Event=>Listener]) 在本版本无效
+        // （Dispatcher::listen 对数组只取 value 当事件名、listener 变 null），必须用两参形式逐条注册。
+        Event::listen(\Modules\Telegram\Events\TelegramUpdateReceivedEvent::class, \Modules\Telegram\Listeners\HandleTelegramUpdateListener::class);
+        Event::listen(\Modules\Telegram\Events\UserGroupMembershipEvent::class, \Modules\Telegram\Listeners\HandleUserGroupMembershipListener::class);
 
         // Register console commands
         $this->registerCommands();

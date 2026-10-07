@@ -226,11 +226,10 @@ const configDialog = ref({
 const getGroupList = async () => {
     try {
         const response = await useGroup().getGroupGroupList();
-        if (response.total) {
-            groupList.value = response.data;
-        } else {
-            console.error('获取分组列表失败');
-        }
+        // 列表接口返回的是分页结构：{ status, data: { data: [...], total, ... } }。
+        // 之前读的是 response.total（实际在 response.data.total，恒为 undefined），
+        // 导致 if 判断失败、不赋值 groupList，下拉为空。兼容数组/分页两种返回。
+        groupList.value = response?.data?.data || response?.data || [];
     } catch (error) {
         console.error('获取分组列表异常:', error);
     }

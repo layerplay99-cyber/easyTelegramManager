@@ -58,6 +58,12 @@ const enabled = ref([
 
 const { formData, form, loading, submitForm, close } = useCreate(props.api, props.primary)
 
+// 新增机器人默认「待激活」(enabled=0)：避免在库里直接默认已激活、
+// 却又没触发 setWebhook 的坏状态；由用户在列表手动开启开关来触发 setWebhook。
+if (!props.primary) {
+  formData.value.enabled = 0
+}
+
 // Webhook 指向：默认「当前平台」。选当前平台时不需要填写 webhook_url，
 // 提交时留空，由后端 BotsRequest 默认填 APP_URL.'/api/webhook/pull'（当前平台回调）。
 const webhookTarget = ref<'platform' | 'custom'>('platform')
@@ -65,24 +71,24 @@ const platformWebhookUrl = computed(() => `${window.location.origin}/api/webhook
 
 // 切换到「当前平台」时清空输入，交由后端默认填充
 watch(webhookTarget, (val) => {
-    if (val === 'platform') {
-        formData.webhook_url = ''
-    }
+  if (val === 'platform') {
+    formData.value.webhook_url = ''
+  }
 })
 
 // 编辑回填：根据已存 webhook_url 判断是平台回调还是自定义外链
 if (props.primary) {
-    const show = useShow(props.api, props.primary, formData)
-    show.afterShow.value = () => {
-        const url = (formData.webhook_url || '') as string
-        // 以平台回调路径后缀识别：命中则为「当前平台」，否则视为「自定义外链」
-        if (url && !url.endsWith('/api/webhook/pull')) {
-            webhookTarget.value = 'custom'
-        } else {
-            webhookTarget.value = 'platform'
-            formData.webhook_url = ''
-        }
+  const show = useShow(props.api, props.primary, formData)
+  show.afterShow.value = () => {
+    const url = (formData.value.webhook_url || '') as string
+    // 以平台回调路径后缀识别：命中则为「当前平台」，否则视为「自定义外链」
+    if (url && !url.endsWith('/api/webhook/pull')) {
+      webhookTarget.value = 'custom'
+    } else {
+      webhookTarget.value = 'platform'
+      formData.value.webhook_url = ''
     }
+  }
 }
 
 const emit = defineEmits(['close'])

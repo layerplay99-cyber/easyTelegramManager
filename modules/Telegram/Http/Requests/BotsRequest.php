@@ -17,6 +17,7 @@ class BotsRequest extends Request
             'api_token' => 'required|string',
             'webhook_url' => 'nullable|url',
             'description' => 'nullable|string',
+            'enabled' => 'nullable|boolean',
         ];
     }
 

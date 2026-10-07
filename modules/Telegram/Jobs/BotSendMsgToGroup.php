@@ -149,18 +149,9 @@ class BotSendMsgToGroup implements ShouldQueue
             foreach ($this->stickers as $fileId) {
                 $baseService->sendStickerByToken($this->botToken, $this->chatId, $fileId);
             }
-
-            $this->recordResult('success');
-
-            // 记录成功日志
-            $LogMessageService->createLaravelLog('sendGroupMsgSuccess', [
-                'chat_id' => $this->chatId,
-                'type' => $this->type,
-                'attempt' => $this->attempts(),
-            ]);
-
         } catch (\Throwable $e) {
-            $this->recordResult('failed', $e->getMessage());
+            // 这里是「消息没发出去」，可以安全重试：重试不会造成重复消息
+            $this->safeRecordResult('failed', $e->getMessage());
 
             $LogMessageService->createLaravelLog('sendGroupMsgFail', [
                 'chat_id' => $this->chatId,
@@ -175,7 +166,22 @@ class BotSendMsgToGroup implements ShouldQueue
             if ($this->attempts() < $this->tries) {
                 throw $e;
             }
+
+            return;
         }
+
+        // ------------------------------------------------------------------
+        // 走到这里说明消息已经送达 Telegram。此后的任何异常都绝不能重试，
+        // 否则同一条消息会被重复发送（历史问题：回执写库失败 -> 判为失败 ->
+        // 重试 -> 连发 3 次）。所以收尾动作全部吞掉异常，只记日志。
+        // ------------------------------------------------------------------
+        $this->safeRecordResult('success');
+
+        $LogMessageService->createLaravelLog('sendGroupMsgSuccess', [
+            'chat_id' => $this->chatId,
+            'type' => $this->type,
+            'attempt' => $this->attempts(),
+        ]);
     }
 
     /**
@@ -220,6 +226,27 @@ class BotSendMsgToGroup implements ShouldQueue
 
         if ($send) {
             $status === 'success' ? $send->incrementSuccess() : $send->incrementFailed();
+        }
+    }
+
+    /**
+     * 回执落库（吞掉异常）
+     *
+     * 回执只是「事后记账」，它失败并不代表消息没发出去。若让它抛出去，
+     * 会被 handle() 的 catch 当成发送失败并重试，导致已送达的消息被重复发送。
+     * 因此这里所有异常都吞掉并记日志，交由调用方决定是否重试。
+     */
+    protected function safeRecordResult(string $status, ?string $error = null): void
+    {
+        try {
+            $this->recordResult($status, $error);
+        } catch (\Throwable $e) {
+            app(LogMessageService::class)->createLaravelLog('sendGroupMsgRecordFail', [
+                'chat_id' => $this->chatId,
+                'send_id' => $this->sendId,
+                'status' => $status,
+                'error' => $e->getMessage(),
+            ], '回执落库失败（不影响消息是否送达）');
         }
     }
 

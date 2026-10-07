@@ -72,8 +72,6 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
                 'kick' => $this->kickUser($this->payload),
                 default => throw new Exception("Unsupported type: " . $this->type),
             };
-
-            $this->recordResult('success');
         } catch (Exception|\Throwable $e) {
             // 记录到业务日志，方便按 chat_id 定位是哪一群失败了
             app(\Modules\Telegram\Services\LogMessageService::class)->createLaravelLog(
@@ -97,7 +95,19 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
             if ($this->attempts() < $this->tries) {
                 throw $e;
             }
+
+            // 重试用尽：此时消息确定没发出去，才写失败回执。
+            // 注意不能在上面的失败分支里写——发送本身失败时若回执也抛异常，
+            // 会掩盖真实原因；更重要的是绝不能在「已发送成功」后写 failed。
+            $this->safeRecordResult('failed', mb_substr($e->getMessage(), 0, 500));
+
+            return;
         }
+
+        // ------------------------------------------------------------------
+        // 消息已送达。收尾动作（写回执）失败绝不能重试，否则同一条消息会重复发送。
+        // ------------------------------------------------------------------
+        $this->safeRecordResult('success');
     }
 
     /**
@@ -105,7 +115,7 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        $this->recordResult('failed', mb_substr($exception->getMessage(), 0, 500));
+        $this->safeRecordResult('failed', mb_substr($exception->getMessage(), 0, 500));
 
         app(\Modules\Telegram\Services\LogMessageService::class)->createLaravelLog(
             'telegram_feature_job_failed_final',
@@ -232,6 +242,30 @@ class TelegramApiOperateFeatureJob implements ShouldQueue
 
         if ($send) {
             $status === 'success' ? $send->incrementSuccess() : $send->incrementFailed();
+        }
+    }
+
+    /**
+     * 回执落库（吞掉异常）
+     *
+     * 回执只是事后记账，它失败不代表消息没发出去。让它抛出去会被 handle() 当成
+     * 发送失败并重试，导致已送达的消息被重复发送。因此吞掉异常并记日志。
+     */
+    private function safeRecordResult(string $status, ?string $error = null): void
+    {
+        try {
+            $this->recordResult($status, $error);
+        } catch (\Throwable $e) {
+            app(\Modules\Telegram\Services\LogMessageService::class)->createLaravelLog(
+                'telegram_feature_job_record_fail',
+                [
+                    'chat_id' => $this->payload['chat_id'] ?? null,
+                    'send_id' => $this->sendId,
+                    'status' => $status,
+                    'error' => $e->getMessage(),
+                ],
+                '回执落库失败（不影响消息是否送达）'
+            );
         }
     }
 }

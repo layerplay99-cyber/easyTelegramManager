@@ -6,8 +6,11 @@ namespace Modules\Telegram\Http\Controllers;
 use Catch\Base\CatchController as Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Services\Feature\Command\SlashCommandRegistry;
+use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
+use Modules\Telegram\Services\Feature\DriverRegistry;
 
 
 class FeaturesController extends Controller
@@ -87,5 +90,84 @@ class FeaturesController extends Controller
             'status' => 'success',
             'data' => $this->commandRegistry->definitions(),
         ]);
+    }
+
+    /**
+     * 可选执行器清单（后台表单的数据源）
+     *
+     * 返回每个执行器的 key / 名称 / 分组 / 触发方式 / 配置项 schema，
+     * 前端据此自动渲染表单，不再手写 JSON、不再手敲 handler 类名。
+     */
+    public function drivers(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => DriverRegistry::definitions(),
+        ]);
+    }
+
+    /**
+     * 自定义功能清单（Drivers/Custom 目录下继承 BaseCustomFeature 的类）
+     */
+    public function customFeatures(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => app(CustomFeatureRegistry::class)->definitions(),
+        ]);
+    }
+
+    /**
+     * 功能的命令列表（后台编辑功能时增删命令）
+     */
+    public function commands(int|string $id): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => FeatureCommands::query()
+                ->where('feature_id', $id)
+                ->orderByDesc('id')
+                ->get()
+                ->toArray(),
+        ]);
+    }
+
+    /**
+     * 保存功能的命令列表
+     */
+    public function saveCommands(Request $request, int|string $id): JsonResponse
+    {
+        $commands = (array) $request->input('commands', []);
+
+        // 先删掉该功能下未被提交的命令，实现「删改」语义
+        $keep = collect($commands)->pluck('command')->filter()->all();
+
+        FeatureCommands::query()
+            ->where('feature_id', $id)
+            ->when($keep, fn ($q) => $q->whereNotIn('command', $keep))
+            ->delete();
+
+        foreach ($commands as $command) {
+            if (empty($command['command'])) {
+                continue;
+            }
+
+            FeatureCommands::query()->updateOrCreate(
+                ['command' => $command['command']],
+                [
+                    'feature_id' => $id,
+                    'command' => $command['command'],
+                    'usage' => $command['usage'] ?? null,
+                    'description' => $command['description'] ?? null,
+                    'scope' => $command['scope'] ?? 'group',
+                    'permission' => $command['permission'] ?? 'all',
+                    'params' => $command['params'] ?? [],
+                    'reply_template' => $command['reply_template'] ?? null,
+                    'enabled' => (bool) ($command['enabled'] ?? true),
+                ]
+            );
+        }
+
+        return $this->jsonSuccess();
     }
 }

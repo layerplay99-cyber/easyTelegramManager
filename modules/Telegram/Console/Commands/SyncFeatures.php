@@ -7,6 +7,7 @@ namespace Modules\Telegram\Console\Commands;
 use Illuminate\Console\Command;
 use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Models\Features;
+use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
 
 /**
  * 注册 / 同步内置的无代码功能与命令
@@ -127,10 +128,21 @@ class SyncFeatures extends Command
                 $this->line("  命令 /{$command['command']} → {$definition['name']}");
             }
 
-            $this->info("已注册功能：{$definition['name']}（driver={$definition['driver']}）");
+            $this->info("已注册内置功能：{$definition['name']}（driver={$definition['driver']}）");
         }
 
-        $this->info("完成，共 {$count} 个内置功能。可在「功能列表」里继续调整配置与绑定。");
+        $this->newLine();
+
+        // 自动发现开发者写在 Drivers/Custom/ 下的自定义功能
+        $custom = app(CustomFeatureRegistry::class)->sync();
+
+        foreach ($custom as $name) {
+            $this->info("已注册自定义功能：{$name}");
+            $count++;
+        }
+
+        $this->newLine();
+        $this->info("完成，共 {$count} 个功能。可在「功能列表」里调整配置与绑定。");
 
         return self::SUCCESS;
     }

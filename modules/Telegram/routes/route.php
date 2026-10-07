@@ -37,6 +37,12 @@ Route::prefix('telegram')->group(function(){
     // 代码里已实现的斜杠命令清单（后台新增命令时选，避免手敲 handler）
     Route::get('features/slash/commands', [FeaturesController::class, 'slashCommands']);
 
+    // 功能列表无代码化：执行器schema（前端自动渲染表单）/ 自定义功能清单 / 功能下的命令管理
+    Route::get('features/drivers', [FeaturesController::class, 'drivers']);
+    Route::get('features/custom', [FeaturesController::class, 'customFeatures']);
+    Route::get('features/{id}/commands', [FeaturesController::class, 'commands']);
+    Route::post('features/{id}/commands', [FeaturesController::class, 'saveCommands']);
+
     // 群发进度（send_id 由 POST bots/...sendToGroup 返回）
     Route::get('message/send/{sendId}', [BotsController::class, 'sendStatus']);
 

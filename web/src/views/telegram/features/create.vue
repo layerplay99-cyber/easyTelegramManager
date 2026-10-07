@@ -1,117 +1,191 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
     <el-form-item label="功能名称" prop="name">
-  <el-input v-model="(formData as any).name" name="name" clearable />
-</el-form-item>
-<el-form-item label="功能分类" prop="category">
- <el-select v-model="(formData as any).category" placeholder="请选择" clearable>
-     <el-option
-       v-for="item in category"
-       :key="item.value"
-       :label="item.label"
-       :value="item.value"
-     />
-   </el-select>
-</el-form-item>
-<el-form-item label="功能类型" prop="type">
- <el-select v-model="(formData as any).type" placeholder="请选择" clearable>
-     <el-option
-       v-for="item in type"
-       :key="item.value"
-       :label="item.label"
-       :value="item.value"
-     />
-   </el-select>
-</el-form-item>
-<el-form-item label="请求类型" prop="requestType">
- <el-select v-model="(formData as any).requestType" placeholder="请选择" clearable>
-     <el-option
-       v-for="item in requestType"
-       :key="item.value"
-       :label="item.label"
-       :value="item.value"
-     />
-   </el-select>
-</el-form-item>
-<el-form-item label="数据来源" prop="location">
- <el-select v-model="(formData as any).location" placeholder="请选择" clearable>
-     <el-option
-       v-for="item in location"
-       :key="item.value"
-       :label="item.label"
-       :value="item.value"
-     />
-   </el-select>
-</el-form-item>
-<el-form-item label="功能标识" prop="feature">
-  <el-input v-model="(formData as any).feature" name="feature" clearable />
-</el-form-item>
-<el-form-item label="功能描述" prop="description">
-  <el-input v-model="(formData as any).description" name="description" clearable />
-</el-form-item>
-<el-form-item label="处理类" prop="handler">
-  <el-input v-model="(formData as any).handler" name="handler" clearable />
-</el-form-item>
-<el-form-item label="配置项" prop="config">
-  <div class="border border-gray-200 p-4 rounded w-full">
-    <div class="flex items-center space-x-4 mb-4">
-      <span class="text-sm font-medium">是否配置：</span>
-      <el-radio-group v-model="hasConfig">
-        <el-radio :label="false">无</el-radio>
-        <el-radio :label="true">有</el-radio>
-      </el-radio-group>
-    </div>
+      <el-input v-model="(formData as any).name" name="name" clearable />
+    </el-form-item>
 
-    <div v-if="hasConfig" class="space-y-4 w-full">
-      <div class="space-y-4 w-full">
-        <div class="w-full">
-          <label class="block text-sm font-medium mb-2">指令</label>
-          <el-input v-model="configData.command" placeholder="/cx" clearable class="w-full" />
-        </div>
-
-        <div class="w-full">
-          <label class="block text-sm font-medium mb-2">参数个数</label>
-          <el-input-number v-model="configData.paramscount" :min="0" placeholder="1" class="w-full" />
-        </div>
-
-        <div class="w-full">
-          <label class="block text-sm font-medium mb-2">参数规则</label>
-          <el-input v-model="configData.rule" placeholder="正则表达式" clearable class="w-full" />
-        </div>
-
-        <div class="w-full">
-          <label class="block text-sm font-medium mb-2">第三方配置</label>
-          <el-select
-            v-model="configData.thirdconfig"
-            placeholder="请选择第三方配置"
-            clearable
-            class="w-full"
-            :loading="thirdConfigLoading"
-            multiple
+    <!-- 执行器：决定这个功能是干什么的，选中后自动带出配置项 -->
+    <el-form-item label="执行器" prop="driver">
+      <el-select
+        v-model="(formData as any).driver"
+        placeholder="请选择执行器"
+        filterable
+        clearable
+        class="w-full"
+        :loading="driversLoading"
+        @change="onDriverChange"
+      >
+        <el-option-group v-for="g in groupedDrivers" :key="g.group" :label="g.group">
+          <el-option
+            v-for="d in g.items"
+            :key="d.key"
+            :label="d.label"
+            :value="d.key"
           >
-            <el-option
-              v-for="item in thirdConfigList"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </div>
+            <span>{{ d.label }}</span>
+            <span class="text-xs text-gray-400 ml-2">{{ d.key }}</span>
+          </el-option>
+        </el-option-group>
+      </el-select>
+      <div v-if="currentDriver" class="text-xs text-gray-500 mt-1">
+        {{ currentDriver.label }} · 支持触发：{{ currentDriver.triggers.join(' / ') }}
       </div>
+    </el-form-item>
+
+    <el-form-item label="触发方式" prop="trigger">
+      <el-select v-model="(formData as any).trigger" placeholder="请选择" clearable class="w-full">
+        <el-option
+          v-for="item in triggerOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+    </el-form-item>
+
+    <el-form-item label="功能分类" prop="category">
+      <el-select v-model="(formData as any).category" placeholder="请选择" clearable class="w-full">
+        <el-option v-for="item in category" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+    </el-form-item>
+
+    <el-form-item label="功能描述" prop="description">
+      <el-input v-model="(formData as any).description" type="textarea" :rows="2" clearable />
+    </el-form-item>
+
+    <el-form-item label="是否启用" prop="enabled">
+      <el-select v-model="(formData as any).enabled" placeholder="请选择" clearable class="w-full">
+        <el-option v-for="item in enabled" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+    </el-form-item>
+
+    <!-- ============ 执行器配置：按 driver 的 schema 自动渲染，不再手写 JSON ============ -->
+    <el-divider content-position="left">
+      <span class="text-sm font-medium">执行器配置</span>
+    </el-divider>
+
+    <div v-if="!currentDriver" class="text-sm text-gray-400 mb-4">
+      请先选择执行器，配置表单会自动出现
     </div>
-  </div>
-</el-form-item>
-<el-form-item label="是否启用" prop="enabled">
- <el-select v-model="(formData as any).enabled" placeholder="请选择" clearable>
-     <el-option
-       v-for="item in enabled"
-       :key="item.value"
-       :label="item.label"
-       :value="item.value"
-     />
-   </el-select>
-</el-form-item>
-    <div class="flex justify-end">
+
+    <template v-else-if="schema.length">
+      <el-form-item v-for="f in schema" :key="f.key" :label="f.label">
+        <!-- 文本 -->
+        <el-input
+          v-if="f.type === 'text'"
+          v-model="config[f.key]"
+          :placeholder="f.hint"
+          clearable
+          class="w-full"
+        />
+
+        <!-- 多行文本 / 模板 -->
+        <el-input
+          v-else-if="f.type === 'textarea' || f.type === 'template'"
+          v-model="config[f.key]"
+          type="textarea"
+          :rows="3"
+          :placeholder="f.hint"
+          class="w-full"
+        />
+
+        <!-- 数字 -->
+        <el-input-number
+          v-else-if="f.type === 'number'"
+          v-model="config[f.key]"
+          class="w-full"
+        />
+
+        <!-- 开关 -->
+        <el-switch v-else-if="f.type === 'switch'" v-model="config[f.key]" />
+
+        <!-- 下拉 / 接口选择 -->
+        <el-select
+          v-else-if="f.type === 'select' || f.type === 'endpoint'"
+          v-model="config[f.key]"
+          :placeholder="f.hint"
+          filterable
+          clearable
+          class="w-full"
+        >
+          <el-option
+            v-for="o in optionsFor(f)"
+            :key="o.value"
+            :label="o.label"
+            :value="o.value"
+          />
+        </el-select>
+
+        <!-- 键值对（参数映射 / 保存字段） -->
+        <div v-else-if="f.type === 'keyvalue'" class="w-full border border-gray-200 rounded p-3">
+          <div class="text-xs text-gray-500 mb-2">{{ f.hint }}</div>
+          <div v-for="(row, i) in kvRows(f.key)" :key="i" class="flex items-center space-x-2 mb-2">
+            <el-input v-model="row.key" placeholder="字段名" class="flex-1" />
+            <el-input v-model="row.value" placeholder="来源（可留空）" class="flex-1" />
+            <el-button type="danger" plain size="small" @click="removeKvRow(f.key, i)">删除</el-button>
+          </div>
+          <el-button size="small" plain @click="addKvRow(f.key)">+ 添加一项</el-button>
+        </div>
+
+        <!-- 兜底 -->
+        <el-input v-else v-model="config[f.key]" :placeholder="f.hint" clearable class="w-full" />
+
+        <div v-if="f.required && !config[f.key]" class="text-xs text-red-400 mt-1">必填</div>
+      </el-form-item>
+    </template>
+
+    <div v-else class="text-sm text-gray-400 mb-4">该执行器无需额外配置</div>
+
+    <!-- ============ 命令配置：一个功能可挂多个命令，每个命令可声明多个参数 ============ -->
+    <el-divider content-position="left">
+      <span class="text-sm font-medium">命令配置</span>
+    </el-divider>
+
+    <div class="w-full border border-gray-200 rounded p-3 mb-2">
+      <div v-if="!commands.length" class="text-sm text-gray-400 mb-2">暂无命令，点击下面按钮添加</div>
+
+      <div
+        v-for="(cmd, index) in commands"
+        :key="index"
+        class="border border-gray-100 rounded p-3 mb-3 bg-gray-50"
+      >
+        <div class="flex items-center space-x-2 mb-2">
+          <el-input v-model="cmd.command" placeholder="命令名（不含斜杠）" class="flex-1">
+            <template #prepend>/</template>
+          </el-input>
+          <el-button type="danger" plain size="small" @click="removeCommand(index)">删除命令</el-button>
+        </div>
+
+        <el-input v-model="cmd.description" placeholder="命令描述" class="mb-2" />
+        <el-input v-model="cmd.usage" placeholder="用法示例，如 /ye" class="mb-2" />
+        <el-input
+          v-model="cmd.reply_template"
+          type="textarea"
+          :rows="2"
+          placeholder="回复模板，如 余额：{{data.balance}} 元"
+          class="mb-2"
+        />
+
+        <!-- 参数 -->
+        <div class="text-xs text-gray-500 mb-1">参数（按顺序）：</div>
+        <div
+          v-for="(p, pi) in cmd.params"
+          :key="pi"
+          class="flex items-center space-x-2 mb-2"
+        >
+          <el-input v-model="p.name" placeholder="参数名" class="flex-1" />
+          <el-input v-model="p.description" placeholder="说明" class="flex-1" />
+          <el-input v-model="p.pattern" placeholder="正则（可选）" class="flex-1" />
+          <el-checkbox v-model="p.required">必填</el-checkbox>
+          <el-button type="danger" plain size="small" @click="removeParam(cmd, pi)">删除</el-button>
+        </div>
+        <el-button size="small" plain @click="addParam(cmd)">+ 添加参数</el-button>
+      </div>
+
+      <el-button type="primary" plain size="small" @click="addCommand">+ 添加命令</el-button>
+    </div>
+
+    <div class="flex justify-end mt-4">
       <el-button type="primary" @click="submitForm(form)">{{ $t('system.confirm') }}</el-button>
     </div>
   </el-form>
@@ -120,205 +194,249 @@
 <script lang="ts" setup>
 import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
-import { onMounted, ref, reactive, watch } from 'vue'
-import { useTelegramStore } from '@/stores/modules/telegram'
+import { onMounted, ref, reactive, computed, watch } from 'vue'
 import http from '@/support/http'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   primary: [String, Number],
   api: String,
 })
 
-const telegramStore = useTelegramStore()
+const category = [
+  { label: '系统', value: 'system' },
+  { label: '客户端', value: 'custom' },
+  { label: '机器人', value: 'bot' },
+  { label: '真人', value: 'realMan' },
+]
 
-// 第三方配置列表
-const thirdConfigList = ref([])
-const thirdConfigLoading = ref(false)
+const enabled = [
+  { label: '启用', value: 1 },
+  { label: '禁用', value: 0 },
+]
 
-// 配置相关的响应式数据
-const hasConfig = ref(false)
-const configData = reactive({
-  command: '',
-  paramscount: null,
-  rule: '',
-  thirdconfig: null // 添加第三方配置字段
+const triggerOptions = [
+  { label: '斜杠命令', value: 'command' },
+  { label: '按钮回调', value: 'callback_query' },
+  { label: '三方推送', value: 'webhook' },
+  { label: '手动/接口', value: 'manual' },
+]
+
+// ---------- 执行器 ----------
+const drivers = ref<any[]>([])
+const driversLoading = ref(false)
+
+const groupedDrivers = computed(() => {
+  const map: Record<string, any[]> = {}
+  drivers.value.forEach((d) => {
+    const g = d.group || '其它'
+    ;(map[g] = map[g] || []).push(d)
+  })
+  return Object.entries(map).map(([group, items]) => ({ group, items }))
 })
 
-const category = [
-    { label: '系统', value: "system" },
-    { label: '客户端', value: "custom" },
-    { label: '机器人', value: "bot" },
-    { label: '真人', value: "realMan" }
-]
-const type = [
-    { label: '指令', value: "command" },
-    { label: '图片', value: "ocr" },
-    { label: '通知', value: "notify" },
-    { label: '交互', value: "interaction" },
-]
-const requestType = [
-    { label: '消息', value: "message" },
-    { label: '按钮回调', value: "callback_query" },
-    { label: '内联回调', value: "inline_query" }
-]
-const location = [
-    { label: '本地', value: "local" },
-    { label: '外部', value: "external" }
-]
-const enabled = [
-    { label: '启用', value: 1 },
-    { label: '禁用', value: 0 }
-]
+const currentDriver = computed(() => drivers.value.find((d) => d.key === (formData.value as any)?.driver) || null)
+const schema = computed<any[]>(() => currentDriver.value?.config_schema || [])
 
+// ---------- 配置值 ----------
+const config = reactive<Record<string, any>>({})
+// keyvalue 类型用行数组暂存：{ key, value }[]
+const kv = reactive<Record<string, { key: string; value: string }[]>>({})
+
+const kvRows = (fieldKey: string) => kv[fieldKey] || (kv[fieldKey] = [])
+const addKvRow = (fieldKey: string) => kvRows(fieldKey).push({ key: '', value: '' })
+const removeKvRow = (fieldKey: string, index: number) => kvRows(fieldKey).splice(index, 1)
+
+// ---------- 命令 ----------
+const commands = ref<any[]>([])
+
+const addCommand = () => {
+  commands.value.push({ command: '', description: '', usage: '', reply_template: '', params: [] })
+}
+const removeCommand = (index: number) => commands.value.splice(index, 1)
+const addParam = (cmd: any) => {
+  cmd.params = cmd.params || []
+  cmd.params.push({ name: '', description: '', pattern: '', required: false })
+}
+const removeParam = (cmd: any, index: number) => cmd.params.splice(index, 1)
+
+// ---------- 下拉选项 ----------
+const dynamicOptions = ref<Record<string, any[]>>({})
+
+/**
+ * 取字段选项：优先用后端返回的 options（静态来源），
+ * 动态来源（三方配置/接口）按 source 单独拉取一次。
+ */
+const optionsFor = (field: any) => {
+  if (field.options && field.options.length) return field.options
+  return dynamicOptions.value[field.source] || []
+}
+
+/**
+ * 动态来源（三方配置/接口/群）按 source 向后端拉一次列表
+ */
+const loadDynamicOptions = async (sources: string[]) => {
+  const uniq = [...new Set(sources.filter(Boolean))]
+
+  await Promise.all(uniq.map(async (source) => {
+    if (dynamicOptions.value[source]) return
+
+    try {
+      const { data } = await http.get('telegram/features/options', { source })
+      dynamicOptions.value[source] = data.data || []
+    } catch {
+      dynamicOptions.value[source] = []
+    }
+  }))
+}
+
+// ---------- 表单 ----------
 const { formData, form, loading, submitForm: originalSubmitForm, close } = useCreate(props.api, props.primary)
 
-// 用于获取 useShow 的返回值
 let showResult: any = null
 
-// 如果有主键，说明是编辑模式，加载数据
 if (props.primary) {
   showResult = useShow(props.api, props.primary, formData)
 
-  // 监听数据加载完成
   watch(() => showResult.loading.value, (isLoading, wasLoading) => {
-    // 当加载完成时（从 true 变为 false）
     if (wasLoading === true && isLoading === false) {
-      const currentConfig = (formData.value as any)?.config
-
-      if (currentConfig && typeof currentConfig === 'string') {
-        parseConfigData(currentConfig)
-      }
+      parseConfig((formData.value as any)?.config)
+      loadCommands()
     }
   }, { immediate: true })
 }
 
-// 加载第三方配置列表
-const loadThirdConfigList = async () => {
-  thirdConfigLoading.value = true
-  try {
-    const response = await telegramStore.loadThirdConfigList()
-
-    // 根据实际API响应结构解析数据
-    if (response && response.data.data) {
-      thirdConfigList.value = response.data.data.map((item: any) => ({
-        label: item.name,
-        value: item.id
-      }))
+/**
+ * 解析 features.config（可能是 JSON 字符串或对象）
+ */
+const parseConfig = (raw: any) => {
+  let parsed: any = raw
+  if (typeof raw === 'string') {
+    try {
+      parsed = JSON.parse(raw || '{}')
+    } catch {
+      parsed = {}
     }
-  } catch (error) {
-    console.error('加载第三方配置列表失败:', error)
-  } finally {
-    thirdConfigLoading.value = false
+  }
+  Object.assign(config, parsed || {})
+
+  // keyvalue 字段回填成行
+  schema.value.filter((f) => f.type === 'keyvalue').forEach((f) => {
+    const val = (parsed || {})[f.key]
+    kv[f.key] = Array.isArray(val)
+      ? val.map((v: any) => ({ key: String(v), value: '' }))
+      : Object.entries(val || {}).map(([k, v]) => ({ key: String(k), value: String(v ?? '') }))
+  })
+}
+
+// 执行器切换或数据加载后，拉取其 schema 里的动态下拉选项
+watch(
+  () => schema.value.map((f: any) => f.source).filter(Boolean),
+  (sources) => {
+    if (sources.length) loadDynamicOptions(sources as string[])
+  },
+  { immediate: true, deep: true }
+)
+
+const onDriverChange = () => {
+  // 切换执行器：清空旧配置，套用默认值
+  Object.keys(config).forEach((k) => delete config[k])
+  Object.keys(kv).forEach((k) => delete kv[k])
+
+  schema.value.forEach((f) => {
+    if (f.type === 'switch') config[f.key] = f.default ?? false
+    else if (f.default !== undefined && f.default !== null) config[f.key] = f.default
+    else config[f.key] = f.type === 'keyvalue' ? {} : ''
+  })
+}
+
+// ---------- 命令加载/保存 ----------
+const loadCommands = async () => {
+  if (!props.primary) return
+  try {
+    const { data } = await http.get(`telegram/features/${props.primary}/commands`)
+    commands.value = (data.data || []).map((c: any) => ({
+      command: c.command,
+      description: c.description || '',
+      usage: c.usage || '',
+      reply_template: c.reply_template || '',
+      params: c.params || [],
+    }))
+  } catch {
+    commands.value = []
   }
 }
 
-// 自定义提交函数，处理配置项的JSON序列化
+const saveCommands = async (featureId: any) => {
+  if (!featureId) return
+  const payload = commands.value
+    .filter((c) => c.command)
+    .map((c) => ({
+      command: String(c.command).replace(/^\//, '').toLowerCase(),
+      description: c.description,
+      usage: c.usage,
+      reply_template: c.reply_template,
+      params: (c.params || []).filter((p: any) => p.name),
+    }))
+
+  if (!payload.length) return
+
+  try {
+    await http.post(`telegram/features/${featureId}/commands`, { commands: payload })
+  } catch (e: any) {
+    ElMessage.warning('功能已保存，但命令保存失败：' + (e?.message || ''))
+  }
+}
+
 const submitForm = async (formEl: any) => {
-  // 处理配置项
-  let configValue = '{}'  // 默认为空的JSON字符串
-
-  if (hasConfig.value) {
-    // 清理空值，只保留有值的配置项
-    const cleanConfig: any = {}
-    Object.keys(configData).forEach(key => {
-      const value = configData[key as keyof typeof configData]
-      if (value !== '' && value !== null && value !== undefined) {
-        cleanConfig[key] = value
-      }
+  // keyvalue 行 → 对象
+  schema.value.filter((f) => f.type === 'keyvalue').forEach((f) => {
+    const obj: Record<string, string> = {}
+    ;(kv[f.key] || []).forEach((row) => {
+      if (row.key) obj[row.key] = row.value || ''
     })
+    config[f.key] = Object.keys(obj).length ? obj : undefined
+  })
 
-    // 有实际配置内容时序列化，否则使用空的JSON字符串
-    if (Object.keys(cleanConfig).length > 0) {
-      configValue = JSON.stringify(cleanConfig)
-    }
-  }
+  const clean: Record<string, any> = {}
+  Object.keys(config).forEach((k) => {
+    const v = config[k]
+    if (v !== '' && v !== null && v !== undefined) clean[k] = v
+  })
 
-  // 确保响应式更新
   if (formData.value) {
-    ;(formData.value as any).config = configValue
-  } else {
-    ;(formData as any).config = configValue
+    ;(formData.value as any).config = clean
   }
 
-  // 调用原始的提交函数
   await originalSubmitForm(formEl)
+
+  // 保存成功后写入命令
+  const id = props.primary || (formData.value as any)?.id
+  await saveCommands(id)
 }
 
-// 解析配置数据的函数
-const parseConfigData = (configString: string) => {
+// ---------- 初始化 ----------
+const loadDrivers = async () => {
+  driversLoading.value = true
   try {
-    const parsed = JSON.parse(configString)
-
-    // 检查是否为空的JSON对象
-    const hasConfigData = Object.keys(parsed).length > 0
-    hasConfig.value = hasConfigData
-
-    // 基本配置数据
-    Object.assign(configData, {
-      command: parsed.command || '',
-      paramscount: parsed.paramscount || null,
-      rule: parsed.rule || '',
-      thirdconfig: parsed.thirdconfig || null
-    })
-
+    const { data } = await http.get('telegram/features/drivers')
+    drivers.value = data.data || []
   } catch (e) {
-    hasConfig.value = false
+    console.error('加载执行器失败:', e)
+  } finally {
+    driversLoading.value = false
   }
 }
-
-// 监听编辑模式，解析已有的配置
-watch(() => (formData as any).config, (newConfig, oldConfig) => {
-  if (newConfig && typeof newConfig === 'string') {
-    parseConfigData(newConfig)
-  } else if (newConfig === null || newConfig === '' || newConfig === undefined) {
-    // 如果 config 为空，重置配置状态
-    hasConfig.value = false
-    Object.assign(configData, {
-      command: '',
-      paramscount: null,
-      rule: '',
-      thirdconfig: null
-    })
-  }
-}, { immediate: true })
-
-// 监听整个 formData 的变化
-watch(() => formData.value, (newData) => {
-  if (newData && (newData as any).config && typeof (newData as any).config === 'string') {
-    parseConfigData((newData as any).config)
-  }
-}, { deep: true })
-
-// 监听第三方配置列表加载完成，重新解析配置
-watch(() => thirdConfigList.value, () => {
-  const currentConfig = (formData.value as any)?.config || (formData as any).config
-  if (thirdConfigList.value.length > 0 && currentConfig) {
-    parseConfigData(currentConfig)
-  }
-}, { immediate: true })
 
 const emit = defineEmits(['close'])
+
 onMounted(() => {
   close(() => emit('close'))
-  loadThirdConfigList() // 页面加载时获取第三方配置列表
+  loadDrivers()
+  if (!props.primary) {
+    // 新建时给个默认
+    ;(formData.value as any).driver = 'telegram.api'
+    ;(formData.value as any).trigger = 'command'
+  }
 })
 </script>
-
-<style scoped>
-/* 确保配置项输入框与其他表单项宽度一致 */
-:deep(.el-input) {
-  width: 100% !important;
-}
-
-:deep(.el-input__wrapper) {
-  width: 100% !important;
-}
-
-:deep(.el-input-number) {
-  width: 100% !important;
-}
-
-:deep(.el-input-number .el-input__wrapper) {
-  width: 100% !important;
-}
-</style>

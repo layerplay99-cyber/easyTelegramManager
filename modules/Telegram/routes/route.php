@@ -27,6 +27,9 @@ Route::prefix('telegram')->group(function(){
     Route::apiResource('features', FeaturesController::class);
     Route::apiResource('feature/bind', FeatureBindsController::class);
     Route::apiResource('third/config', ThridConfigController::class);
+
+    // 三方接口（从上游配置里拆出来的「接口」层，可被多个功能复用）
+    Route::apiResource('third/endpoint', ThirdApiEndpointsController::class);
     Route::apiResource('telegram/api/user', TelegramApiUserController::class);
     Route::apiResource('telegram/service/people', ServicePeopleController::class);
     Route::apiResource('emojis', TelegramEmojisController::class);
@@ -40,6 +43,7 @@ Route::prefix('telegram')->group(function(){
     // 功能列表无代码化：执行器schema（前端自动渲染表单）/ 自定义功能清单 / 功能下的命令管理
     Route::get('features/drivers', [FeaturesController::class, 'drivers']);
     Route::get('features/custom', [FeaturesController::class, 'customFeatures']);
+    Route::get('features/options', [FeaturesController::class, 'options']);
     Route::get('features/{id}/commands', [FeaturesController::class, 'commands']);
     Route::post('features/{id}/commands', [FeaturesController::class, 'saveCommands']);
 

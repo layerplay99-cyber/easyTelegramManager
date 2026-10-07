@@ -104,6 +104,7 @@ return new class extends Seeder
                 'children'        => [
                     $page('功能列表', 'funs', '/telegram/features/index.vue', 'paper-airplane', 1),
                     $page('三方配置', 'tconf', '/telegram/thridConfig/index.vue', 'cog-6-tooth', 2),
+                    $page('三方接口', 'tendpoint', '/telegram/thirdEndpoint/index.vue', 'link', 3),
                 ],
             ],
             [

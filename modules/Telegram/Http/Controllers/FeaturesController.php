@@ -6,8 +6,11 @@ namespace Modules\Telegram\Http\Controllers;
 use Catch\Base\CatchController as Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Models\Features;
+use Modules\Telegram\Models\ThirdApiConfig;
+use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Services\Feature\Command\SlashCommandRegistry;
 use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
 use Modules\Telegram\Services\Feature\DriverRegistry;
@@ -114,6 +117,47 @@ class FeaturesController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => app(CustomFeatureRegistry::class)->definitions(),
+        ]);
+    }
+
+    /**
+     * 配置表单的动态选项源
+     *
+     * 前端遇到 source 为数据库来源（三方配置/接口）的字段时，按 source 拉一次：
+     *   GET telegram/features/options?source=third_api_configs
+     *   GET telegram/features/options?source=third_api_endpoints
+     */
+    public function options(Request $request): JsonResponse
+    {
+        $source = (string) $request->query('source', '');
+
+        $options = match ($source) {
+            'third_api_configs' => ThirdApiConfig::query()
+                ->get(['id', 'name'])
+                ->map(fn ($c) => ['value' => $c->id, 'label' => $c->name])
+                ->toArray(),
+            'third_api_endpoints' => ThirdApiEndpoints::query()
+                ->where('enabled', true)
+                ->get(['id', 'name', 'method', 'path_template'])
+                ->map(fn ($e) => [
+                    'value' => $e->id,
+                    'label' => "{$e->name}（{$e->method} {$e->path_template}）",
+                ])
+                ->toArray(),
+            'bot_groups' => BotGroups::query()
+                ->where('enabled', true)
+                ->get(['id', 'name', 'chat_id'])
+                ->map(fn ($g) => [
+                    'value' => $g->chat_id,
+                    'label' => "{$g->name}（{$g->chat_id}）",
+                ])
+                ->toArray(),
+            default => [],
+        };
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $options,
         ]);
     }
 

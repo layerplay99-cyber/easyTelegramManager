@@ -37,9 +37,6 @@ Route::prefix('telegram')->group(function(){
     // 代码里已实现的斜杠命令清单（后台新增命令时选，避免手敲 handler）
     Route::get('features/slash/commands', [FeaturesController::class, 'slashCommands']);
 
-    // 同步机器人所在群（Bot API 无法枚举群，只能基于已知 chat_id 校验归属）
-    Route::post('bots/{id}/sync/groups', [BotsController::class, 'syncGroups']);
-
     // 群发进度（send_id 由 POST bots/...sendToGroup 返回）
     Route::get('message/send/{sendId}', [BotsController::class, 'sendStatus']);
 

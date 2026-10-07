@@ -16,7 +16,6 @@ use Modules\Telegram\Models\MessageTemplate;
 use Modules\Telegram\Models\TelegramApiUsers;
 use Modules\Telegram\Jobs\TelegramApiOperateFeatureJob;
 use Modules\Telegram\Services\BaseService;
-use Modules\Telegram\Services\BotGroupSyncService;
 use Modules\Telegram\Services\LogMessageService;
 use Modules\Telegram\Services\Message\MessageRenderer;
 
@@ -38,7 +37,6 @@ class BotsController extends Controller
         protected readonly Bots $model,
         protected readonly BotGroups $botGroupsModel,
         protected readonly BaseService $baseService,
-        protected readonly BotGroupSyncService $botGroupSyncService,
     ) {}
 
     /**
@@ -289,34 +287,6 @@ class BotsController extends Controller
                 'failed' => $send->failed,
                 'pending' => $pending,
             ],
-        ]);
-    }
-
-    /**
-     * 同步机器人所在群
-     *
-     * Bot API 没有「列出机器人所在群」的接口，只能：
-     * 1. 以库里已知的 chat_id 作为候选；
-     * 2. 用 getChatMember 逐个确认该 bot 是否仍在群内；
-     * 3. 在群内则补写/修正 bot_groups.bot_id，不在群内则清理失效记录。
-     */
-    public function syncGroups(Request $request, int|string $id): JsonResponse
-    {
-        $bot = $this->model->find($id);
-
-        if (! $bot || empty($bot->api_token)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Bot not found or api_token is empty',
-            ], 404);
-        }
-
-        $result = $this->botGroupSyncService->syncForBot($bot);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'sync finished',
-            'data' => $result,
         ]);
     }
 

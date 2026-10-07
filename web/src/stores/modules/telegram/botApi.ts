@@ -119,17 +119,8 @@ export const useBotStore = defineStore('telegramBotApi', () => {
     }, signatureHeaders)
   }
 
-  // 同步机器人所在群（Bot API 无法枚举群，后端基于已知 chat_id 校验归属）
-  const syncBotGroups = async (botId: number | string): Promise<ApiResponse> => {
-    return apiRequest(`telegram/bots/${botId}/sync/groups`, {
-      method: 'POST',
-      body: JSON.stringify({})
-    })
-  }
-
   return {
     loading,
     sendGroupMessage,
-    syncBotGroups,
   }
 })

@@ -12,7 +12,7 @@ use Telegram\Bot\Api;
  * 统一创建 Telegram Bot SDK 客户端（Telegram\Bot\Api）。
  *
  * 之前 new Api($token) 散落在 NotificationService / ListenBotInGroupService /
- * BotGroupSyncService / WebHookController / SlashCommandDispatcher / Bots 模型里，
+ * WebHookController / SlashCommandDispatcher / Bots 模型里，
  * 各自从 api_token 或 config 取 token，难以统一（例如以后要加代理、异步、超时、
  * 统一的异常处理）。
  *

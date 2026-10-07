@@ -46,14 +46,6 @@
                         <el-button type="success" size="small" @click="openBotBroadcastDialog(scope.row)">
                             <Icon name="paper-plane" className="w-4 h-4 mr-1" /> 群发
                         </el-button>
-                        <el-button
-                            type="warning"
-                            size="small"
-                            :loading="scope.row.syncLoading"
-                            @click="handleSyncGroups(scope.row)"
-                        >
-                            <Icon name="refresh" className="w-4 h-4 mr-1" /> 同步群
-                        </el-button>
                         <Update @click="open(scope.row.id)" />
                         <Destroy @click="destroy(api, scope.row.id)" />
                     </template>
@@ -147,27 +139,6 @@ const openBotBroadcastDialog = (row: any) => {
 // 消息群发成功回调
 const handleBroadcastSuccess = () => {
     // 不需要在这里显示提示，子组件已经处理了
-}
-
-// 同步机器人所在群
-const handleSyncGroups = async (row: any) => {
-    row.syncLoading = true
-    try {
-        const result = await useBotStore().syncBotGroups(row.id)
-        const data = result.data?.data || result.data
-        const synced = data?.synced ?? 0
-        const removed = data?.removed ?? 0
-
-        if (result.success) {
-            Message.success(`同步完成：在群 ${synced} 个，已失效移除 ${removed} 个`)
-        } else {
-            Message.error(result.message || '同步失败')
-        }
-    } catch (error) {
-        Message.error('同步失败，请稍后重试')
-    } finally {
-        row.syncLoading = false
-    }
 }
 
 onMounted(() => {

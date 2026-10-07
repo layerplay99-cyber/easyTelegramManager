@@ -31,8 +31,13 @@ Route::prefix('api')->group(function () {
 
     // Webhook 路由 - Webhook Routes
     Route::prefix('webhook')->group(function () {
+        // Telegram 回调入口：仅用 bot 自己的 url_token（secret_token）鉴权（见 handle()），
+        // 绝不能用平台的 Api-Key 校验——Telegram 回调时只带 secret_token，带不了平台密钥，
+        // 否则回调会被 validate.apikey 拦截导致 webhook 失效、激活后收不到消息。
+        // 显式 withoutMiddleware 确保即便更上层（/api 或框架路由加载）套了 validate.apikey 也被排除。
         Route::post('pull', [WebHookController::class, 'handle'])
             ->middleware(['throttle:100,1'])
+            ->withoutMiddleware(['validate.apikey'])
             ->name('api.webhook.pull');
 
         Route::middleware(['validate.apikey', 'throttle:10,1'])->group(function () {

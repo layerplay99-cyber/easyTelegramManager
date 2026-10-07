@@ -99,7 +99,10 @@ class MessageSend extends Model
      */
     public function createLogs(array $chatIds): void
     {
-        $now = now();
+        // created_at/updated_at 是 CatchAdmin 的 int 时间戳列（$dateFormat='U'）。
+        // 这里走的是查询构造器 insert()，不会经过 Eloquent 的日期转换，
+        // 若传 Carbon 会被 PDO 转成 'Y-m-d H:i:s' 字符串塞进 int 列，触发 1265 Data truncated。
+        $now = now()->getTimestamp();
 
         $rows = array_map(fn ($chatId) => [
             'send_id' => $this->getKey(),

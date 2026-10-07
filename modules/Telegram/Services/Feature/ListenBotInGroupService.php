@@ -3,6 +3,7 @@
 namespace Modules\Telegram\Services\Feature;
 
 use Illuminate\Support\Facades\Cache;
+use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\GroupAdmins;

@@ -3,17 +3,18 @@
 namespace Modules\Telegram\Listeners;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\App;
 use Modules\Telegram\Events\TelegramUpdateReceivedEvent;
 use Modules\Telegram\Services\Feature\ListenBotInGroupService;
 use Modules\Telegram\Services\Feature\TelegramFeatureService;
 
+// 必须实现 ShouldQueue（队列 worker 已在跑），但关键是不能在构造函数注入服务：
+// 若注入 ListenBotInGroupService（含未初始化的强类型属性 Api $telegram 等），
+// 监听器被序列化入队时，未初始化的非可空属性会触发
+// 「Serialization of uninitialized non-nullable property」，导致 event() 抛异常、
+// 任务根本没进队列、群永远同步不进来。服务改为在 handle() 内即时解析。
 readonly class HandleTelegramUpdateListener implements ShouldQueue
 {
-    public function __construct(
-        public ListenBotInGroupService $botInGroupService,
-        public TelegramFeatureService  $featureService
-    )
-    {}
     public function handle(TelegramUpdateReceivedEvent $event)
     {
         try {
@@ -28,23 +29,27 @@ readonly class HandleTelegramUpdateListener implements ShouldQueue
                 return;
             }
 
+            // 延迟解析：监听器实例不再持有任何服务属性，可被干净序列化入队。
+            $botInGroupService = App::make(ListenBotInGroupService::class);
+            $featureService = App::make(TelegramFeatureService::class);
+
             // 兜底同步：机器人收到的任何 update 都要保证群信息已入库。
             // 这样「先拉机器人进群、后在后台登记机器人」也能自动补上群。
             if ($chatId = $this->extractChatId($update)) {
-                $this->botInGroupService->ensureChatSynced($bot, $chatId);
+                $botInGroupService->ensureChatSynced($bot, $chatId);
             }
 
-            if($this->isGroupMembershipEvent($update)) {
-                $this->botInGroupService->handleUpdate($bot, $update);
-            } elseif(($update->getMessage() && $update->getMessage()->has('photo')) || $update->isType('callback_query')) {
-                $this->featureService->handleInteraction($bot, $update);
+            if ($this->isGroupMembershipEvent($update)) {
+                $botInGroupService->handleUpdate($bot, $update);
+            } elseif (($update->getMessage() && $update->getMessage()->has('photo')) || $update->isType('callback_query')) {
+                $featureService->handleInteraction($bot, $update);
             }
         } catch (\Throwable $e) {
             // 记录错误日志
             app('logMessageService')->createLaravelLog("telegram_error", [
                 'trace' => $e->getTraceAsString(),
-                'update' => $update ?? null,
-                'bot_id' => $bot ? $bot->id : null,
+                'update' => $event->update ?? null,
+                'bot_id' => $event->bot ? $event->bot->id : null,
             ], 'Telegram Update Handling Error: ' . $e->getMessage());
         }
     }

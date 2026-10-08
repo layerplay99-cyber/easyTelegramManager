@@ -1,5 +1,28 @@
 const en = {
   system: {
+  feature: {
+    driverLabel: 'Driver',
+    triggerLabel: 'Trigger',
+    commandsLabel: 'Commands',
+    triggers: {
+      command: 'Slash Command',
+      message: 'Message',
+      callback_query: 'Button Callback',
+      inline_query: 'Inline Query',
+      inline_result: 'Inline Result',
+      membership: 'Membership',
+      poll_answer: 'Poll Answer',
+      chat_join_request: 'Join Request',
+      webhook: 'Webhook Push',
+      manual: 'Manual / API',
+    },
+    categories: {
+      system: 'System',
+      custom: 'Client',
+      bot: 'Bot',
+      realMan: 'Real Account',
+    },
+  },
     name: 'BotAdmin Dashboard',
     chinese: 'Chinese',
     english: 'English',

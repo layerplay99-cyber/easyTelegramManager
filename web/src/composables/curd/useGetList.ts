@@ -33,10 +33,12 @@ export function useGetList(path: string, isPaginate: boolean = true) {
       .then(r => {
         closeLoading()
         if (r.data.code === Code.SUCCESS) {
-          data.value = r.data
-          // @ts-ignore
-          total.value = data.value?.total
-        } else {
+                    data.value = r.data
+                    // 分页总数：后端返回的是分页结构 { data: { total, ... } }，
+                    // 原写法取 r.data.total 恒为 undefined，导致分页组件 total 为 NaN、
+                    // el-pagination 反复触发 current-change，列表接口被重复请求。
+                    total.value = r.data?.total ?? r.data?.data?.total ?? 0
+                  } else {
           Message.error(r.data.message)
         }
       })

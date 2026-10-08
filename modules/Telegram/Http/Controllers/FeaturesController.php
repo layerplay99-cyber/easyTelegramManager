@@ -40,7 +40,15 @@ class FeaturesController extends Controller
             }
 
             return $query;
-        })->getList();
+        })->getList()->through(function ($feature) {
+            //附带展示用的中文名：执行器名 + 触发方式名。
+            // 由后端直接给出，避免前端再发一次 drivers 请求导致显示英文 key。
+            $driverLabels = DriverRegistry::labelMap();
+            $feature->driver_label = $driverLabels[$feature->driver] ?? $feature->driver;
+            $feature->trigger_label = $feature->trigger;
+
+            return $feature;
+        });
     }
 
     /**

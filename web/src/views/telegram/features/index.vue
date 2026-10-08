@@ -18,12 +18,16 @@
                 <el-table-column prop="name" label="功能名称" />
                   <el-table-column prop="category" label="功能归属" />
                       <!-- 执行器：取代旧的「功能类型/请求类型/数据来源」三个枚举 -->
-                       <el-table-column prop="driver" label="执行器" width="180">
-                          <template #default="scope">
-                            <el-tag size="small">{{ driverLabel(scope.row.driver) }}</el-tag>
-                     </template>
-                   </el-table-column>
-                  <el-table-column prop="trigger" label="触发方式" width="110" />
+                            <el-table-column prop="driver_label" label="执行器" width="180">
+                                <template #default="scope">
+                            <el-tag size="small">{{ scope.row.driver_label || scope.row.driver }}</el-tag>
+                                </template>
+                              </el-table-column>
+                              <el-table-column label="触发方式" width="110">
+                                <template #default="scope">
+                            {{ triggerLabel(scope.row.trigger) }}
+                          </template>
+                              </el-table-column>
                 <el-table-column prop="description" label="功能描述" width="200">
                     <template #default="scope">
                         <el-tooltip
@@ -74,14 +78,18 @@
             <Paginate />
         </div>
 
+        <!-- key 绑定 id：切换功能时强制重建弹窗组件。
+     Create 内部的 useShow 只在 setup 执行一次，若不重建，
+     第二次点开其它功能时仍显示第一次那条记录的内容。 -->
         <Dialog v-model="visible" :title="title" destroy-on-close>
-            <Create @close="close(search)" :primary="id" :api="api" />
+            <Create :key="id" @close="close(search)" :primary="id" :api="api" />
         </Dialog>
     </div>
 </template>
 
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Create from './create.vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import { useDestroy } from '@/composables/curd/useDestroy'
@@ -146,24 +154,15 @@ const handleEnabledChange = async (row: any) => {
     }
 }
 
-// 执行器 key → 中文名（从后端 drivers 接口取，避免硬编码漏掉自定义执行器）
-const driverLabels = ref<Record<string, string>>({})
+// 触发方式国际化（默认中文，取不到时回落原始 key）
+const { t } = useI18n()
 
-const loadDriverLabels = async () => {
-  try {
-    const { data } = await http.get('telegram/features/drivers')
-    const list = data.data || []
-    const map: Record<string, string> = {}
-    list.forEach((d: any) => {
-      map[d.key] = d.label || d.key
-    })
-    driverLabels.value = map
-  } catch {
-    driverLabels.value = {}
-  }
+const triggerLabel = (key: string) => {
+  if (!key) return '-'
+  const i18nKey = `feature.triggers.${key}`
+  const text = t(i18nKey)
+  return text === i18nKey ? key : text
 }
-
-const driverLabel = (key: string) => driverLabels.value[key] || key || '-'
 
 // 各功能的命令列表：一次批量请求拿全部，避免 N+1
 const commandMap = ref<Record<string, any[]>>({})
@@ -199,7 +198,6 @@ watch(
 )
 
 onMounted(() => {
-  loadDriverLabels()
   search()
   deleted(reset)
 })

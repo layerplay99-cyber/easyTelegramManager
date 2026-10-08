@@ -195,6 +195,7 @@
 import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
 import { onMounted, ref, reactive, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import http from '@/support/http'
 import { ElMessage } from 'element-plus'
 
@@ -203,24 +204,33 @@ const props = defineProps({
   api: String,
 })
 
-const category = [
-  { label: '系统', value: 'system' },
-  { label: '客户端', value: 'custom' },
-  { label: '机器人', value: 'bot' },
-  { label: '真人', value: 'realMan' },
-]
+const { t } = useI18n()
+
+const category = computed(() => [
+    { label: t('feature.categories.system'), value: 'system' },
+    { label: t('feature.categories.custom'), value: 'custom' },
+    { label: t('feature.categories.bot'), value: 'bot' },
+    { label: t('feature.categories.realMan'), value: 'realMan' },
+])
 
 const enabled = [
-  { label: '启用', value: 1 },
-  { label: '禁用', value: 0 },
+    { label: '启用', value: 1 },
+    { label: '禁用', value: 0 },
 ]
 
-const triggerOptions = [
-  { label: '斜杠命令', value: 'command' },
-  { label: '按钮回调', value: 'callback_query' },
-  { label: '三方推送', value: 'webhook' },
-  { label: '手动/接口', value: 'manual' },
-]
+// 触发方式：与 UpdateIntent 的 type 一致，覆盖全部 update 类型
+const triggerOptions = computed(() => [
+    { label: t('feature.triggers.command'), value: 'command' },
+    { label: t('feature.triggers.message'), value: 'message' },
+    { label: t('feature.triggers.callback_query'), value: 'callback_query' },
+    { label: t('feature.triggers.inline_query'), value: 'inline_query' },
+    { label: t('feature.triggers.inline_result'), value: 'inline_result' },
+    { label: t('feature.triggers.membership'), value: 'membership' },
+    { label: t('feature.triggers.poll_answer'), value: 'poll_answer' },
+    { label: t('feature.triggers.chat_join_request'), value: 'chat_join_request' },
+    { label: t('feature.triggers.webhook'), value: 'webhook' },
+    { label: t('feature.triggers.manual'), value: 'manual' },
+])
 
 // ---------- 执行器 ----------
 const drivers = ref<any[]>([])

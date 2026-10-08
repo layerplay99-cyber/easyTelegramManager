@@ -1,5 +1,28 @@
 const zh = {
   system: {
+  feature: {
+    driverLabel: '执行器',
+    triggerLabel: '触发方式',
+    commandsLabel: '命令',
+    triggers: {
+      command: '斜杠命令',
+      message: '消息',
+      callback_query: '按钮回调',
+      inline_query: '内联查询',
+      inline_result: '内联结果',
+      membership: '成员变化',
+      poll_answer: '投票回调',
+      chat_join_request: '入群申请',
+      webhook: '三方推送',
+      manual: '手动/接口',
+    },
+    categories: {
+      system: '系统',
+      custom: '客户端',
+      bot: '机器人',
+      realMan: '真人',
+    },
+  },
     name: '机器人管理系统',
     chinese: '中文',
     english: '英文',

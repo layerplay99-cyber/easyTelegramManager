@@ -149,6 +149,25 @@ class DriverRegistry
     }
 
     /**
+     * 执行器 key => 中文名 映射
+     *
+     * 供列表页直接展示，避免前端再发一次请求或硬编码映射表
+     * （硬编码会漏掉自定义执行器，导致显示英文 key）。
+     *
+     * @return array<string, string>
+     */
+    public static function labelMap(): array
+    {
+        $map = [];
+
+        foreach (self::all() as $key => $class) {
+            $map[$key] = $class::label();
+        }
+
+        return $map;
+    }
+
+    /**
      * 扫描 Drivers 目录
      *
      * @return array<int, string>

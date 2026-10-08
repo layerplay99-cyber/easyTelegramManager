@@ -298,12 +298,15 @@ let showResult: any = null
 if (props.primary) {
   showResult = useShow(props.api, props.primary, formData)
 
-  watch(() => showResult.loading.value, (isLoading, wasLoading) => {
-    if (wasLoading === true && isLoading === false) {
-      parseConfig((formData.value as any)?.config)
-      loadCommands()
-    }
-  }, { immediate: true })
+  // 用useShow 提供的 afterShow 钩子拿数据。
+  // 之前用 watch(loading) 判断，但 loading 初值就是 true，
+  // 若钩子注册时机晚于数据返回则 watch 永远不触发 → 表单空白/三条功能显示相同。
+  showResult.afterShow.value = () => {
+  // formData 已由 useShow 填充，这里只做派生处理
+    rawConfig = (formData.value as any)?.config
+  parseConfig(rawConfig)
+    loadCommands()
+  }
 }
 
 /**
@@ -311,22 +314,39 @@ if (props.primary) {
  */
 const parseConfig = (raw: any) => {
   let parsed: any = raw
+
   if (typeof raw === 'string') {
     try {
       parsed = JSON.parse(raw || '{}')
     } catch {
-      parsed = {}
+    parsed = {}
     }
   }
-  Object.assign(config, parsed || {})
+
+  parsed = parsed && typeof parsed === 'object' ? parsed : {}
+
+  // 先清空，避免上一个功能的残留字段混进来
+  Object.keys(config).forEach((k) => delete config[k])
+  Object.keys(kv).forEach((k) => delete kv[k])
+
+  // 套用驱动 schema 的默认值，再写入实际值
+  schema.value.forEach((f) => {
+    if (f.type === 'switch') config[f.key] = f.default ?? false
+    else if (f.default !== undefined && f.default !== null) config[f.key] = f.default
+    else config[f.key] = f.type === 'keyvalue' ? {} : ''
+})
+
+  Object.assign(config, parsed)
 
   // keyvalue 字段回填成行
-  schema.value.filter((f) => f.type === 'keyvalue').forEach((f) => {
-    const val = (parsed || {})[f.key]
-    kv[f.key] = Array.isArray(val)
-      ? val.map((v: any) => ({ key: String(v), value: '' }))
-      : Object.entries(val || {}).map(([k, v]) => ({ key: String(k), value: String(v ?? '') }))
-  })
+  schema.value
+    .filter((f) => f.type === 'keyvalue')
+    .forEach((f) => {
+      const val = parsed[f.key]
+      kv[f.key] = Array.isArray(val)
+        ? val.map((v: any) => ({ key: String(v), value: '' }))
+     : Object.entries(val || {}).map(([k, v]) => ({ key: String(k), value: String(v ?? '') }))
+    })
 }
 
 // 执行器切换或数据加载后，拉取其 schema 里的动态下拉选项
@@ -416,11 +436,16 @@ const submitForm = async (formEl: any) => {
 }
 
 // ---------- 初始化 ----------
+// 保存原始配置，待驱动列表就绪后重新解析
+let rawConfig: any = null
+
 const loadDrivers = async () => {
   driversLoading.value = true
   try {
     const { data } = await http.get('telegram/features/drivers')
-    drivers.value = data.data || []
+ drivers.value = data.data || []
+    // 驱动就绪后重解析一次：此前若在 drivers 未到时解析，schema 为空会导致配置渲染不出来
+    if (props.primary && rawConfig !== null) parseConfig(rawConfig)
   } catch (e) {
     console.error('加载执行器失败:', e)
   } finally {

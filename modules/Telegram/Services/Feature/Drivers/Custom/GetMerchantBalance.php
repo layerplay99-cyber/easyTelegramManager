@@ -69,6 +69,21 @@ class GetMerchantBalance extends BaseCustomFeature
     }
 
     /**
+     * 默认配置（首次注册时写入 features.config）
+     *
+     * 不给默认三方配置（那是每个用户自己的），但把平台接口与回复模板预设好，
+     * 注册后只需在后台选一下接口即可用。
+     */
+    public static function defaultConfig(): array
+    {
+        return [
+      'endpoint_code' => 'merchant.balance',
+  'not_bound_tip' => '本群还没有绑定商户号，请先执行 /bm <商户号>',
+     'reply_template' => '余额：{{data.balance}} 元',
+        ];
+    }
+
+    /**
      * 后台可配置项（会自动渲染成表单）
      */
     public static function configSchema(): array

@@ -16,11 +16,14 @@
             <Operate :show="open" />
             <el-table :data="tableData" class="mt-3" v-loading="loading">
                 <el-table-column prop="name" label="功能名称" />
-                <el-table-column prop="category" label="功能归属" />
-                <el-table-column prop="type" label="功能类型" />
-                <el-table-column prop="requestType" label="请求类型" />
-                <el-table-column prop="location" label="数据来源" />
-                <el-table-column prop="feature" label="功能标识" />
+                  <el-table-column prop="category" label="功能归属" />
+                      <!-- 执行器：取代旧的「功能类型/请求类型/数据来源」三个枚举 -->
+                       <el-table-column prop="driver" label="执行器" width="180">
+                          <template #default="scope">
+                            <el-tag size="small">{{ driverLabel(scope.row.driver) }}</el-tag>
+                     </template>
+                   </el-table-column>
+                  <el-table-column prop="trigger" label="触发方式" width="110" />
                 <el-table-column prop="description" label="功能描述" width="200">
                     <template #default="scope">
                         <el-tooltip
@@ -33,8 +36,21 @@
                         </el-tooltip>
                     </template>
                 </el-table-column>
-                <el-table-column v-if="isSuperAdmin" prop="handler" label="处理类" />
-                <el-table-column prop="config" label="配置项" />
+                <el-table-column label="命令" min-width="150">
+                    <template #default="scope">
+                    <template v-if="commandsOf(scope.row.id).length">
+                        <el-tag
+                   v-for="c in commandsOf(scope.row.id)"
+                    :key="c.id"
+                             size="small"
+                        class="mr-1"
+                       >
+                      /{{ c.command }}
+                          </el-tag>
+                       </template>
+                   <span v-else class="text-xs text-gray-400">-</span>
+                       </template>
+                          </el-table-column>
                 <el-table-column label="是否启用" width="100">
                     <template #default="scope">
                         <el-switch
@@ -65,7 +81,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import Create from './create.vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import { useDestroy } from '@/composables/curd/useDestroy'
@@ -88,30 +104,12 @@ const enabled = [
     { label: '禁用', value: 0 }
 ]
 
-// 值映射配置
+// 归属映射（列表已改用 driver/trigger，旧的 type/requestType/location 列已移除）
 const categoryMap = {
     'system': '系统',
     'custom': '客户端',
-    'bot': '机器人',
+  'bot': '机器人',
     'realMan': '真人'
-}
-
-const typeMap = {
-    'command': '指令',
-    'ocr': '图片',
-    'notify': '通知',
-    'interaction': '交互'
-}
-
-const requestTypeMap = {
-    'message': '消息',
-    'callback_query': '按钮回调',
-    'inline_query': '内联回调'
-}
-
-const locationMap = {
-    'local': '本地',
-    'external': '外部'
 }
 
 const enabledMap = {
@@ -124,13 +122,10 @@ const tableData = computed(() => {
     if (!(data.value as any)?.data) return []
 
     return (data.value as any).data.map((item: any) => ({
-        ...item,
-        category: categoryMap[item.category as keyof typeof categoryMap] || item.category,
-        type: typeMap[item.type as keyof typeof typeMap] || item.type,
-        requestType: requestTypeMap[item.requestType as keyof typeof requestTypeMap] || item.requestType,
-        location: locationMap[item.location as keyof typeof locationMap] || item.location,
-        switchLoading: false // 添加开关加载状态
-    }))
+            ...item,
+            category: categoryMap[item.category as keyof typeof categoryMap] || item.category,
+            switchLoading: false // 添加开关加载状态
+        }))
 })
 
 // 处理启用状态变化
@@ -151,9 +146,46 @@ const handleEnabledChange = async (row: any) => {
     }
 }
 
+// 执行器 key → 中文名
+const driverLabels: Record<string, string> = {
+  'telegram.api': '调用 Telegram API',
+    'http.request': '调用三方接口',
+  'feature.store': '绑定/保存数据',
+  'hook.receive': '接收三方推送',
+  'miniapp': 'Mini App',
+}
+const driverLabel = (key: string) => driverLabels[key] || key || '-'
+
+// 各功能的命令列表（后端 features/{id}/commands）
+const commandMap = ref<Record<string, any[]>>({})
+const commandsOf = (featureId: number) => commandMap.value[String(featureId)] || []
+
+const loadCommands = async (rows: any[]) => {
+  await Promise.all(
+    (rows || []).map(async (row: any) => {
+      if (!row?.id) return
+      try {
+    const { data } = await http.get(`telegram/features/${row.id}/commands`)
+        commandMap.value[String(row.id)] = data.data || []
+    } catch {
+        commandMap.value[String(row.id)] = []
+    }
+    })
+  )
+}
+
+// 列表数据到位后再加载命令
+watch(
+  () => (data.value as any)?.data,
+  (rows) => {
+    if (Array.isArray(rows) && rows.length) loadCommands(rows)
+  },
+  { immediate: true, deep: true }
+)
+
 onMounted(() => {
-    search()
-    deleted(reset)
+  search()
+  deleted(reset)
 })
 </script>
 

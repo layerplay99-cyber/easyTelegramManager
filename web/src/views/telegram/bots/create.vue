@@ -27,7 +27,8 @@
                 将自动使用当前平台回调地址：{{ platformWebhookUrl }}
             </div>
         </el-form-item>
-        <el-form-item label="三方上游" prop="third_config_id">
+        <!-- 三方上游：仅超级管理员可见/可改（后端也已硬校验） -->
+        <el-form-item v-if="isSuperAdmin" label="三方上游" prop="third_config_id">
             <el-select
                 v-model="formData.third_config_id"
                 placeholder="未指定（该机器人无法调用三方接口）"
@@ -66,6 +67,7 @@ import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
 import { computed, onMounted, ref, watch } from 'vue'
 import http from '@/support/http'
+import { useUserStore } from '@/stores/modules/user'
 
 const props = defineProps({
     primary: [String, Number],
@@ -77,11 +79,15 @@ const enabled = ref([
     { value: 0, label: '禁用' }
 ])
 
-// 三方上游列表（仅显示当前用户可见的，后端已按 DataRange 过滤）
+// 三方上游：仅超级管理员可见/可改（上游涉及地址与 Token，属成本与安全边界）
+const userStore = useUserStore()
+const isSuperAdmin = userStore.isSuperAdmin()
+
 const thirdConfigs = ref<any[]>([])
 const thirdLoading = ref(false)
 
 const loadThirdConfigs = async () => {
+  if (!isSuperAdmin) return
   thirdLoading.value = true
   try {
     const { data } = await http.get('telegram/third/config')

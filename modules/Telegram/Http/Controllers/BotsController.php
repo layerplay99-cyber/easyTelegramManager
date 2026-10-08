@@ -6,6 +6,7 @@ namespace Modules\Telegram\Http\Controllers;
 use Catch\Base\CatchController as Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Modules\Telegram\Http\Requests\BotsRequest;
 use Modules\Telegram\Jobs\BotSendMsgToGroup;
 use Modules\Telegram\Models\BotGroups;
@@ -73,7 +74,25 @@ class BotsController extends Controller
      */
     public function update(int|string $id, BotsRequest $request): mixed
     {
+        // 修改机器人的「三方上游」仅限超级管理员：
+        // 上游涉及地址与 Token，是成本与安全边界，普通用户随意切换会导致
+        // 请求打到别人的上游、或把自己的机器人绑到未授权的上游上。
+        if ($request->has('third_config_id') && ! $this->isSuperAdmin()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => '只有超级管理员才能修改机器人的三方上游',
+            ], 403);
+        }
+
         return $this->model->updateBy($id, $request->all());
+    }
+
+    /**
+     * 是否超级管理员
+     */
+    protected function isSuperAdmin(): bool
+    {
+        return (int) Auth::id() === (int) config('catch.super_admin', 1);
     }
 
     /**

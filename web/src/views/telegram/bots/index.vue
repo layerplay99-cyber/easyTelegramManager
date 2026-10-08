@@ -27,7 +27,8 @@
                 <el-table-column prop="api_token" label="Api_Token" />
                 <el-table-column prop="username" label="Bot用户名" />
                 <el-table-column prop="url_token" label="Url-Token" />
-      <el-table-column label="三方上游" min-width="200">
+      <!-- 三方上游：仅超级管理员可见/可改（后端也已硬校验） -->
+      <el-table-column v-if="isSuperAdmin" label="三方上游" min-width="200">
         <template #default="scope">
           <el-select
             v-model="scope.row.third_config_id"
@@ -139,11 +140,14 @@ import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
 import { useTelegramStore } from '@/stores/modules/telegram'
 import { useBotStore } from '@/stores/modules/telegram/botApi'
+import { useUserStore } from '@/stores/modules/user'
 import Icon from '@/components/icon/index.vue'
 import Message from '@/support/message'
 import http from '@/support/http'
 
 const api = 'telegram/bots'
+
+const userStore = useUserStore()
 
 const { data, query, search, reset, loading } = useGetList(api)
 const { destroy, deleted } = useDestroy()
@@ -255,11 +259,16 @@ const handleViewWebhook = async (row: any) => {
     }
 }
 
-// ---- 三方上游（每个机器人绑定自己的上游，实现多用户隔离） ----
+// ---- 三方上游（每个机器人绑定自己的上游，实现多用户隔离）----
+// 仅超级管理员可指定：上游涉及地址与 Token，属成本与安全边界
+const isSuperAdmin = userStore.isSuperAdmin()
+
 const thirdConfigs = ref<any[]>([])
 const thirdLoading = ref(false)
 
 const loadThirdConfigs = async () => {
+  // 非超管不加载，也不暴露上游信息
+  if (!isSuperAdmin) return
   thirdLoading.value = true
   try {
     const { data } = await http.get('telegram/third/config')

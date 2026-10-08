@@ -27,6 +27,26 @@
                 将自动使用当前平台回调地址：{{ platformWebhookUrl }}
             </div>
         </el-form-item>
+        <el-form-item label="三方上游" prop="third_config_id">
+            <el-select
+                v-model="formData.third_config_id"
+                placeholder="未指定（该机器人无法调用三方接口）"
+                clearable
+                filterable
+                class="w-full"
+                :loading="thirdLoading"
+            >
+                <el-option
+                    v-for="c in thirdConfigs"
+                    :key="c.id"
+                    :label="c.name"
+                    :value="c.id"
+                />
+            </el-select>
+            <div class="text-xs text-gray-500 mt-1">
+                该机器人调用三方接口时使用的上游（地址 + Token）。不同机器人可指向不同上游。
+            </div>
+        </el-form-item>
         <el-form-item label="Bot描述" prop="description">
             <el-input v-model="formData.description" name="description" clearable />
         </el-form-item>
@@ -45,6 +65,7 @@
 import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
 import { computed, onMounted, ref, watch } from 'vue'
+import http from '@/support/http'
 
 const props = defineProps({
     primary: [String, Number],
@@ -52,9 +73,27 @@ const props = defineProps({
 })
 
 const enabled = ref([
-    { value: 1, label: '启用' },
+  { value: 1, label: '启用' },
     { value: 0, label: '禁用' }
 ])
+
+// 三方上游列表（仅显示当前用户可见的，后端已按 DataRange 过滤）
+const thirdConfigs = ref<any[]>([])
+const thirdLoading = ref(false)
+
+const loadThirdConfigs = async () => {
+  thirdLoading.value = true
+  try {
+    const { data } = await http.get('telegram/third/config')
+    thirdConfigs.value = data.data?.data || data.data || []
+  } catch {
+    thirdConfigs.value = []
+  } finally {
+    thirdLoading.value = false
+  }
+}
+
+onMounted(loadThirdConfigs)
 
 const { formData, form, loading, submitForm, close } = useCreate(props.api, props.primary)
 

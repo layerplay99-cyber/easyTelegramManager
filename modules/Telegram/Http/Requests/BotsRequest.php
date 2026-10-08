@@ -18,6 +18,8 @@ class BotsRequest extends Request
             'webhook_url' => 'nullable|url',
             'description' => 'nullable|string',
             'enabled' => 'nullable|boolean',
+            // 该机器人使用哪个三方上游（多用户各自不同上游的关键字段）
+            'third_config_id' => 'nullable|integer|exists:thirdapi_config,id',
         ];
     }
 

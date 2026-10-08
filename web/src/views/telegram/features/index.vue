@@ -146,44 +146,60 @@ const handleEnabledChange = async (row: any) => {
     }
 }
 
-// 执行器 key → 中文名
-const driverLabels: Record<string, string> = {
-  'telegram.api': '调用 Telegram API',
-    'http.request': '调用三方接口',
-  'feature.store': '绑定/保存数据',
-  'hook.receive': '接收三方推送',
-  'miniapp': 'Mini App',
-}
-const driverLabel = (key: string) => driverLabels[key] || key || '-'
+// 执行器 key → 中文名（从后端 drivers 接口取，避免硬编码漏掉自定义执行器）
+const driverLabels = ref<Record<string, string>>({})
 
-// 各功能的命令列表（后端 features/{id}/commands）
+const loadDriverLabels = async () => {
+  try {
+    const { data } = await http.get('telegram/features/drivers')
+    const list = data.data || []
+    const map: Record<string, string> = {}
+    list.forEach((d: any) => {
+      map[d.key] = d.label || d.key
+    })
+    driverLabels.value = map
+  } catch {
+    driverLabels.value = {}
+  }
+}
+
+const driverLabel = (key: string) => driverLabels.value[key] || key || '-'
+
+// 各功能的命令列表：一次批量请求拿全部，避免 N+1
 const commandMap = ref<Record<string, any[]>>({})
 const commandsOf = (featureId: number) => commandMap.value[String(featureId)] || []
 
-const loadCommands = async (rows: any[]) => {
-  await Promise.all(
-    (rows || []).map(async (row: any) => {
-      if (!row?.id) return
-      try {
-    const { data } = await http.get(`telegram/features/${row.id}/commands`)
-        commandMap.value[String(row.id)] = data.data || []
-    } catch {
-        commandMap.value[String(row.id)] = []
-    }
+let commandsLoaded = false
+
+const loadAllCommands = async () => {
+  if (commandsLoaded.value) return   // 只加载一次，防止重复请求
+  commandsLoaded.value = true
+
+  try {
+    const { data } = await http.get('telegram/features/commands')
+    // 批量接口返回「功能ID => 命令数组」映射
+    const map = data.data || {}
+    const normalized: Record<string, any[]> = {}
+    Object.keys(map).forEach((k) => {
+      normalized[String(k)] = Array.isArray(map[k]) ? map[k] : []
     })
-  )
+    commandMap.value = normalized
+  } catch {
+    commandMap.value = {}
+  }
 }
 
-// 列表数据到位后再加载命令
+// 列表数据到位后加载命令（只触发一次，不做 deep 监听）
 watch(
-  () => (data.value as any)?.data,
-  (rows) => {
-    if (Array.isArray(rows) && rows.length) loadCommands(rows)
+  () => (data.value as any)?.data?.length,
+  (len) => {
+    if (len > 0) loadAllCommands()
   },
-  { immediate: true, deep: true }
+  { immediate: true }
 )
 
 onMounted(() => {
+  loadDriverLabels()
   search()
   deleted(reset)
 })

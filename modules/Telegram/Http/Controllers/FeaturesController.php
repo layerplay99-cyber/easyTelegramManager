@@ -157,10 +157,32 @@ class FeaturesController extends Controller
     }
 
     /**
-     * 功能的命令列表（后台编辑功能时增删命令）
+     * 功能的命令列表
+     *
+     * 带 id：返回该功能下的命令（编辑单个功能时用）
+     * 不带 id：返回「功能ID => 命令列表」的映射（列表页一次拿全部，避免 N+1 请求）
      */
-    public function commands(int|string $id): JsonResponse
+    public function commands(null|int|string $id = null): JsonResponse
     {
+        // 批量：一次返回全部命令映射
+        if ($id === null || $id === '') {
+            $grouped = FeatureCommands::query()
+                ->orderByDesc('id')
+                ->get()
+                ->groupBy('feature_id');
+
+            $map = [];
+
+            foreach ($grouped as $featureId => $rows) {
+                $map[(string) $featureId] = $rows->toArray();
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $map,
+            ]);
+        }
+
         return response()->json([
             'status' => 'success',
             'data' => FeatureCommands::query()

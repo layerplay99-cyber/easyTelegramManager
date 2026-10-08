@@ -33,6 +33,9 @@ Route::prefix('telegram')->group(function(){
     Route::get('features/drivers', [FeaturesController::class, 'drivers']);
     Route::get('features/custom', [FeaturesController::class, 'customFeatures']);
     Route::get('features/options', [FeaturesController::class, 'options']);
+    // 命令批量查询：必须注册在 features/{id}/commands 之前，
+    // 否则 'features/commands' 会被 {id} 抢先匹配成 feature_id='commands'
+    Route::get('features/commands', [FeaturesController::class, 'commands']);
 
     Route::apiResource('features', FeaturesController::class);
     Route::apiResource('feature/bind', FeatureBindsController::class);

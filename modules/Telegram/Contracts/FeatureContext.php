@@ -72,4 +72,40 @@ class FeatureContext
     {
         return data_get($this->payload, $key, $default);
     }
+
+    /**
+     * 触发方式（command / message / callback_query / webhook / manual）
+     */
+    public function trigger(): string
+    {
+        $trigger = $this->payload['__trigger'] ?? null;
+
+        if ($trigger !== null) {
+            return (string) $trigger;
+        }
+
+        return $this->command !== '' ? 'command' : 'manual';
+    }
+
+    /**
+     * 消息媒体类型（text / photo / voice / sticker / document / location…）
+     *
+     * 识图、按钮交互等功能据此判断收到的是什么内容。
+     */
+    public function mediaType(): ?string
+    {
+        $type = $this->payload['media_type'] ?? null;
+
+        return $type !== null ? (string) $type : null;
+    }
+
+    /**
+     * 按钮回调数据（callback_query 场景）
+     */
+    public function callbackData(): ?string
+    {
+        $data = $this->payload['callback_data'] ?? null;
+
+        return $data !== null ? (string) $data : null;
+    }
 }

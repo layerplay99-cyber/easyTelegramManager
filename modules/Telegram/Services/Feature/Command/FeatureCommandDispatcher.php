@@ -30,17 +30,24 @@ class FeatureCommandDispatcher
     }
 
     /**
+     * 分发斜杠命令
+     *
+     * @param UpdateIntent|null $intent 已解析好的意图（传入可避免重复解析）
      * @return bool 是否已处理该命令
      */
-    public function dispatch(Bots $bot, mixed $update, string $text): bool
-    {
-        $command = $this->parseName($text);
+    public function dispatch(
+        Bots $bot,
+        mixed $update,
+        string $text,
+        ?\Modules\Telegram\Contracts\UpdateIntent $intent = null
+    ): bool {
+        $command = $intent?->commandName() ?? $this->parseName($text);
 
         if ($command === '') {
             return false;
         }
 
-        $chatId = $this->chatId($update);
+        $chatId = $intent?->chatId ?? $this->chatId($update);
 
         if ($chatId === null) {
             return false;

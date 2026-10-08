@@ -29,32 +29,21 @@ readonly class HandleTelegramUpdateListener implements ShouldQueue
                 return;
             }
 
-            // 延迟解析：监听器实例不再持有任何服务属性，可被干净序列化入队。
+            // 延迟解析：监听器实例不持有任何服务属性，可被干净序列化入队。
             $botInGroupService = App::make(ListenBotInGroupService::class);
-            $featureService = App::make(TelegramFeatureService::class);
 
             // 兜底同步：机器人收到的任何 update 都要保证群信息已入库。
             // 这样「先拉机器人进群、后在后台登记机器人」也能自动补上群。
-            if ($chatId = $this->extractChatId($update)) {
+            $resolver = App::make(\Modules\Telegram\Services\Feature\UpdateTypeResolver::class);
+
+            if ($chatId = $resolver->extractChatId($update)) {
                 $botInGroupService->ensureChatSynced($bot, $chatId);
             }
 
-            if ($this->isGroupMembershipEvent($update)) {
-                $botInGroupService->handleUpdate($bot, $update);
-            } else {
-                // 文本消息（含所有斜杠命令）、图片、按钮回调都交给功能分发。
-                // 原来这里只放行 photo / callback_query，导致 message.text 被排除，
-                // 斜杠命令永远进不了功能分发（后台配了命令也从不触发）。
-                $isTextMessage = $update->getMessage() !== null
-                    && $update->getMessage()->has('text');
-
-                if ($isTextMessage
-                    || ($update->getMessage() && $update->getMessage()->has('photo'))
-                    || $update->isType('callback_query')
-                ) {
-                    $featureService->handleInteraction($bot, $update);
-                }
-            }
+            // 统一的分发链路：成员事件 / 斜杠命令 / 按钮、图片等全部交给路由器，
+            // 过滤规则集中在 UpdateRouter + UpdateTypeResolver 里，
+            // 这里不再硬编码「放行 text/photo/callback_query」。
+            App::make(\Modules\Telegram\Services\Feature\UpdateRouter::class)->route($bot, $update);
         } catch (\Throwable $e) {
             // 记录错误日志
             app('logMessageService')->createLaravelLog("telegram_error", [

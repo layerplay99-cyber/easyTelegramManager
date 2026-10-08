@@ -15,11 +15,12 @@ use Modules\Telegram\Services\Feature\TemplateRenderer;
 /**
  * 三方接口请求驱动（第二块：斜杠命令 → 上游 API）
  *
- * 后台只需配置：选三方配置（拿地址+token）、选接口（方法+路径）、
- * 路径参数映射、回复模板，即可完成一个命令，无需写代码。
+ * 平台化设计（功能与上游彻底解耦）：
+ *   - 本功能只引用「平台接口规范 code」，不持有任何上游信息
+ *   - 上游（base_url + token）由当前机器人携带：bots.third_config_id
+ *   - 因此 A、B 两个用户执行同一个命令时，行为完全一致，只是请求各自的上游
  *
- * 三方配置与功能目前是全局关系；若后续要按群绑定不同上游，
- * 只需在 features_binds.config 里覆盖 third_config_id（已预留）。
+ * 接入新上游只需在「三方配置」里填地址/token，无需改功能、无需改代码。
  */
 class HttpRequestDriver implements FeatureDriver
 {
@@ -47,20 +48,12 @@ class HttpRequestDriver implements FeatureDriver
     {
         return [
             [
-                'key' => 'third_config_id',
-                'label' => '三方配置',
+                'key' => 'endpoint_code',
+                'label' => '平台接口',
                 'type' => 'select',
-                'source' => 'third_api_configs',
+                'source' => 'platform_endpoints',
                 'required' => true,
-                'hint' => '在「三方配置」里维护地址与 token',
-            ],
-            [
-                'key' => 'endpoint_id',
-                'label' => '接口',
-                'type' => 'endpoint',
-                'source' => 'third_api_endpoints',
-                'required' => true,
-                'hint' => '在「三方配置」下维护接口（方法 + 路径模板）',
+                'hint' => '平台统一维护的接口规范；不同用户用同一个功能，只是请求各自的上游',
             ],
             [
                 'key' => 'path_params',
@@ -114,12 +107,8 @@ class HttpRequestDriver implements FeatureDriver
     {
         $errors = [];
 
-        if (empty($config['third_config_id'])) {
-            $errors[] = '必须选择三方配置';
-        }
-
-        if (empty($config['endpoint_id'])) {
-            $errors[] = '必须选择接口';
+        if (empty($config['endpoint_code'])) {
+            $errors[] = '必须选择平台接口';
         }
 
         return $errors;
@@ -127,25 +116,31 @@ class HttpRequestDriver implements FeatureDriver
 
     public function execute(FeatureContext $context): FeatureResult
     {
+        // 1) 上游：来自当前机器人绑定的三方配置（各用户不同）
         $third = $this->resolveThirdConfig($context);
+
         if (! $third) {
-            return FeatureResult::fail('三方配置不存在或已删除');
+            return FeatureResult::fail(
+                $context->bot
+                    ? '该机器人尚未绑定三方上游，请先在「机器人列表」里为其指定三方配置'
+                    : '未能确定上游配置（缺少机器人上下文）'
+            );
         }
 
+        // 2) 接口规范：平台统一定义，全局唯一（各用户相同）
         $endpoint = ThirdApiEndpoints::query()
-            ->where('third_config_id', $third->id)
-            ->where('id', $context->config('endpoint_id'))
+            ->where('code', $context->config('endpoint_code'))
             ->where('enabled', true)
             ->first();
 
         if (! $endpoint) {
-            return FeatureResult::fail('接口不存在或已停用');
+            return FeatureResult::fail('平台接口不存在或已停用：' . $context->config('endpoint_code'));
         }
 
         $renderer = app(TemplateRenderer::class);
         $extra = $this->buildExtra($context);
 
-        // 路径模板渲染：{userID} 与 {{@merchant_id}} 两种写法都支持
+        // 3) 路径渲染：{占位} 与 {{@字段}} 两种写法都支持
         $path = $renderer->render((string) $endpoint->path_template, [], $extra);
         $path = $this->replaceBraceParams($path, $context, $extra);
 
@@ -155,6 +150,7 @@ class HttpRequestDriver implements FeatureDriver
         $query = is_array($endpoint->query) ? $endpoint->query : [];
 
         $token = (string) $third->token;
+
         if ($context->config('send_token', true) && $token !== '') {
             match ((string) $context->config('token_placeholder', 'header')) {
                 'query' => $query['api_token'] = $token,
@@ -182,14 +178,14 @@ class HttpRequestDriver implements FeatureDriver
                 default => $request->get($url, $query ?: []),
             };
         } catch (\Throwable $e) {
-            return FeatureResult::fail('请求三方接口失败：' . $e->getMessage());
+            return FeatureResult::fail('请求上游失败：' . $e->getMessage());
         }
 
         $payload = $response->json() ?? ['_raw' => $response->body()];
 
         if (! $response->successful()) {
             return FeatureResult::fail(
-                '三方接口返回异常（' . $response->status() . '）：' . $response->body(),
+                sprintf('上游返回异常（%d）：%s', $response->status(), mb_substr($response->body(), 0, 200)),
                 ['status' => $response->status()]
             );
         }
@@ -199,22 +195,29 @@ class HttpRequestDriver implements FeatureDriver
 
         return FeatureResult::reply($message, is_array($payload) ? $payload : [], [
             'status' => $response->status(),
-            'endpoint_id' => $endpoint->id,
+            'endpoint_code' => $endpoint->code,
         ]);
     }
 
     /**
-     * 绑定级配置可覆盖三方配置（为「按群绑定不同上游」预留）
+     * 解析上游配置：只取当前机器人绑定的三方配置
+     *
+     * 隔离要点：不再从功能配置里取上游，因此不同用户执行同一功能时
+     * 自动走各自机器人绑定的上游，实现多用户数据隔离。
      */
     private function resolveThirdConfig(FeatureContext $context): ?ThirdApiConfig
     {
-        $id = $context->config('third_config_override') ?? $context->config('third_config_id');
+        $thirdConfigId = $context->bot?->third_config_id;
 
-        return $id ? ThirdApiConfig::query()->find($id) : null;
+        if (! $thirdConfigId) {
+            return null;
+        }
+
+        return ThirdApiConfig::query()->find($thirdConfigId);
     }
 
     /**
-     * 支持 {userID} 形式的路径占位（GetBalance/GetOrder 现有写法）
+     * 支持 {userID} 形式的路径占位
      */
     private function replaceBraceParams(string $path, FeatureContext $context, array $extra): string
     {
@@ -231,7 +234,7 @@ class HttpRequestDriver implements FeatureDriver
     }
 
     /**
-     * 模板数据源：已存数据 + 命令参数 + 上下文
+     * 模板数据源：已存数据（如已绑定商户号）+ 命令参数 + 上下文
      */
     private function buildExtra(FeatureContext $context): array
     {

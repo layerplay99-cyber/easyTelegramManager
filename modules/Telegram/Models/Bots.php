@@ -42,17 +42,18 @@ class Bots extends Model
     protected $table = 'bots';
 
     protected $fillable = [
-        'id',
+    'id',
         'api_token',
-        'username',
+   'username',
         'url_token',
-        'webhook_url',
+    'webhook_url',
         'description',
         'enabled',
-        'creator_id',
-        'created_at',
+      'third_config_id',
+    'creator_id',
+     'created_at',
         'updated_at',
-        'deleted_at'
+   'deleted_at'
     ];
 
     /**
@@ -60,26 +61,28 @@ class Bots extends Model
      */
     protected array $fields = [
         'id',
-        'api_token',
-        'username',
+      'api_token',
+   'username',
         'url_token',
         'webhook_url',
-        'description',
+    'description',
         'enabled',
-        'created_at',
-        'updated_at'
+      'third_config_id',
+     'created_at',
+  'updated_at'
     ];
 
     /**
      * @var array
      */
     protected array $form = [
-        'api_token',
+      'api_token',
         'username',
         'url_token',
         'webhook_url',
         'description',
-        'enabled'
+        'enabled',
+      'third_config_id'
     ];
 
     /**

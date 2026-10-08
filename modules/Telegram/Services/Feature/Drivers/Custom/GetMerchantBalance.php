@@ -75,7 +75,7 @@ class GetMerchantBalance extends BaseCustomFeature
     {
         return [
             [
-                'key'      => 'third_config_id',
+                'key'      => 'endpoint_code',
                 'label'    => '三方配置',
                 'type'     => 'select',
                 'source'   => 'third_api_configs',
@@ -83,12 +83,12 @@ class GetMerchantBalance extends BaseCustomFeature
                 'hint'     => '在「三方配置」里维护地址与token',
             ],
             [
-                'key'      => 'endpoint_id',
-                'label'    => '余额接口',
-                'type'     => 'endpoint',
-                'source'   => 'third_api_endpoints',
+                'key'      => 'endpoint_code',
+                'label'    => '平台接口',
+                'type'     => 'select',
+                'source'   => 'platform_endpoints',
                 'required' => true,
-                'hint'     => '选择查询余额用的接口',
+                'hint'     => '平台统一维护的接口规范',
             ],
             [
                 'key'      => 'not_bound_tip',
@@ -117,11 +117,12 @@ class GetMerchantBalance extends BaseCustomFeature
             return $this->fail($tip);
         }
 
-        // 2) 调三方余额接口
-        $endpointId = (int) $context->config('endpoint_id');
-        $thirdConfigId = (string) $context->config('third_config_id');
-
-        $data = $this->callEndpoint($endpointId, ['userID' => $merchantId], 'GET', $thirdConfigId ?: null);
+        // 2) 调平台接口（上游由机器人绑定，各用户不同）
+        $data = $this->callEndpoint(
+            (string) $context->config('endpoint_code', 'merchant.balance'),
+            ['merchant_id' => $merchantId],
+            $context
+        );
 
         if (isset($data['_error'])) {
             return $this->fail('查询余额失败：' . $data['_error']);

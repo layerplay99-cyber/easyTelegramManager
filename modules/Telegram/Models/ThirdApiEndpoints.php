@@ -5,48 +5,73 @@ declare(strict_types=1);
 namespace Modules\Telegram\Models;
 
 use Catch\Base\CatchModel as Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * 三方 API 接口
+ * 平台接口规范
  *
- * 从 thirdapi_config 拆出来的「接口」层：同一个上游通常有多个接口
- * （查余额 / 查订单），拆开后接口可被多个功能复用，功能只引用 endpoint_id，
- * 不必为每个接口重复建一条上游配置、也不必在功能里硬编码路径。
+ * 接口由平台统一维护（见 PlatformEndpointRegistry），不属于任何用户/上游：
+ *   code            平台唯一标识，功能按它引用
+ *   path_template   平台约定的请求路径
+ *   params_schema   统一入参规范（接入标准）
+ *   response_schema 统一出参规范
  *
- * @property int $id
- * @property int $third_config_id
- * @property string $name
- * @property string $method
- * @property string $path_template
- * @property array|null $headers
- * @property array|null $query
- * @property int $timeout
- * @property bool $enabled
- * @property string|null $remark
+ * 各用户差异只体现在「三方配置」（base_url + token）上，由 bots.third_config_id 指向。
  */
 class ThirdApiEndpoints extends Model
 {
     protected $table = 'third_api_endpoints';
 
-    protected $fillable = ['id','third_config_id','name','method','path_template','headers','query','timeout','enabled','remark'];
-
-    protected $casts = [
-        'headers' => 'array',
-        'query' => 'array',
-        'enabled' => 'boolean',
+    protected $fillable = [
+        'id',
+        'code',
+        'name',
+        'method',
+        'path_template',
+        'params_schema',
+        'response_schema',
+        'headers',
+        'query',
+        'timeout',
+        'enabled',
+      'remark',
     ];
 
-    protected array $fields = ['id','third_config_id','name','method','path_template','timeout','enabled','remark','created_at'];
+    protected $casts = [
+    'params_schema' => 'array',
+        'response_schema' => 'array',
+        'headers' => 'array',
+        'query' => 'array',
+   'enabled' => 'boolean',
+    ];
 
-    protected array $form = ['third_config_id','name','method','path_template','headers','query','timeout','enabled','remark'];
+    protected array $fields = [
+        'id',
+        'code',
+    'name',
+        'method',
+   'path_template',
+   'timeout',
+        'enabled',
+        'remark',
+  'created_at',
+    ];
 
-    public array $searchable = ['name' => 'like','third_config_id' => '='];
+    protected array $form = [
+        'code',
+        'name',
+        'method',
+        'path_template',
+    'params_schema',
+        'response_schema',
+        'timeout',
+        'enabled',
+        'remark',
+    ];
+
+    public array $searchable = [
+   'code' => 'like',
+        'name' => 'like',
+    ];
 
     protected bool $isPaginate = true;
-
-    public function thirdConfig(): BelongsTo
-    {
-        return $this->belongsTo(ThirdApiConfig::class, 'third_config_id', 'id');
-    }
 }

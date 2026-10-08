@@ -14,6 +14,7 @@ use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Services\Feature\Command\SlashCommandRegistry;
 use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
 use Modules\Telegram\Services\Feature\DriverRegistry;
+use Modules\Telegram\Services\Feature\PlatformEndpointRegistry;
 
 
 class FeaturesController extends Controller
@@ -136,14 +137,8 @@ class FeaturesController extends Controller
                 ->get(['id', 'name'])
                 ->map(fn ($c) => ['value' => $c->id, 'label' => $c->name])
                 ->toArray(),
-            'third_api_endpoints' => ThirdApiEndpoints::query()
-                ->where('enabled', true)
-                ->get(['id', 'name', 'method', 'path_template'])
-                ->map(fn ($e) => [
-                    'value' => $e->id,
-                    'label' => "{$e->name}（{$e->method} {$e->path_template}）",
-                ])
-                ->toArray(),
+            'third_api_endpoints' => PlatformEndpointRegistry::options(),
+                   'platform_endpoints' => PlatformEndpointRegistry::options(),
             'bot_groups' => BotGroups::query()
                 ->where('enabled', true)
                 ->get(['id', 'name', 'chat_id'])

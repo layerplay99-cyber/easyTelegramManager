@@ -13,6 +13,7 @@ use Modules\Telegram\Services\Feature\Drivers\MiniAppDriver;
 use Modules\Telegram\Services\Feature\Drivers\TelegramApiDriver;
 use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
+use Modules\Telegram\Services\Feature\PlatformEndpointRegistry;
 
 /**
  * 驱动注册表
@@ -141,10 +142,8 @@ class DriverRegistry
             'third_api_configs' => ThirdApiConfig::query()
                 ->get(['id', 'name'])
                 ->map(fn ($c) => ['value' => $c->id, 'label' => $c->name])->toArray(),
-            'third_api_endpoints' => ThirdApiEndpoints::query()
-                ->where('enabled', true)->get(['id', 'name', 'method', 'path_template'])
-                ->map(fn ($e) => ['value' => $e->id, 'label' => "{$e->name}（{$e->method} {$e->path_template}）"])
-                ->toArray(),
+            'third_api_endpoints' => PlatformEndpointRegistry::options(),
+                 'platform_endpoints' => PlatformEndpointRegistry::options(),
             default => [],
         };
     }

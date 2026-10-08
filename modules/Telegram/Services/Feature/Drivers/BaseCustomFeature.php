@@ -245,29 +245,36 @@ abstract class BaseCustomFeature implements FeatureDriver
     }
 
     /**
-     * 调用三方接口，返回响应体数组（失败时返回 ['_error' => 原因]）
+     * 调用平台接口（返回响应体数组，失败时返回 ['_error' => 原因]）
+     *
+     * 平台化约定：上游取当前机器人绑定的三方配置（各用户不同），
+     * 接口按平台 code 引用（全局统一）。因此不同用户执行同一功能时
+     * 行为一致，只是请求各自的上游。
      *
      * @param array<string, mixed> $params 路径/查询参数
      * @return array<string, mixed>
      */
     protected function callEndpoint(
-        int $endpointId,
+        string $endpointCode,
         array $params = [],
-        string $method = 'GET',
-        ?string $thirdConfigId = null
+        ?FeatureContext $context = null,
+        string $method = 'GET'
     ): array {
-        $endpoint = ThirdApiEndpoints::query()->find($endpointId);
+        $endpoint = ThirdApiEndpoints::query()
+            ->where('code', $endpointCode)
+            ->where('enabled', true)
+            ->first();
 
         if (! $endpoint) {
-            return ['_error' => '接口不存在'];
+            return ['_error' => "平台接口不存在：{$endpointCode}"];
         }
 
-        $third = $thirdConfigId
-            ? ThirdApiConfig::query()->find($thirdConfigId)
-            : ThirdApiConfig::query()->find($endpoint->third_config_id);
+        // 上游来自机器人绑定（不再从功能配置取）
+        $thirdConfigId = $context?->bot?->third_config_id;
+        $third = $thirdConfigId ? ThirdApiConfig::query()->find($thirdConfigId) : null;
 
         if (! $third) {
-            return ['_error' => '三方配置不存在'];
+            return ['_error' => '该机器人尚未绑定三方上游'];
         }
 
         $renderer = app(TemplateRenderer::class);

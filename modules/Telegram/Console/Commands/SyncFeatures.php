@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
+use Modules\Telegram\Services\Feature\PlatformEndpointRegistry;
 
 /**
  * 注册 / 同步内置的无代码功能与命令
@@ -129,6 +130,13 @@ class SyncFeatures extends Command
             }
 
             $this->info("已注册内置功能：{$definition['name']}（driver={$definition['driver']}）");
+        }
+
+        $this->newLine();
+
+        // 同步平台接口规范（接入标准，由平台统一维护）
+        foreach (PlatformEndpointRegistry::sync() as $code) {
+            $this->line("  接口 {$code}");
         }
 
         $this->newLine();

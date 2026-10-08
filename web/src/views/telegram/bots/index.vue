@@ -27,6 +27,26 @@
                 <el-table-column prop="api_token" label="Api_Token" />
                 <el-table-column prop="username" label="Bot用户名" />
                 <el-table-column prop="url_token" label="Url-Token" />
+      <el-table-column label="三方上游" min-width="200">
+        <template #default="scope">
+          <el-select
+            v-model="scope.row.third_config_id"
+            placeholder="未指定"
+            clearable
+            filterable
+            class="w-full"
+            :loading="thirdLoading"
+            @change="(v: any) => saveThirdConfig(scope.row, v)"
+          >
+            <el-option
+              v-for="c in thirdConfigs"
+              :key="c.id"
+              :label="c.name"
+              :value="c.id"
+            />
+          </el-select>
+        </template>
+      </el-table-column>
                 <el-table-column prop="description" label="Bot描述" />
                 <el-table-column prop="enabled" label="激活状态">
                     <template #default="scope">
@@ -121,6 +141,7 @@ import { useTelegramStore } from '@/stores/modules/telegram'
 import { useBotStore } from '@/stores/modules/telegram/botApi'
 import Icon from '@/components/icon/index.vue'
 import Message from '@/support/message'
+import http from '@/support/http'
 
 const api = 'telegram/bots'
 
@@ -234,8 +255,35 @@ const handleViewWebhook = async (row: any) => {
     }
 }
 
-onMounted(() => {
+// ---- 三方上游（每个机器人绑定自己的上游，实现多用户隔离） ----
+const thirdConfigs = ref<any[]>([])
+const thirdLoading = ref(false)
+
+const loadThirdConfigs = async () => {
+  thirdLoading.value = true
+  try {
+    const { data } = await http.get('telegram/third/config')
+    thirdConfigs.value = data.data?.data || data.data || []
+  } catch {
+    thirdConfigs.value = []
+  } finally {
+    thirdLoading.value = false
+  }
+}
+
+const saveThirdConfig = async (row: any, value: any) => {
+  try {
+    await http.put(`${api}/${row.id}`, { third_config_id: value ?? null })
+    Message.success('已更新该机器人的三方上游')
+  } catch {
+    Message.error('更新失败')
     search()
-    deleted(reset)
+  }
+}
+
+onMounted(() => {
+  search()
+  loadThirdConfigs()
+  deleted(reset)
 })
 </script>

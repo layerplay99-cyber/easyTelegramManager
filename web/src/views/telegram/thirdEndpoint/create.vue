@@ -1,14 +1,17 @@
 <template>
-  <el-form :model="formData" label-width="130px" ref="form" v-loading="loading" class="pr-4">
-    <el-form-item label="所属上游配置" prop="third_config_id" required>
-      <el-select v-model="(formData as any).third_config_id" placeholder="请选择" filterable clearable class="w-full">
-        <el-option v-for="c in configs" :key="c.id" :label="c.name" :value="c.id" />
-      </el-select>
-      <div class="text-xs text-gray-500 mt-1">地址与 token 在「三方配置」里维护</div>
+  <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
+    <el-alert type="info" :closable="false" class="mb-4">
+      平台接口规范由后端代码统一定义（接入标准），供各上游厂商按此实现。
+      新增接口请在 PlatformEndpointRegistry 中添加定义后执行 telegram:sync-features。
+    </el-alert>
+
+    <el-form-item label="接口标识 code" prop="code" required>
+      <el-input v-model="(formData as any).code" placeholder="如 merchant.balance" clearable />
+      <div class="text-xs text-gray-500 mt-1">平台唯一标识，功能按它引用</div>
     </el-form-item>
 
     <el-form-item label="接口名称" prop="name" required>
-      <el-input v-model="(formData as any).name" placeholder="如：查询余额" clearable />
+      <el-input v-model="(formData as any).name" clearable />
     </el-form-item>
 
     <el-form-item label="请求方法" prop="method">
@@ -18,29 +21,12 @@
     </el-form-item>
 
     <el-form-item label="路径模板" prop="path_template" required>
-      <el-input v-model="(formData as any).path_template" placeholder="如 api/webhook/users/{userID}" clearable />
-      <div class="text-xs text-gray-500 mt-1">
-        支持 {占位名} 与 {{@字段名}}；占位名会在调用时按参数映射替换
-      </div>
-    </el-form-item>
-
-    <el-form-item label="请求头" prop="headers">
-      <el-input v-model="headersText" type="textarea" :rows="3" placeholder='JSON，如 {"Content-Type":"application/json"}' />
-    </el-form-item>
-
-    <el-form-item label="固定查询参数" prop="query">
-      <el-input v-model="queryText" type="textarea" :rows="3" placeholder='JSON，如 {"version":"v1"}' />
+      <el-input v-model="(formData as any).path_template" placeholder="api/merchant/balance" clearable />
+      <div class="text-xs text-gray-500 mt-1">各上游路径可不同，这里填平台约定的相对路径</div>
     </el-form-item>
 
     <el-form-item label="超时(秒)" prop="timeout">
       <el-input-number v-model="(formData as any).timeout" :min="1" :max="300" class="w-full" />
-    </el-form-item>
-
-    <el-form-item label="是否启用" prop="enabled">
-      <el-select v-model="(formData as any).enabled" class="w-full">
-        <el-option label="启用" :value="1" />
-        <el-option label="停用" :value="0" />
-      </el-select>
     </el-form-item>
 
     <el-form-item label="备注" prop="remark">
@@ -55,9 +41,6 @@
 
 <script lang="ts" setup>
 import { useCreate } from '@/composables/curd/useCreate'
-import { useShow } from '@/composables/curd/useShow'
-import { onMounted, ref, watch } from 'vue'
-import http from '@/support/http'
 
 const props = defineProps({
   primary: [String, Number],
@@ -66,59 +49,14 @@ const props = defineProps({
 
 const methods = ['GET', 'POST', 'PUT', 'DELETE']
 
-const configs = ref<any[]>([])
+const { formData, form, loading, submitForm, close } = useCreate(props.api, props.primary)
 
-const headersText = ref('')
-const queryText = ref('')
-
-const { formData, form, loading, submitForm: originalSubmitForm, close } = useCreate(props.api, props.primary)
-
-if (props.primary) {
-  const showResult = useShow(props.api, props.primary, formData)
-
-  watch(() => showResult.loading.value, (isLoading, wasLoading) => {
-    if (wasLoading === true && isLoading === false) {
-      const row = formData.value as any
-      headersText.value = row?.headers ? JSON.stringify(row.headers, null, 2) : ''
-      queryText.value = row?.query ? JSON.stringify(row.query, null, 2) : ''
-    }
-  }, { immediate: true })
-}
-
-const parseJson = (text: string) => {
-  if (!text || !text.trim()) return null
-  try {
-    const parsed = JSON.parse(text)
-    return typeof parsed === 'object' ? parsed : null
-  } catch {
-    return null
-  }
-}
-
-const submitForm = async (formEl: any) => {
-  if (formData.value) {
-    ;(formData.value as any).headers = parseJson(headersText.value)
-    ;(formData.value as any).query = parseJson(queryText.value)
-  }
-
-  await originalSubmitForm(formEl)
+if (!props.primary && formData.value) {
+  ;(formData.value as any).method = 'GET'
+  ;(formData.value as any).timeout = 30
+  ;(formData.value as any).enabled = 1
 }
 
 const emit = defineEmits(['close'])
-
-onMounted(async () => {
-  close(() => emit('close'))
-  try {
-    const { data } = await http.get('telegram/third/config')
-    configs.value = data.data?.data || data.data || []
-  } catch {
-    configs.value = []
-  }
-
-  if (!props.primary && formData.value) {
-    ;(formData.value as any).method = 'GET'
-    ;(formData.value as any).enabled = 1
-    ;(formData.value as any).timeout = 30
-  }
-})
+close(() => emit('close'))
 </script>

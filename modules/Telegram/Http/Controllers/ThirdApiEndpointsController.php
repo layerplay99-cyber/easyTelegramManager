@@ -24,8 +24,9 @@ class ThirdApiEndpointsController extends Controller
     public function index(Request $request): mixed
     {
         return $this->model->setBeforeGetList(function ($query) use ($request) {
-            if ($thirdConfigId = $request->input('third_config_id')) {
-                $query->where('third_config_id', $thirdConfigId);
+            // 接口规范是平台统一的，不再按上游过滤（上游关联已改为 bots.third_config_id）
+            if ($code = $request->input('code')) {
+                $query->where('code', $code);
             }
 
             return $query;

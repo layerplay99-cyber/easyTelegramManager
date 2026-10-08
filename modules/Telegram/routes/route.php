@@ -11,6 +11,7 @@ use Modules\Telegram\Http\Controllers\SCanLogController;
 use Modules\Telegram\Http\Controllers\ServicePeopleController;
 use Modules\Telegram\Http\Controllers\TelegramEmojisController;
 use Modules\Telegram\Http\Controllers\ThridConfigController;
+use Modules\Telegram\Http\Controllers\ThirdApiEndpointsController;
 use Modules\Telegram\Http\Controllers\BotGroupGroupController;
 use Modules\Telegram\Http\Controllers\TelegramApiUserController;
 use Modules\Telegram\Http\Controllers\MessageTemplateController;

@@ -133,6 +133,11 @@ const tableData = computed(() => {
 
     return (data.value as any).data.map((item: any) => ({
             ...item,
+            // 标准化 enabled 为数字 1/0：后端可能返回 undefined / "1" / "0" / 布尔，
+            // 若与 el-switch 的 active-value(1)/inactive-value(0) 不匹配，
+            // 组件初始化时会把值纠正并触发一次 change，导致列表加载时
+            // 自动对每条记录发一次 PUT telegram/features/{id}。
+            enabled: item.enabled == 1 ? 1 : 0,
             category: categoryMap[item.category as keyof typeof categoryMap] || item.category,
             switchLoading: false // 添加开关加载状态
         }))

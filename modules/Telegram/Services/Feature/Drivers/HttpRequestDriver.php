@@ -116,13 +116,13 @@ class HttpRequestDriver implements FeatureDriver
 
     public function execute(FeatureContext $context): FeatureResult
     {
-        // 1) 上游：来自当前机器人绑定的三方配置（各用户不同）
+        // 1) 上游：绑定级（该功能单独指定）优先，回退机器人级默认（各用户不同）
         $third = $this->resolveThirdConfig($context);
 
         if (! $third) {
             return FeatureResult::fail(
                 $context->bot
-                    ? '该机器人尚未绑定三方上游，请先在「机器人列表」里为其指定三方配置'
+                    ? '尚未指定三方上游：请在「机器人列表」的上游列设置默认值，或在该机器人的「功能配置」里为当前功能单独指定'
                     : '未能确定上游配置（缺少机器人上下文）'
             );
         }

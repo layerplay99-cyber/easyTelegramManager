@@ -274,7 +274,7 @@ abstract class BaseCustomFeature implements FeatureDriver
         $third = $thirdConfigId ? ThirdApiConfig::query()->find($thirdConfigId) : null;
 
         if (! $third) {
-            return ['_error' => '该机器人尚未绑定三方上游'];
+            return ['_error' => '尚未指定三方上游：请在「机器人列表」的上游列设置默认值，或在该机器人的「功能配置」里为当前功能单独指定'];
         }
 
         $renderer = app(TemplateRenderer::class);

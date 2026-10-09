@@ -72,18 +72,21 @@ class FeatureExecutor
             return FeatureResult::fail('功能已停用');
         }
 
-        // 绑定级开关（webhook / 手动触发不校验）
+        // 绑定记录：chat_id 为 NULL 的绑定视为「实体级默认」，对任意群生效；
+        // chat_id 有值的绑定为「该群覆盖」。
         $bind = null;
 
-        if ($chatId !== null && $bot !== null && $trigger === 'command') {
+        if ($chatId !== null && $bot !== null) {
             $bind = FeaturesBinds::query()
                 ->where('bot_id', $bot->id)
-                ->where('chat_id', $chatId)
+                ->where(function ($q) use ($chatId) {
+                    $q->where('chat_id', $chatId)->orWhereNull('chat_id');
+                })
                 ->where('feature_id', $feature->id)
-                ->where('enabled', true)
                 ->first();
 
-            if (! $bind) {
+            // command 触发必须存在绑定；webhook / manual 不强制（可能无绑定直接执行）
+            if ($trigger === 'command' && ! $bind) {
                 return FeatureResult::fail('该功能未绑定到当前会话');
             }
         }
@@ -109,6 +112,7 @@ class FeatureExecutor
             userId: $userId,
             command: (string) ($options['command'] ?? ''),
             requestId: $requestId,
+            bind: $bind,
         );
 
         $driver = DriverRegistry::resolve((string) $feature->driver);

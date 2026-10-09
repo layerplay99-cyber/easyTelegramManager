@@ -269,8 +269,8 @@ abstract class BaseCustomFeature implements FeatureDriver
             return ['_error' => "平台接口不存在：{$endpointCode}"];
         }
 
-        // 上游来自机器人绑定（不再从功能配置取）
-        $thirdConfigId = $context?->bot?->third_config_id;
+        // 上游优先级：绑定级（(实体,功能)）> 实体级默认（机器人）
+        $thirdConfigId = $context?->bind?->third_config_id ?? $context?->bot?->third_config_id;
         $third = $thirdConfigId ? ThirdApiConfig::query()->find($thirdConfigId) : null;
 
         if (! $third) {

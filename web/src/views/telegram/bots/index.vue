@@ -70,6 +70,9 @@
                         <el-button type="success" size="small" @click="openBotBroadcastDialog(scope.row)">
                             <Icon name="paper-plane" className="w-4 h-4 mr-1" /> 群发
                         </el-button>
+                        <el-button type="warning" size="small" @click="openBotFeatureDialog(scope.row)">
+                            <Icon name="puzzle-piece" className="w-4 h-4 mr-1" /> 功能配置
+                        </el-button>
                         <Update @click="open(scope.row.id)" />
                         <Destroy @click="destroy(api, scope.row.id)" />
                     </template>
@@ -87,6 +90,16 @@
             v-model="broadcastDialog.visible"
             :bot-id="broadcastDialog.botId"
             @success="handleBroadcastSuccess"
+        />
+
+        <!-- 功能配置对话框（机器人维度：绑定功能并逐功能指定上游） -->
+        <FeatureConfig
+            v-model="botFeatureDialog.visible"
+            :target-id="null"
+            :bot-id="botFeatureDialog.botId"
+            :initial-features="botFeatureDialog.features"
+            category=""
+            @saved="handleBotFeatureSaved"
         />
 
         <!-- Webhook 状态查看对话框 -->
@@ -135,6 +148,7 @@
 import { computed, onMounted, ref } from 'vue'
 import Create from './create.vue'
 import BroadcastDialog from './BroadcastDialog.vue'
+import FeatureConfig from '@/components/telegram/FeatureConfig.vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
@@ -207,6 +221,31 @@ const openBotBroadcastDialog = (row: any) => {
 // 消息群发成功回调
 const handleBroadcastSuccess = () => {
     // 不需要在这里显示提示，子组件已经处理了
+}
+
+// ---- 机器人「功能配置」对话框 ----
+const botFeatureDialog = ref({
+    visible: false,
+    botId: null as number | null,
+    features: [] as any[]
+})
+
+const openBotFeatureDialog = async (row: any) => {
+    botFeatureDialog.value.botId = row.id
+    botFeatureDialog.value.features = []
+    try {
+        const res = await useGroup().getBindFeatures(null, row.id)
+        const payload = res?.data?.data ?? res?.data ?? []
+        botFeatureDialog.value.features = Array.isArray(payload) ? payload : (payload?.data ?? [])
+    } catch {
+        botFeatureDialog.value.features = []
+    }
+    botFeatureDialog.value.visible = true
+}
+
+const handleBotFeatureSaved = () => {
+    // 机器人功能绑定变更，刷新列表（不影响三方上游列）
+    search()
 }
 
 // Webhook 状态查看

@@ -96,6 +96,14 @@ class TelegramFeatureService
 
                 $handlerClass = $feature->handler;
 
+                // 上游：绑定级（(实体,功能)）优先，否则保留实体级默认
+                $bindThird = is_object($binding)
+                    ? ($binding->third_config_id ?? null)
+                    : ($binding['third_config_id'] ?? null);
+                if ($bindThird) {
+                    $bot->third_config_id = $bindThird;
+                }
+
                 if (!class_exists($handlerClass) && !isset($modules[$handlerClass])) {
                     $this->logMessageService->createLaravelLog(
                         self::LOG_FILE,
@@ -159,10 +167,29 @@ class TelegramFeatureService
             return new \Illuminate\Database\Eloquent\Collection($cached);
         }
 
-        $bindings = FeaturesBinds::with('features')
+        $raw = FeaturesBinds::with('features')
             ->where('bot_id', $botId)
-            ->where('chat_id', $chatId)
+            ->where(function ($q) use ($chatId) {
+                // chat_id 为 NULL 的绑定是「实体级默认」，对任意群生效
+                $q->where('chat_id', $chatId)->orWhereNull('chat_id');
+            })
             ->get();
+
+        // 同一功能可能同时有「群覆盖」(chat_id 有值) 与「实体默认」(chat_id 为 NULL) 两条：
+        // 按 feature_id 去重（群覆盖优先），上游取「群覆盖有则用群覆盖，否则用实体默认」。
+        $byFeature = [];
+        foreach ($raw as $b) {
+            $fid = $b->feature_id;
+            if (! isset($byFeature[$fid])) {
+                $byFeature[$fid] = $b;
+                continue;
+            }
+            $existing = $byFeature[$fid];
+            if (empty($existing->third_config_id) && ! empty($b->third_config_id)) {
+                $existing->third_config_id = $b->third_config_id;
+            }
+        }
+        $bindings = new \Illuminate\Database\Eloquent\Collection(array_values($byFeature));
 
         // 只缓存必要字段的数组，避免把完整模型塞进缓存导致体积膨胀/序列化开销
         Cache::put(
@@ -172,6 +199,7 @@ class TelegramFeatureService
                 'feature_id' => $b->feature_id,
                 'enabled' => $b->enabled,
                 'config' => $b->config,
+                'third_config_id' => $b->third_config_id,
                 'features' => $b->features ? [
                     'id' => $b->features->id,
                     'name' => $b->features->name,
@@ -181,7 +209,7 @@ class TelegramFeatureService
                     'enabled' => $b->features->enabled,
                 ] : null,
             ])->all(),
-            3600
+            600
         );
 
         return $bindings;
@@ -216,8 +244,9 @@ class TelegramFeatureService
                         'feature_id' => $featureId,
                     ],
                     [
-                        'enabled' => $item['enabled'] ?? 1,
+                        'enabled' => $item['enabled'] ?? $item['enable'] ?? 1,
                         'config' => $item['config'] ?? null,
+                        'third_config_id' => $item['third_config_id'] ?? null,
                         'creator_id' => $loginUserId,
                     ]
                 );
@@ -233,7 +262,13 @@ class TelegramFeatureService
 
                     // 绑定关系变了 → 让getBindings 的缓存失效，否则改了不生效
                     if ($botId !== null) {
+                        // 实体级默认（chat_id 为 NULL）的变更会影响所有群，
+                        // 因此除了当前群 key 外，也清掉「无 chat」的 key。
                         Cache::forget("feature:binds:{$botId}:{$chatId}");
+                        if ($chatId === null || $chatId === '') {
+                            // 实体级编辑：尽力清除（无法枚举各群 key，靠 10 分钟 TTL 兜底）
+                            Cache::forget("feature:binds:{$botId}:");
+                        }
                     }
 
                 return [

@@ -7,12 +7,14 @@ use Modules\Permissions\Models\Traits\DataRange;
 
 use Catch\Base\CatchModel as Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Telegram\Models\ThirdApiConfig;
 
 /**
  * @property int $id
  * @property int $bot_id
  * @property string|null $chat_id
  * @property int $feature_id
+ * @property int|null $third_config_id 该(实体,功能)绑定的上游配置
  * @property string|null $config
  * @property bool $enabled
  * @property int $creator_id
@@ -22,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read Features $feature
  * @property-read Bots|null $bot
  * @property-read BotGroups|null $botGroup
+ * @property-read ThirdApiConfig|null $thirdConfig
  */
 class FeaturesBinds extends Model
 {
@@ -39,6 +42,7 @@ class FeaturesBinds extends Model
         'bot_id',
         'chat_id',
         'feature_id',
+        'third_config_id',
         'config',
         'enabled',
         'creator_id',
@@ -51,6 +55,7 @@ class FeaturesBinds extends Model
         'bot_id',
         'chat_id',
         'feature_id',
+        'third_config_id',
         'config',
         'enabled',
         'created_at',
@@ -61,6 +66,7 @@ class FeaturesBinds extends Model
         'bot_id',
         'chat_id',
         'feature_id',
+        'third_config_id',
         'config',
         'enabled',
     ];
@@ -93,5 +99,13 @@ class FeaturesBinds extends Model
     public function botGroup(): BelongsTo
     {
         return $this->belongsTo(BotGroups::class, 'chat_id', 'chat_id');
+    }
+
+    /**
+     * 该绑定指定的上游配置（绑定级，覆盖实体级默认）
+     */
+    public function thirdConfig(): BelongsTo
+    {
+        return $this->belongsTo(ThirdApiConfig::class, 'third_config_id', 'id');
     }
 }

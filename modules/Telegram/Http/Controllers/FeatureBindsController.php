@@ -19,15 +19,22 @@ class FeatureBindsController extends CatchController
     public function index(Request $request): mixed
     {
         return $this->featureBinds->setBeforeGetList(function ($query) use ($request) {
-            if ($chatId = $request->input('chat_id')) {
+            $chatId = $request->input('chat_id');
+            $botId = $request->input('bot_id');
+
+            if ($botId !== null) {
+                $query->where('bot_id', $botId);
+                // 配置弹窗按「实体维度」管理：chat_id 为空表示实体级默认绑定
+                if ($chatId !== null && $chatId !== '') {
+                    $query->where('chat_id', $chatId);
+                } else {
+                    $query->whereNull('chat_id');
+                }
+            } elseif ($chatId !== null && $chatId !== '') {
                 $query->where('chat_id', $chatId);
             }
 
-            if ($botId = $request->input('bot_id')) {
-                $query->where('bot_id', $botId);
-            }
-
-            $query->select(['id', 'feature_id', 'bot_id', 'chat_id', 'enabled', 'config'])
+            $query->select(['id', 'feature_id', 'bot_id', 'chat_id', 'enabled', 'config', 'third_config_id'])
                   ->with(['feature:id,name,category,description']);
 
             return $query;
@@ -46,7 +53,9 @@ class FeatureBindsController extends CatchController
             'bot_id' => 'nullable|integer',
             'feature_ids' => 'nullable|array',
             'feature_ids.*.feature_id' => 'required|integer',
-            'feature_ids.*.enable' => 'required|integer',
+            'feature_ids.*.enable' => 'nullable|integer',
+            'feature_ids.*.enabled' => 'nullable|integer',
+            'feature_ids.*.third_config_id' => 'nullable|integer',
         ]);
 
         $results = $this->telegramFeatureService->setBindFeature(

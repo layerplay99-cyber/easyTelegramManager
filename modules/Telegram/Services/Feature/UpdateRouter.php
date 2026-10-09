@@ -125,13 +125,30 @@ class UpdateRouter
     {
         $chatId = $intent->chatId;
 
-        // 该会话下已绑定的功能
-        $bindings = FeaturesBinds::query()
+        // 该会话下已绑定的功能：chat_id 有值为群覆盖，NULL 为实体级默认（对任意群生效）
+        $raw = FeaturesBinds::query()
             ->with('features')
             ->where('bot_id', $bot->id)
-            ->where('chat_id', $chatId)
+            ->where(function ($q) use ($chatId) {
+                $q->where('chat_id', $chatId)->orWhereNull('chat_id');
+            })
             ->where('enabled', true)
             ->get();
+
+        // 按 feature_id 去重（群覆盖优先），上游取「群覆盖有则用群覆盖，否则用实体默认」
+        $byFeature = [];
+        foreach ($raw as $b) {
+            $fid = $b->feature_id;
+            if (! isset($byFeature[$fid])) {
+                $byFeature[$fid] = $b;
+                continue;
+            }
+            $existing = $byFeature[$fid];
+            if (empty($existing->third_config_id) && ! empty($b->third_config_id)) {
+                $existing->third_config_id = $b->third_config_id;
+            }
+        }
+        $bindings = new \Illuminate\Database\Eloquent\Collection(array_values($byFeature));
 
         if ($bindings->isEmpty()) {
             return;

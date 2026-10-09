@@ -53,6 +53,21 @@
                                 <div class="text-sm text-gray-500">{{ getCategoryText(feature.category) }}</div>
                             </div>
                             <div class="flex items-center gap-2">
+                                <el-select
+                                    v-model="feature.third_config_id"
+                                    placeholder="默认上游"
+                                    clearable
+                                    filterable
+                                    class="w-40"
+                                    size="small"
+                                >
+                                    <el-option
+                                        v-for="c in thirdConfigs"
+                                        :key="c.id"
+                                        :label="c.name"
+                                        :value="c.id"
+                                    />
+                                </el-select>
                                 <el-switch
                                     v-model="feature.enable"
                                     :active-value="1"
@@ -101,6 +116,7 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
 import { useGroup } from '@/stores/modules/telegram/group'
+import http from '@/support/http'
 
 interface Props {
     modelValue: boolean
@@ -133,7 +149,19 @@ const loading = ref(false)
 const saving = ref(false)
 
 const availableFeatures = ref<Array<{ id: number; name: string; category: string }>>([])
-const selectedFeatures = ref<Array<{ id: number; name: string; category: string; enable: number; bindId?: number }>>([])
+const selectedFeatures = ref<Array<{ id: number; name: string; category: string; enable: number; third_config_id?: number | null; bindId?: number }>>([])
+
+// 三方上游配置列表（供每条绑定功能单独选择上游）
+const thirdConfigs = ref<Array<{ id: number; name: string }>>([])
+
+const loadThirdConfigs = async () => {
+    try {
+        const { data } = await http.get('telegram/third/config')
+        thirdConfigs.value = data?.data?.data || data?.data || []
+    } catch {
+        thirdConfigs.value = []
+    }
+}
 
 const availablePage = ref(1)
 const availablePageSize = ref(10)
@@ -184,7 +212,12 @@ const loadAvailableFeatures = async (page: number = 1) => {
         )
 
         if (response && response.data) {
-            availableFeatures.value = Array.isArray(response.data) ? response.data : []
+            let list = Array.isArray(response.data) ? response.data : []
+            // 机器人维度不展示「真人」类功能（真人功能只供客服号使用）
+            if (props.category !== 'realMan') {
+                list = list.filter((f: any) => f.category !== 'realMan')
+            }
+            availableFeatures.value = list
             availableTotal.value = response.total || 0
         }
     } catch (error) {
@@ -199,6 +232,9 @@ const loadData = async () => {
     selectedPage.value = 1
 
     try {
+        // 加载三方上游配置（每条绑定功能可单独选上游）
+        await loadThirdConfigs()
+
         // 使用 initialFeatures 初始化已选功能
         if (props.initialFeatures && props.initialFeatures.length > 0) {
             selectedFeatures.value = props.initialFeatures.map((bind: any) => ({
@@ -206,6 +242,7 @@ const loadData = async () => {
                 name: bind.feature?.name || '',
                 category: bind.feature?.category || '',
                 enable: bind.enabled,
+                third_config_id: bind.third_config_id ?? null,
                 bindId: bind.id
             }))
             selectedTotal.value = props.initialFeatures.length
@@ -228,7 +265,8 @@ const handleAddFeature = (feature: any) => {
     // 添加到已选列表，默认开启
     const newFeature = {
         ...feature,
-        enable: 1
+        enable: 1,
+        third_config_id: null
     }
     selectedFeatures.value.push(newFeature)
     selectedTotal.value = selectedFeatures.value.length
@@ -256,7 +294,8 @@ const handleSave = async () => {
     try {
         const featureIds = selectedFeatures.value.map(f => ({
             feature_id: f.id,
-            enable: f.enable
+            enable: f.enable,
+            third_config_id: f.third_config_id ?? null
         }))
 
         const response = await useGroup().setBindFeatures(

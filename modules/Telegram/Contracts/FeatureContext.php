@@ -6,6 +6,7 @@ namespace Modules\Telegram\Contracts;
 
 use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\Features;
+use Modules\Telegram\Models\FeaturesBinds;
 use Telegram\Bot\Api;
 
 /**
@@ -29,6 +30,7 @@ class FeatureContext
         public readonly ?int $userId = null,
         public readonly string $command = '',
         public readonly string $requestId = '',
+        public readonly ?FeaturesBinds $bind = null,
     ) {
     }
 

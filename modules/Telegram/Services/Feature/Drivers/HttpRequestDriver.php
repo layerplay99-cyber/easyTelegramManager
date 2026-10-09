@@ -200,20 +200,40 @@ class HttpRequestDriver implements FeatureDriver
     }
 
     /**
-     * 解析上游配置：只取当前机器人绑定的三方配置
+     * 解析上游配置
      *
-     * 隔离要点：不再从功能配置里取上游，因此不同用户执行同一功能时
-     * 自动走各自机器人绑定的上游，实现多用户数据隔离。
+     * 优先级：绑定级（(实体,功能) 粒度，third_config_id）
+     *        > 实体级默认（bots.third_config_id）
+     *
+     * 这样同一个功能被多个实体绑定时，每个实体可指定各自的上游，
+     * 且同一实体的不同功能也能使用不同上游。
      */
     private function resolveThirdConfig(FeatureContext $context): ?ThirdApiConfig
     {
-        $thirdConfigId = $context->bot?->third_config_id;
+        $thirdConfigId = $this->resolveEffectiveThirdConfigId($context);
 
         if (! $thirdConfigId) {
             return null;
         }
 
         return ThirdApiConfig::query()->find($thirdConfigId);
+    }
+
+    private function resolveEffectiveThirdConfigId(FeatureContext $context): ?int
+    {
+        // 1) 绑定级（最精细）：该(实体,功能)组合指定的上游
+        $bindId = $context->bind?->third_config_id;
+        if ($bindId) {
+            return $bindId;
+        }
+
+        // 2) 实体级默认：机器人本身绑定的上游
+        $botId = $context->bot?->third_config_id;
+        if ($botId) {
+            return $botId;
+        }
+
+        return null;
     }
 
     /**

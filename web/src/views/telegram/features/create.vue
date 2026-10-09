@@ -237,6 +237,7 @@ const drivers = ref<any[]>([])
 const driversLoading = ref(false)
 
 const groupedDrivers = computed(() => {
+  if (!Array.isArray(drivers.value)) return []
   const map: Record<string, any[]> = {}
   drivers.value.forEach((d) => {
     const g = d.group || '其它'
@@ -245,8 +246,15 @@ const groupedDrivers = computed(() => {
   return Object.entries(map).map(([group, items]) => ({ group, items }))
 })
 
-const currentDriver = computed(() => drivers.value.find((d) => d.key === (formData.value as any)?.driver) || null)
-const schema = computed<any[]>(() => currentDriver.value?.config_schema || [])
+const currentDriver = computed(() =>
+  Array.isArray(drivers.value)
+    ? (drivers.value.find((d) => d.key === (formData.value as any)?.driver) || null)
+    : null
+)
+const schema = computed<any[]>(() => {
+  const cs = currentDriver.value?.config_schema
+  return Array.isArray(cs) ? cs : []
+})
 
 // ---------- 配置值 ----------
 const config = reactive<Record<string, any>>({})
@@ -453,7 +461,18 @@ const loadDrivers = async () => {
   driversLoading.value = true
   try {
     const { data } = await http.get('telegram/features/drivers')
- drivers.value = data.data || []
+    // 后端正常返回 { code:10000, message, data:[...] }，取 data.data。
+    // 防御：万一返回结构是 { data:{ data:[] } } 或本身就是数组，也能兼容。
+    const payload: any = data?.data
+    if (Array.isArray(payload)) {
+      drivers.value = payload
+    } else if (payload && Array.isArray(payload.data)) {
+      drivers.value = payload.data
+    } else {
+      // 出现非预期结构时打印，便于定位后端返回
+      console.warn('[features/create] drivers 返回结构异常:', data)
+      drivers.value = []
+    }
     // 驱动就绪后重解析一次：此前若在 drivers 未到时解析，schema 为空会导致配置渲染不出来
     if (props.primary && rawConfig !== null) parseConfig(rawConfig)
   } catch (e) {

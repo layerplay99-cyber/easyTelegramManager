@@ -99,7 +99,10 @@ class FeaturesController extends Controller
         $this->commandRegistry->discover();
 
         return response()->json([
-            'status' => 'success',
+            // 必须带 code=10000：前端响应拦截器（web/src/support/request.ts）只认 code，
+            // 缺 code 会走 Message.error + Promise.reject，导致命令下拉/保存全部静默失败。
+            'code' => 10000,
+            'message' => 'success',
             'data' => $this->commandRegistry->definitions(),
         ]);
     }
@@ -113,7 +116,8 @@ class FeaturesController extends Controller
     public function drivers(): JsonResponse
     {
         return response()->json([
-            'status' => 'success',
+            'code' => 10000,
+            'message' => 'success',
             'data' => DriverRegistry::definitions(),
         ]);
     }
@@ -124,7 +128,8 @@ class FeaturesController extends Controller
     public function customFeatures(): JsonResponse
     {
         return response()->json([
-            'status' => 'success',
+            'code' => 10000,
+            'message' => 'success',
             'data' => app(CustomFeatureRegistry::class)->definitions(),
         ]);
     }
@@ -159,7 +164,8 @@ class FeaturesController extends Controller
         };
 
         return response()->json([
-            'status' => 'success',
+            'code' => 10000,
+            'message' => 'success',
             'data' => $options,
         ]);
     }
@@ -186,13 +192,15 @@ class FeaturesController extends Controller
             }
 
             return response()->json([
-                'status' => 'success',
+                'code' => 10000,
+                'message' => 'success',
                 'data' => $map,
             ]);
         }
 
         return response()->json([
-            'status' => 'success',
+            'code' => 10000,
+            'message' => 'success',
             'data' => FeatureCommands::query()
                 ->where('feature_id', $id)
                 ->orderByDesc('id')
@@ -237,6 +245,10 @@ class FeaturesController extends Controller
             );
         }
 
-        return $this->jsonSuccess();
+        return response()->json([
+            'code' => 10000,
+            'message' => '命令已保存',
+            'data' => null,
+        ]);
     }
 }

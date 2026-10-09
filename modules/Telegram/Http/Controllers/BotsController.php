@@ -190,6 +190,8 @@ class BotsController extends Controller
 
         if (empty($chatIds)) {
             return response()->json([
+                // 带 code：前端 botStore.apiRequest 的「部分失败」判断读 result.data.code
+                'code' => 10000,
                 'status' => 'success',
                 'message' => 'No chat IDs to send messages',
                 'total' => 0,
@@ -210,6 +212,7 @@ class BotsController extends Controller
         // 规则：带自定义表情 / 贴纸 / 消息特效的内容只能由 telegram 客服账号发送
         if ($rendered && $this->hasRichContent($rendered) && $channel !== 'user') {
             return response()->json([
+                'code' => 10005,
                 'status' => 'error',
                 'message' => '带自定义表情 / 贴纸 / 消息特效的内容只能通过 telegram 客服账号发送（channel=user 且传 telegram_user_id）',
             ], 422);
@@ -266,6 +269,9 @@ class BotsController extends Controller
             );
 
         return response()->json([
+            // 10005 = 部分失败。前端 BroadcastDialog 读 result.data.code，
+            // 命中 10005 时只提示错误、不关闭弹窗，方便用户重试。
+            'code' => $result['failed'] === 0 ? 10000 : 10005,
             'status' => $result['failed'] === 0 ? 'success' : 'partial',
             'message' => $result['failed'] === 0
                 ? 'Messages queued successfully'
@@ -286,6 +292,7 @@ class BotsController extends Controller
 
         if (! $send) {
             return response()->json([
+                'code' => 10005,
                 'status' => 'error',
                 'message' => 'Send task not found',
             ], 404);
@@ -297,6 +304,7 @@ class BotsController extends Controller
             ->count();
 
         return response()->json([
+            'code' => 10000,
             'status' => 'success',
             'data' => [
                 'id' => $send->id,

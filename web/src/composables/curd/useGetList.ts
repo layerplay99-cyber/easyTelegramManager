@@ -22,8 +22,22 @@ export function useGetList(path: string, isPaginate: boolean = true) {
   }
 
   const loading = ref(true)
+
+  // 在途请求去重：相同 path + 相同 query 的请求尚未结束时再次触发，直接跳过。
+  // 相同参数的结果必然一致，重复发起只会放大后端压力（el-pagination 的
+  // current-change / size-change 回调在 total 变化时会补发请求）。
+  let inflightKey: string | null = null
+
   // fetch list
   function getList() {
+    const key = path + '|' + JSON.stringify(unref(query))
+
+    if (inflightKey === key) {
+      return
+    }
+
+    inflightKey = key
+
     // when table's data page >= 100, it will loading
     if (page.value >= 100) {
       loading.value = true
@@ -42,7 +56,13 @@ export function useGetList(path: string, isPaginate: boolean = true) {
           Message.error(r.data.message)
         }
       })
+      .catch(() => {
+        closeLoading()
+      })
       .finally(() => {
+        if (inflightKey === key) {
+          inflightKey = null
+        }
         closeLoading()
       })
   }

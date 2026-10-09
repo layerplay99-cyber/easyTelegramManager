@@ -61,7 +61,7 @@
                             v-model="scope.row.enabled"
                             :active-value="1"
                             :inactive-value="0"
-                            @change="handleEnabledChange(scope.row)"
+                            @change="() => handleEnabledChange(scope.row)"
                             :loading="scope.row.switchLoading"
                         />
                     </template>

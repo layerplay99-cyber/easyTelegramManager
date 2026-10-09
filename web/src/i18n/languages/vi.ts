@@ -1,28 +1,5 @@
 const vi = {
   system: {
-  feature: {
-    driverLabel: '执行器',
-    triggerLabel: '触发方式',
-    commandsLabel: '命令',
-    triggers: {
-      command: '斜杠命令',
-      message: '消息',
-      callback_query: '按钮回调',
-      inline_query: '内联查询',
-      inline_result: '内联结果',
-      membership: '成员变化',
-      poll_answer: '投票回调',
-      chat_join_request: '入群申请',
-      webhook: '三方推送',
-      manual: '手动/接口',
-    },
-    categories: {
-      system: '系统',
-      custom: '客户端',
-      bot: '机器人',
-      realMan: '真人',
-    },
-  },
     name: 'Bảng điều khiển BotAdmin',
     chinese: 'Tiếng Trung',
     english: 'Tiếng Anh',
@@ -44,6 +21,33 @@ const vi = {
     update: 'Cập nhật',
     search: 'Tìm kiếm',
     reset: 'Đặt lại'
+  },
+
+  // 功能（执行器 / 触发方式 / 分类）
+  // 注意：必须挂在顶层，代码中使用的是 feature.triggers.*，
+  // 之前误嵌在 system 内导致取不到而回落到原始 key（command、callback_query…）
+  feature: {
+    driverLabel: 'Bộ thực thi',
+    triggerLabel: 'Cách kích hoạt',
+    commandsLabel: 'Lệnh',
+    triggers: {
+      command: 'Lệnh bắt đầu bằng /',
+      message: 'Tin nhắn',
+      callback_query: 'Nút bấm',
+      inline_query: 'Truy vấn nội tuyến',
+      inline_result: 'Kết quả nội tuyến',
+      membership: 'Thay đổi thành viên',
+      poll_answer: 'Kết quả bình chọn',
+      chat_join_request: 'Yêu cầu tham gia',
+      webhook: 'Đẩy từ hệ thống ngoài',
+      manual: 'Thủ công / API',
+    },
+    categories: {
+      system: 'Hệ thống',
+      custom: 'Ứng dụng',
+      bot: 'Bot',
+      realMan: 'Tài khoản thật',
+    },
   },
 
   login: {

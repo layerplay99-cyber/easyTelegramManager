@@ -78,11 +78,13 @@
             <Paginate />
         </div>
 
-        <!-- key 绑定 id：切换功能时强制重建弹窗组件。
-     Create 内部的 useShow 只在 setup 执行一次，若不重建，
-     第二次点开其它功能时仍显示第一次那条记录的内容。 -->
+        <!-- key 绑定 id + v-if 绑定 visible：
+         Create 内部的 useShow 只在 setup 执行一次。若不随 visible 挂载/卸载，
+         或 id 变化时组件被复用，第二次点开其它功能仍会显示第一次那条记录。
+         destroy-on-close 只清 el-dialog 内部内容，vnode 仍可能被 patch 复用，
+         所以这里必须再用 v-if 强制销毁。 -->
         <Dialog v-model="visible" :title="title" destroy-on-close>
-            <Create :key="id" @close="close(search)" :primary="id" :api="api" />
+            <Create v-if="visible" :key="id" @close="close(search)" :primary="id" :api="api" />
         </Dialog>
     </div>
 </template>
@@ -168,11 +170,12 @@ const triggerLabel = (key: string) => {
 const commandMap = ref<Record<string, any[]>>({})
 const commandsOf = (featureId: number) => commandMap.value[String(featureId)] || []
 
+// 注意：这里必须是普通 boolean，不能用 .value 访问（那永远是 undefined，去重会失效）
 let commandsLoaded = false
 
 const loadAllCommands = async () => {
-  if (commandsLoaded.value) return   // 只加载一次，防止重复请求
-  commandsLoaded.value = true
+  if (commandsLoaded) return   // 只加载一次，防止重复请求
+  commandsLoaded = true
 
   try {
     const { data } = await http.get('telegram/features/commands')

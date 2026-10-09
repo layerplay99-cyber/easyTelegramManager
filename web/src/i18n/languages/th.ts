@@ -1,28 +1,5 @@
 const th = {
   system: {
-  feature: {
-    driverLabel: '执行器',
-    triggerLabel: '触发方式',
-    commandsLabel: '命令',
-    triggers: {
-      command: '斜杠命令',
-      message: '消息',
-      callback_query: '按钮回调',
-      inline_query: '内联查询',
-      inline_result: '内联结果',
-      membership: '成员变化',
-      poll_answer: '投票回调',
-      chat_join_request: '入群申请',
-      webhook: '三方推送',
-      manual: '手动/接口',
-    },
-    categories: {
-      system: '系统',
-      custom: '客户端',
-      bot: '机器人',
-      realMan: '真人',
-    },
-  },
     name: 'แดชบอร์ด BotAdmin',
     chinese: 'จีน',
     english: 'อังกฤษ',
@@ -44,6 +21,33 @@ const th = {
     update: 'อัปเดต',
     search: 'ค้นหา',
     reset: 'รีเซ็ต'
+  },
+
+  // 功能（执行器 / 触发方式 / 分类）
+  // 注意：必须挂在顶层，代码中使用的是 feature.triggers.*，
+  // 之前误嵌在 system 内导致取不到而回落到原始 key（command、callback_query…）
+  feature: {
+    driverLabel: 'ตัวดำเนินการ',
+    triggerLabel: 'วิธีเรียกใช้',
+    commandsLabel: 'คำสั่ง',
+    triggers: {
+      command: 'คำสั่งขึ้นต้นด้วย /',
+      message: 'ข้อความ',
+      callback_query: 'ปุ่มกด',
+      inline_query: 'ค้นหาแบบอินไลน์',
+      inline_result: 'ผลลัพธ์อินไลน์',
+      membership: 'การเข้า/ออกกลุ่ม',
+      poll_answer: 'ผลโหวต',
+      chat_join_request: 'คำขอเข้าร่วม',
+      webhook: 'ข้อมูลจากระบบภายนอก',
+      manual: 'เรียกใช้เอง / API',
+    },
+    categories: {
+      system: 'ระบบ',
+      custom: 'ไคลเอนต์',
+      bot: 'บอท',
+      realMan: 'บัญชีจริง',
+    },
   },
 
   login: {

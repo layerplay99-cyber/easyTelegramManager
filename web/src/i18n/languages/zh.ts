@@ -1,5 +1,31 @@
 const zh = {
   system: {
+    name: '机器人管理系统',
+    chinese: '中文',
+    english: '英文',
+    thai: '泰语',
+    vietnamese: '越南语',
+    confirm: '确定',
+    cancel: '取消',
+    warning: '警告',
+    next: '下一步',
+    prev: '上一步',
+    yes: '是',
+    no: '否',
+    add: '新增',
+    edit: '编辑',
+    delete: '删除',
+    detail: '详情',
+    finish: '完成',
+    back: '返回',
+    update: '更新',
+    search: '搜索',
+    reset: '重置'
+  },
+
+  // 功能（执行器 / 触发方式 / 分类）
+  // 注意：必须挂在顶层，代码中使用的是 feature.triggers.*，
+  // 之前误嵌在 system 内导致取不到而回落到原始 key（command、callback_query…）
   feature: {
     driverLabel: '执行器',
     triggerLabel: '触发方式',
@@ -22,28 +48,6 @@ const zh = {
       bot: '机器人',
       realMan: '真人',
     },
-  },
-    name: '机器人管理系统',
-    chinese: '中文',
-    english: '英文',
-    thai: '泰语',
-    vietnamese: '越南语',
-    confirm: '确定',
-    cancel: '取消',
-    warning: '警告',
-    next: '下一步',
-    prev: '上一步',
-    yes: '是',
-    no: '否',
-    add: '新增',
-    edit: '编辑',
-    delete: '删除',
-    detail: '详情',
-    finish: '完成',
-    back: '返回',
-    update: '更新',
-    search: '搜索',
-    reset: '重置'
   },
 
   login: {

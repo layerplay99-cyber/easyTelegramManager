@@ -113,11 +113,15 @@ class RechargeService
 
     /**
      * 处理充值回调
+     *
      * @param array $callbackData 回调数据
+     * @param bool $verified 上游签名是否已由 WalletGateway 校验通过。
+     *                       新链路用上游自己的签名规则（各家不一样）验完再进来，
+     *                       这里就不再用平台的 MD5 规则二次校验，避免算法不一致误拒。
      * @return bool
      * @throws \Exception|\Throwable
      */
-    public function handleCallback(array $callbackData): bool
+    public function handleCallback(array $callbackData, bool $verified = false): bool
     {
         $orderNo = $callbackData['order_no'] ?? null;
         if (!$orderNo) {
@@ -126,7 +130,7 @@ class RechargeService
 
         // 整个回调处理必须在事务内，并用行锁锁住订单，
         // 否则两个并发回调会同时读到 PENDING 各自完成一次 → 重复入账。
-        return DB::transaction(function () use ($orderNo, $callbackData) {
+        return DB::transaction(function () use ($orderNo, $callbackData, $verified) {
             $order = RechargeOrder::where('order_no', $orderNo)->lockForUpdate()->first();
             if (!$order) {
                 throw new \Exception('订单不存在');
@@ -136,22 +140,27 @@ class RechargeService
             // 注意：原来是 $channel->config['secret_key'] ?? ''，
             // 但 PaymentChannel 根本没有 config 属性（只有 secret_key 字段和 getFullConfig()），
             // 这里的 $secret 恒为空字符串，等于任何人都能伪造充值回调给自己加钱。
-            $channel = $order->channel;
-            $secret = (string) ($channel?->secret_key ?? '');
+            // 现在密钥取「支付通道 → 承接上游」，两者都没有才拒绝。
+            if (! $verified) {
+                $secret = (string) ($order->channel?->secret_key
+                    ?: $order->thirdConfig?->secrept_key
+                    ?: '');
 
-            if ($secret === '') {
-                Log::error('支付通道未配置密钥，拒绝回调', [
-                    'order_no' => $orderNo,
-                    'channel_id' => $order->channel_id,
-                ]);
+                if ($secret === '') {
+                    Log::error('回调验签密钥未配置，拒绝回调', [
+                        'order_no' => $orderNo,
+                        'channel_id' => $order->channel_id,
+                        'third_config_id' => $order->third_config_id,
+                    ]);
 
-                throw new \Exception('支付通道未配置密钥');
-            }
+                    throw new \Exception('未配置验签密钥');
+                }
 
-            $sign = $callbackData['sign'] ?? '';
+                $sign = $callbackData['sign'] ?? '';
 
-            if (!$this->securityService->verifySign($callbackData, $sign, $secret)) {
-                throw new \Exception('签名验证失败');
+                if (! $this->securityService->verifySign($callbackData, $sign, $secret)) {
+                    throw new \Exception('签名验证失败');
+                }
             }
 
             // 防止重复回调（在行锁内判断，避免并发绕过）

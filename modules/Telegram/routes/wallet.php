@@ -1,9 +1,12 @@
 <?php
 
+use Catch\Middleware\AuthMiddleware;
 use Illuminate\Support\Facades\Route;
+use Modules\Telegram\Http\Controllers\WalletCallbackController;
 use Modules\Telegram\Http\Controllers\WalletController;
-use Modules\Telegram\Http\Controllers\WalletMenuController;
+use Modules\Telegram\Http\Controllers\WalletMiniAppController;
 use Modules\Telegram\Http\Controllers\ExchangeRateController;
+use Modules\Telegram\Http\Controllers\LedgerController;
 use Modules\Telegram\Http\Controllers\MemberController;
 use Modules\Telegram\Http\Controllers\PaymentChannelController;
 use Modules\Telegram\Http\Controllers\RechargeOrderController;
@@ -12,6 +15,10 @@ use Modules\Telegram\Http\Controllers\RiskControlController;
 use Modules\Telegram\Http\Controllers\TransactionLimitController;
 
 Route::prefix('api/telegram')->group(function () {
+
+    // 后台管理类接口：必须后台登录态 + 限流
+    // （这一组原本一个中间件都没有，任何人都能调「调整余额」改钱）
+    Route::middleware([AuthMiddleware::class, 'throttle:120,1'])->group(function () {
 
     // 钱包管理路由
     Route::prefix('wallet')->group(function () {
@@ -32,14 +39,14 @@ Route::prefix('api/telegram')->group(function () {
         Route::get('statistics', [WalletController::class, 'statistics']);
     });
 
-    // Telegram 钱包菜单路由（用于机器人交互）
-    Route::prefix('wallet/menu')->group(function () {
+    // 说明：机器人钱包菜单原来注册了两条 HTTP 路由（wallet/menu/main、wallet/menu/callback），
+    // 但控制器方法签名收的是 Telegram Update 对象，Laravel 根本没法注入，这两条路由从来不可用。
+    // 机器人侧的钱包交互改为走功能体系（Drivers/Custom/Wallet/*）+ callback 驱动。
 
-        // 显示主菜单
-        Route::post('main', [WalletMenuController::class, 'showMainMenu']);
-
-        // 处理回调
-        Route::post('callback', [WalletMenuController::class, 'handleCallback']);
+    // 账本流水（只读）
+    Route::prefix('ledger')->group(function () {
+        Route::get('/', [LedgerController::class, 'index']);
+        Route::get('types', [LedgerController::class, 'types']);
     });
 
     // 会员管理路由
@@ -203,5 +210,28 @@ Route::prefix('api/telegram')->group(function () {
 
         // 获取限制信息
         Route::get('limit', [TransactionLimitController::class, 'getLimit']);
+    });
+
+    }); // 后台管理组（需登录 + 限流）
+
+    // 上游回调：第三方支付/代付通知到账单状态。
+    // 不能挂后台登录态（上游没有我们的账号），安全性靠「上游密钥验签」保证，
+    // 验签在 WalletService → WalletGateway::verifyCallback 里做，验不过直接拒。
+    Route::prefix('wallet/callback')->middleware(['throttle:120,1'])->group(function () {
+        Route::post('recharge', [WalletCallbackController::class, 'recharge'])
+            ->name('api.telegram.wallet.recharge.callback');
+
+        Route::post('withdraw', [WalletCallbackController::class, 'withdraw'])
+            ->name('api.telegram.wallet.withdraw.callback');
+    });
+
+    // Mini App 接口：H5 页面调用。
+    // identity 只认 Telegram 校验过的 initData（telegram.initdata 中间件），
+    // 客户端传 member_id / user_id 一律无效，杜绝伪造身份下单。
+    Route::prefix('wallet/miniapp')->middleware(['telegram.initdata', 'throttle:60,1'])->group(function () {
+        Route::get('balance', [WalletMiniAppController::class, 'balance']);
+        Route::post('recharge', [WalletMiniAppController::class, 'recharge']);
+        Route::post('withdraw', [WalletMiniAppController::class, 'withdraw']);
+        Route::get('orders', [WalletMiniAppController::class, 'orders']);
     });
 });

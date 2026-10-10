@@ -149,6 +149,21 @@ return [
     'miniapp' => [
         'recharge_url' => env('MINIAPP_RECHARGE_URL', '/miniapp/recharge'),
         'withdraw_url' => env('MINIAPP_WITHDRAW_URL', '/miniapp/withdraw'),
+
+        // initData 有效期（秒）：超过这个时间的登录态视为重放，拒绝
+        'init_data_ttl' => env('MINIAPP_INIT_DATA_TTL', 3600),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 钱包网关（对接上游的实现）
+    |--------------------------------------------------------------------------
+    | 充值/提现/查单/余额 的具体上游协议由这个类实现。
+    | 接新上游 = 写一个实现 Modules\Telegram\Contracts\WalletGateway 的类，
+    | 把这里换成它的类名即可，订单/钱包/风控/功能代码都不用动。
+    | 默认实现按「平台接口规范 × 上游实例」调用（拉单/查单 API 在后台按上游配置）。
+    */
+
+    'gateway' => \Modules\Telegram\Services\Wallet\UpstreamWalletGateway::class,
 ];
 

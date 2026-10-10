@@ -80,6 +80,96 @@ class PlatformEndpointRegistry
                 ],
                 'remark' => '按商户号查询商户基础信息',
             ],
+
+            // ---------- 钱包：充值 / 提现 / 余额 ----------
+            // 接入支付上游必须的 4 个接口：充值拉单、充值查单、提现拉单、提现查单。
+            // 每个上游可在「上游接口配置」里单独覆盖 path/method/headers/query，
+            // 即所谓「拉单 API / 查单 API」按上游各自配置；key、密钥、通道ID 在上游实例上。
+            'wallet.recharge.create' => [
+                'code' => 'wallet.recharge.create',
+                'name' => '充值拉单',
+                'method' => 'POST',
+                'path_template' => 'api/wallet/recharge/create',
+                'params_schema' => [
+                    ['name' => 'order_no', 'required' => true, 'desc' => '平台订单号', 'map_to' => 'orderNo'],
+                    ['name' => 'amount', 'required' => true, 'desc' => '金额', 'map_to' => 'amount'],
+                    ['name' => 'currency', 'required' => true, 'desc' => '币种', 'map_to' => 'currency'],
+                    ['name' => 'channel_id', 'required' => false, 'desc' => '通道ID', 'map_to' => 'channelId'],
+                    ['name' => 'notify_url', 'required' => false, 'desc' => '回调地址', 'map_to' => 'notifyUrl'],
+                ],
+                'response_schema' => [
+                    'order_no' => '平台订单号',
+                    'third_order_no' => '上游订单号',
+                    'pay_url' => '支付链接',
+                    'status' => '状态',
+                ],
+                'remark' => '向上游发起充值，返回支付链接',
+            ],
+            'wallet.recharge.query' => [
+                'code' => 'wallet.recharge.query',
+                'name' => '充值查单',
+                'method' => 'GET',
+                'path_template' => 'api/wallet/recharge/query',
+                'params_schema' => [
+                    ['name' => 'order_no', 'required' => true, 'desc' => '平台订单号', 'map_to' => 'orderNo'],
+                    ['name' => 'third_order_no', 'required' => false, 'desc' => '上游订单号', 'map_to' => 'thirdOrderNo'],
+                ],
+                'response_schema' => [
+                    'order_no' => '平台订单号',
+                    'status' => '状态：pending/paid/failed',
+                    'amount' => '实际到账金额',
+                ],
+                'remark' => '查询充值订单在上游的最终状态',
+            ],
+            'wallet.withdraw.create' => [
+                'code' => 'wallet.withdraw.create',
+                'name' => '提现拉单',
+                'method' => 'POST',
+                'path_template' => 'api/wallet/withdraw/create',
+                'params_schema' => [
+                    ['name' => 'order_no', 'required' => true, 'desc' => '平台订单号', 'map_to' => 'orderNo'],
+                    ['name' => 'amount', 'required' => true, 'desc' => '金额', 'map_to' => 'amount'],
+                    ['name' => 'currency', 'required' => true, 'desc' => '币种', 'map_to' => 'currency'],
+                    ['name' => 'channel_id', 'required' => false, 'desc' => '通道ID', 'map_to' => 'channelId'],
+                    ['name' => 'account', 'required' => false, 'desc' => '收款账号', 'map_to' => 'account'],
+                    ['name' => 'notify_url', 'required' => false, 'desc' => '回调地址', 'map_to' => 'notifyUrl'],
+                ],
+                'response_schema' => [
+                    'order_no' => '平台订单号',
+                    'third_order_no' => '上游订单号',
+                    'status' => '状态',
+                ],
+                'remark' => '向上游发起提现（代付）',
+            ],
+            'wallet.withdraw.query' => [
+                'code' => 'wallet.withdraw.query',
+                'name' => '提现查单',
+                'method' => 'GET',
+                'path_template' => 'api/wallet/withdraw/query',
+                'params_schema' => [
+                    ['name' => 'order_no', 'required' => true, 'desc' => '平台订单号', 'map_to' => 'orderNo'],
+                    ['name' => 'third_order_no', 'required' => false, 'desc' => '上游订单号', 'map_to' => 'thirdOrderNo'],
+                ],
+                'response_schema' => [
+                    'order_no' => '平台订单号',
+                    'status' => '状态：pending/success/failed',
+                ],
+                'remark' => '查询提现订单在上游的最终状态',
+            ],
+            'wallet.balance' => [
+                'code' => 'wallet.balance',
+                'name' => '查询上游余额',
+                'method' => 'GET',
+                'path_template' => 'api/wallet/balance',
+                'params_schema' => [
+                    ['name' => 'currency', 'required' => false, 'desc' => '币种', 'map_to' => 'currency'],
+                ],
+                'response_schema' => [
+                    'balance' => '余额',
+                    'currency' => '币种',
+                ],
+                'remark' => '查询上游商户可用余额（平台侧余额以本地钱包为准）',
+            ],
         ];
     }
 

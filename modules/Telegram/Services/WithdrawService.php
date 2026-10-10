@@ -172,9 +172,14 @@ class WithdrawService
         $order->processed_at = now();
         $order->save();
 
-        // TODO: 调用第三方提现API
-        // $channel = $order->channel;
-        // $result = $this->callThirdPartyWithdraw($order, $channel);
+        // 新链路：WalletService::createWithdraw 里已经按上游把单发出去了，
+        // 这里只兜底「老支付通道」链路——没有上游承接就不许假装成功，
+        // 单子留在「处理中」等后台人工处理，避免资金凭空消失。
+        if (! $order->third_config_id) {
+            Log::warning('[钱包] 提现单未绑定上游，需人工处理', ['order_no' => $order->order_no]);
+
+            return false;
+        }
 
         return true;
     }

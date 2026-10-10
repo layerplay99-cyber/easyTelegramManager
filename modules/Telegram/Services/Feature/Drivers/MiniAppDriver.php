@@ -98,6 +98,13 @@ class MiniAppDriver implements \Modules\Telegram\Contracts\FeatureDriver
         $text = (string) $context->config('button_text', '打开');
         $mode = (string) $context->config('mode', 'keyboard');
 
+        // 开启身份校验时：URL 上不允许带任何身份参数。
+        // 身份只由 H5 回传的 initData 决定，后端用 telegram.initdata 中间件校验，
+        // 否则别人改一下 URL 里的 user_id 就能以别人的身份充值/提现。
+        if ($context->config('verify_init_data', true)) {
+            $url = self::stripIdentityParams($url);
+        }
+
         $button = ['text' => $text, 'web_app' => ['url' => $url]];
 
         try {
@@ -129,5 +136,28 @@ class MiniAppDriver implements \Modules\Telegram\Contracts\FeatureDriver
         }
 
         return \Modules\Telegram\Contracts\FeatureResult::ok([], ['mode' => $mode, 'url' => $url]);
+    }
+
+    /**
+     * 去掉 URL 里的身份参数（user_id / member_id / telegram_user_id）
+     */
+    public static function stripIdentityParams(string $url): string
+    {
+        $parts = parse_url($url);
+
+        if (empty($parts['query'])) {
+            return $url;
+        }
+
+        parse_str($parts['query'], $query);
+
+        foreach (['user_id', 'member_id', 'telegram_user_id', 'uid'] as $key) {
+            unset($query[$key]);
+        }
+
+        $newQuery = http_build_query($query);
+        $base = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '') . ($parts['path'] ?? '');
+
+        return $newQuery === '' ? $base : $base . '?' . $newQuery;
     }
 }

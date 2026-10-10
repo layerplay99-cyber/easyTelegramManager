@@ -105,6 +105,8 @@ return new class extends Seeder
                     $page('功能列表', 'funs', '/telegram/features/index.vue', 'paper-airplane', 1),
                     $page('三方配置', 'tconf', '/telegram/thridConfig/index.vue', 'cog-6-tooth', 2),
                     $page('三方接口', 'tendpoint', '/telegram/thirdEndpoint/index.vue', 'link', 3),
+                    // 为每个上游单独配置某接口的请求路径（同一功能在不同上游路径不同）
+                    $page('上游接口配置', 'tconfendpoint', '/telegram/thirdConfigEndpoint/index.vue', 'arrows-right-left', 4),
                 ],
             ],
             [

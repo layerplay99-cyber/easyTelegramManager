@@ -11,6 +11,7 @@ use Modules\Telegram\Contracts\FeatureResult;
 use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Services\Feature\TemplateRenderer;
+use Modules\Telegram\Services\Feature\ThirdEndpointResolver;
 
 /**
  * 三方接口请求驱动（第二块：斜杠命令 → 上游 API）
@@ -140,14 +141,23 @@ class HttpRequestDriver implements FeatureDriver
         $renderer = app(TemplateRenderer::class);
         $extra = $this->buildExtra($context);
 
-        // 3) 路径渲染：{占位} 与 {{@字段}} 两种写法都支持
-        $path = $renderer->render((string) $endpoint->path_template, [], $extra);
+        // 3) 取「该上游 + 该接口」最终生效的配置：
+        //    上游专属路径优先（third_config_endpoints），未配置则回退平台默认 path_template。
+        //    这样同一功能在不同上游可以走不同路径，而功能代码无需改动。
+        $resolved = ThirdEndpointResolver::resolve($third, $endpoint);
+
+        if (! $resolved['enabled']) {
+            return FeatureResult::fail('当前上游不支持该接口：' . $endpoint->code);
+        }
+
+        // 路径渲染：{占位} 与 {{@字段}} 两种写法都支持
+        $path = $renderer->render($resolved['path'], [], $extra);
         $path = $this->replaceBraceParams($path, $context, $extra);
 
-        $url = rtrim((string) $third->api_url, '/') . '/' . ltrim($path, '/');
+        $url = ThirdEndpointResolver::buildUrl($third, $path);
 
-        $headers = is_array($endpoint->headers) ? $endpoint->headers : [];
-        $query = is_array($endpoint->query) ? $endpoint->query : [];
+        $headers = $resolved['headers'];
+        $query = $resolved['query'];
 
         $token = (string) $third->token;
 
@@ -159,13 +169,13 @@ class HttpRequestDriver implements FeatureDriver
             };
         }
 
-        $method = strtoupper((string) ($endpoint->method ?: 'GET'));
+        $method = $resolved['method'];
         $body = $context->config('body')
             ? $renderer->render((string) $context->config('body'), [], $extra)
             : null;
 
         try {
-            $request = Http::timeout((int) ($endpoint->timeout ?: 30));
+            $request = Http::timeout($resolved['timeout']);
 
             if ($headers) {
                 $request = $request->withHeaders($headers);

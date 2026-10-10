@@ -12,6 +12,7 @@ use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Services\Feature\FeatureDataStore;
 use Modules\Telegram\Services\Feature\TemplateRenderer;
+use Modules\Telegram\Services\Feature\ThirdEndpointResolver;
 
 /**
  * 自定义功能基类
@@ -277,28 +278,41 @@ abstract class BaseCustomFeature implements FeatureDriver
             return ['_error' => '尚未指定三方上游：请在「机器人列表」的上游列设置默认值，或在该机器人的「功能配置」里为当前功能单独指定'];
         }
 
+        // 取「该上游 + 该接口」最终生效的配置：上游专属路径优先，回退平台默认
+        $resolved = ThirdEndpointResolver::resolve($third, $endpoint);
+
+        if (! $resolved['enabled']) {
+            return ['_error' => '当前上游不支持该接口：' . $endpoint->code];
+        }
+
         $renderer = app(TemplateRenderer::class);
-        $path = $renderer->render((string) $endpoint->path_template, [], $params);
+        $path = $renderer->render($resolved['path'], [], $params);
 
         // 支持 {name} 形式的占位
         $path = (string) preg_replace_callback('/\{([A-Za-z0-9_]+)\}/', function ($m) use ($params) {
             return rawurlencode((string) ($params[$m[1]] ?? ''));
         }, $path);
 
-        $url = rtrim((string) $third->api_url, '/') . '/' . ltrim($path, '/');
+        $url = ThirdEndpointResolver::buildUrl($third, $path);
 
         try {
-            $request = Http::timeout((int) ($endpoint->timeout ?: 30));
+            $request = Http::timeout($resolved['timeout']);
 
-            if (is_array($endpoint->headers) && $endpoint->headers) {
-                $request = $request->withHeaders($endpoint->headers);
+            if ($resolved['headers']) {
+                $request = $request->withHeaders($resolved['headers']);
             }
 
             if ($third->token) {
                 $request = $request->withHeaders(['Authorization' => $third->token]);
             }
 
-            $response = strtoupper($method) === 'POST'
+            // 上游若单独指定了请求方法则以它为准；否则沿用调用方传入的方法（兼容既有自定义功能）
+            $platformMethod = strtoupper((string) ($endpoint->method ?: 'GET'));
+            $requestMethod = $resolved['method'] !== $platformMethod
+                ? $resolved['method']
+                : strtoupper($method);
+
+            $response = $requestMethod === 'POST'
                 ? $request->post($url, $params)
                 : $request->get($url, $params);
 

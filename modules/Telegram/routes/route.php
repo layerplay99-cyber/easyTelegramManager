@@ -12,6 +12,7 @@ use Modules\Telegram\Http\Controllers\ServicePeopleController;
 use Modules\Telegram\Http\Controllers\TelegramEmojisController;
 use Modules\Telegram\Http\Controllers\ThridConfigController;
 use Modules\Telegram\Http\Controllers\ThirdApiEndpointsController;
+use Modules\Telegram\Http\Controllers\ThirdConfigEndpointsController;
 use Modules\Telegram\Http\Controllers\BotGroupGroupController;
 use Modules\Telegram\Http\Controllers\TelegramApiUserController;
 use Modules\Telegram\Http\Controllers\MessageTemplateController;
@@ -43,6 +44,10 @@ Route::prefix('telegram')->group(function(){
 
     // 三方接口（从上游配置里拆出来的「接口」层，可被多个功能复用）
     Route::apiResource('third/endpoint', ThirdApiEndpointsController::class);
+
+    // 上游 × 接口 的路径映射：同一功能在不同上游可配不同路径
+    Route::get('third/config/{thirdConfigId}/endpoints', [ThirdConfigEndpointsController::class, 'index']);
+    Route::put('third/config/{thirdConfigId}/endpoints', [ThirdConfigEndpointsController::class, 'save']);
     Route::apiResource('telegram/api/user', TelegramApiUserController::class);
     Route::apiResource('telegram/service/people', ServicePeopleController::class);
     Route::apiResource('emojis', TelegramEmojisController::class);

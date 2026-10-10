@@ -6,6 +6,7 @@ namespace Modules\Telegram\Services\Wallet;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Modules\Telegram\Contracts\EndpointProvider;
 use Modules\Telegram\Contracts\WalletGateway;
 use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
@@ -28,10 +29,103 @@ use Modules\Telegram\Services\Feature\ThirdEndpointResolver;
  *   resolveStatus()     上游状态值 → 平台状态
  * 其余（订单、钱包、风控、功能代码）一行都不用动。
  */
-class UpstreamWalletGateway implements WalletGateway
+class UpstreamWalletGateway implements WalletGateway, EndpointProvider
 {
     public function __construct(protected ThirdEndpointResolver $resolver)
     {
+    }
+
+    /**
+     * 钱包业务要用的上游接口（充值/提现的拉单与查单 + 余额）
+     *
+     * 定义在「用它的网关」这里，不在 PlatformEndpointRegistry 里堆大数组。
+     * 每个上游可在后台按接口覆盖 path/method/headers/query，
+     * key、密钥、通道ID 则在上游实例上配。
+     */
+    public static function endpoints(): array
+    {
+        return [
+            'wallet.recharge.create' => [
+                'name' => '充值拉单',
+                'method' => 'POST',
+                'path_template' => 'api/wallet/recharge/create',
+                'params_schema' => [
+                    ['name' => 'order_no', 'required' => true, 'desc' => '平台订单号', 'map_to' => 'orderNo'],
+                    ['name' => 'amount', 'required' => true, 'desc' => '金额', 'map_to' => 'amount'],
+                    ['name' => 'currency', 'required' => true, 'desc' => '币种', 'map_to' => 'currency'],
+                    ['name' => 'channel_id', 'required' => false, 'desc' => '通道ID', 'map_to' => 'channelId'],
+                    ['name' => 'notify_url', 'required' => false, 'desc' => '回调地址', 'map_to' => 'notifyUrl'],
+                ],
+                'response_schema' => [
+                    'order_no' => '平台订单号',
+                    'third_order_no' => '上游订单号',
+                    'pay_url' => '支付链接',
+                    'status' => '状态',
+                ],
+                'remark' => '向上游发起充值，返回支付链接',
+            ],
+            'wallet.recharge.query' => [
+                'name' => '充值查单',
+                'method' => 'GET',
+                'path_template' => 'api/wallet/recharge/query',
+                'params_schema' => [
+                    ['name' => 'order_no', 'required' => true, 'desc' => '平台订单号', 'map_to' => 'orderNo'],
+                    ['name' => 'third_order_no', 'required' => false, 'desc' => '上游订单号', 'map_to' => 'thirdOrderNo'],
+                ],
+                'response_schema' => [
+                    'order_no' => '平台订单号',
+                    'status' => '状态：pending/paid/failed',
+                    'amount' => '实际到账金额',
+                ],
+                'remark' => '查询充值订单在上游的最终状态',
+            ],
+            'wallet.withdraw.create' => [
+                'name' => '提现拉单',
+                'method' => 'POST',
+                'path_template' => 'api/wallet/withdraw/create',
+                'params_schema' => [
+                    ['name' => 'order_no', 'required' => true, 'desc' => '平台订单号', 'map_to' => 'orderNo'],
+                    ['name' => 'amount', 'required' => true, 'desc' => '金额', 'map_to' => 'amount'],
+                    ['name' => 'currency', 'required' => true, 'desc' => '币种', 'map_to' => 'currency'],
+                    ['name' => 'channel_id', 'required' => false, 'desc' => '通道ID', 'map_to' => 'channelId'],
+                    ['name' => 'account', 'required' => false, 'desc' => '收款账号', 'map_to' => 'account'],
+                    ['name' => 'notify_url', 'required' => false, 'desc' => '回调地址', 'map_to' => 'notifyUrl'],
+                ],
+                'response_schema' => [
+                    'order_no' => '平台订单号',
+                    'third_order_no' => '上游订单号',
+                    'status' => '状态',
+                ],
+                'remark' => '向上游发起提现（代付）',
+            ],
+            'wallet.withdraw.query' => [
+                'name' => '提现查单',
+                'method' => 'GET',
+                'path_template' => 'api/wallet/withdraw/query',
+                'params_schema' => [
+                    ['name' => 'order_no', 'required' => true, 'desc' => '平台订单号', 'map_to' => 'orderNo'],
+                    ['name' => 'third_order_no', 'required' => false, 'desc' => '上游订单号', 'map_to' => 'thirdOrderNo'],
+                ],
+                'response_schema' => [
+                    'order_no' => '平台订单号',
+                    'status' => '状态：pending/success/failed',
+                ],
+                'remark' => '查询提现订单在上游的最终状态',
+            ],
+            'wallet.balance' => [
+                'name' => '查询上游余额',
+                'method' => 'GET',
+                'path_template' => 'api/wallet/balance',
+                'params_schema' => [
+                    ['name' => 'currency', 'required' => false, 'desc' => '币种', 'map_to' => 'currency'],
+                ],
+                'response_schema' => [
+                    'balance' => '余额',
+                    'currency' => '币种',
+                ],
+                'remark' => '查询上游商户可用余额（平台侧余额以本地钱包为准）',
+            ],
+        ];
     }
 
     public function createRecharge(ThirdApiConfig $upstream, array $params): array

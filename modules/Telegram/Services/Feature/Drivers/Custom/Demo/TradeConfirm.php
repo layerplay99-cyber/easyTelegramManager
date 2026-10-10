@@ -6,6 +6,7 @@ namespace Modules\Telegram\Services\Feature\Drivers\Custom\Demo;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Modules\Telegram\Contracts\EndpointProvider;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
 use Modules\Telegram\Models\InteractiveSession;
@@ -26,11 +27,36 @@ use Modules\Telegram\Services\OperatorPolicy;
  *   6) claim() 抢锁          —— 两个人同时点、Telegram 重投，只提交一次
  *   7) 加签后提交            —— 上游验签通过才认
  */
-class TradeConfirm extends BaseCustomFeature
+class TradeConfirm extends BaseCustomFeature implements EndpointProvider
 {
     public static function key(): string
     {
         return 'custom.demo.trade_confirm';
+    }
+
+    /**
+     * 本功能要用的上游接口（提交交易处理结果）
+     */
+    public static function endpoints(): array
+    {
+        return [
+            'merchant.trade.submit' => [
+                'name' => '提交交易处理结果',
+                'method' => 'POST',
+                'path_template' => 'api/merchant/trade/submit',
+                'params_schema' => [
+                    ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
+                    ['name' => 'trade_no', 'required' => true, 'desc' => '上游单据号', 'map_to' => 'tradeNo'],
+                    ['name' => 'action', 'required' => true, 'desc' => '动作码，对应按钮的 act', 'map_to' => 'action'],
+                    ['name' => 'operator_id', 'required' => false, 'desc' => '操作人 Telegram ID', 'map_to' => 'operatorId'],
+                ],
+                'response_schema' => [
+                    'success' => '是否成功',
+                    'message' => '上游返回说明',
+                ],
+                'remark' => '群里点了交易按钮之后，把结果提交给上游（上游验签通过才执行）',
+            ],
+        ];
     }
 
     public static function label(): string

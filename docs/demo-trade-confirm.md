@@ -171,6 +171,32 @@ curl -X POST "https://你的域名/api/hooks/你的token" \
 
 ---
 
+### 声明自己要用的上游接口
+
+别往 `PlatformEndpointRegistry` 里加大数组——**谁用接口谁声明**：在 Driver / 功能类 / Gateway
+上实现 `EndpointProvider`，返回 `endpoints()`，扫描器会自动汇总到后台下拉和同步命令。
+
+```php
+class TradeConfirm extends BaseCustomFeature implements EndpointProvider
+{
+    public static function endpoints(): array
+    {
+        return [
+            'merchant.trade.submit' => [
+                'name' => '提交交易处理结果',
+                'method' => 'POST',
+                'path_template' => 'api/merchant/trade/submit',
+                'params_schema' => [['name' => 'trade_no', 'required' => true, 'desc' => '单号', 'map_to' => 'tradeNo']],
+                'response_schema' => ['success' => '是否成功'],
+                'remark' => '…',
+            ],
+        ];
+    }
+}
+```
+
+---
+
 ## 5. 后台怎么配
 
 1. **三方配置**：建一个上游，填 `base_url`、密钥（`secrept_key`）

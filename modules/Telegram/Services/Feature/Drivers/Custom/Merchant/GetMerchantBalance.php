@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Services\Feature\Drivers\Custom\Merchant;
 
+use Modules\Telegram\Contracts\EndpointProvider;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
@@ -22,7 +23,7 @@ use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
  *   feature_data 表）→ 调三方余额接口 → 用模板渲染回复。
  *   如果该群还没绑定商户号，会提示用户先执行 /bm。
  */
-class GetMerchantBalance extends BaseCustomFeature
+class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
 {
     /**
      * 执行器标识（写入 features.driver）
@@ -30,6 +31,59 @@ class GetMerchantBalance extends BaseCustomFeature
     public static function key(): string
     {
         return 'custom.get_merchant_balance';
+    }
+
+    /**
+     * 本功能要用到的上游接口
+     *
+     * 接口规范跟着「用它的那个类」走，不往 PlatformEndpointRegistry 里堆：
+     * 新功能自带自己的接口定义，删掉功能时定义也随之消失，不会留一堆孤儿接口。
+     */
+    public static function endpoints(): array
+    {
+        return [
+            'merchant.balance' => [
+                'name' => '查询商户余额',
+                'method' => 'GET',
+                'path_template' => 'api/merchant/balance',
+                'params_schema' => [
+                    ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
+                ],
+                'response_schema' => [
+                    'balance' => '余额',
+                    'currency' => '币种',
+                ],
+                'remark' => '按商户号查询余额',
+            ],
+            'merchant.trade' => [
+                'name' => '查询交易明细',
+                'method' => 'GET',
+                'path_template' => 'api/merchant/trade',
+                'params_schema' => [
+                    ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
+                    ['name' => 'trade_no', 'required' => false, 'desc' => '交易号', 'map_to' => 'tradeNo'],
+                    ['name' => 'page', 'required' => false, 'desc' => '页码', 'map_to' => 'page', 'default' => 1],
+                ],
+                'response_schema' => [
+                    'total' => '总条数',
+                    'list' => '交易列表',
+                ],
+                'remark' => '按商户号查询交易明细',
+            ],
+            'merchant.info' => [
+                'name' => '查询商户信息',
+                'method' => 'GET',
+                'path_template' => 'api/merchant/info',
+                'params_schema' => [
+                    ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
+                ],
+                'response_schema' => [
+                    'name' => '商户名称',
+                    'status' => '状态',
+                ],
+                'remark' => '按商户号查询商户基础信息',
+            ],
+        ];
     }
 
     public static function label(): string

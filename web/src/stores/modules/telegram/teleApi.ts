@@ -15,7 +15,8 @@ interface operationData {
     text: string
     mediaPath: string
     buttons?: any[]
-    operation: string
+    /** 功能标识（features.feature，如 realman.sendToGroups） */
+    feature: string
 }
 
 export const useTelegramStore = defineStore('telegramUserApi', () => {

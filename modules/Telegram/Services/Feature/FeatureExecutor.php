@@ -52,6 +52,58 @@ class FeatureExecutor
     }
 
     /**
+     * 按功能标识执行（features.feature 代码）
+     *
+     * 跨驱动调用的入口：一个驱动下的功能可以直接调用另一个驱动下的功能，
+     * 标识是稳定的字符串（如 realman.sendToGroups / custom.get_merchant_balance），
+     * 比数字 id 更适合写进配置。
+     */
+    public function callFeature(
+        string $featureKey,
+        array $options = [],
+        ?Bots $bot = null,
+        ?Api $telegram = null,
+        int|string|null $chatId = null,
+        ?int $userId = null
+    ): FeatureResult {
+        $feature = Features::query()->where('feature', $featureKey)->first();
+
+        if (! $feature) {
+            return FeatureResult::fail("功能不存在：{$featureKey}");
+        }
+
+        return $this->execute($feature, $options, $bot, $telegram, $chatId, $userId);
+    }
+
+    /**
+     * 在当前上下文里调用另一个功能（驱动之间互相调用）
+     *
+     * 自动继承 bot / telegram / chatId / userId / trigger 与 payload，
+     * 调用方只需关心「调谁」和「传什么参数」，例如：
+     *   真人驱动的「群发」功能 → 调用 command 驱动下的「查询余额」功能
+     *
+     * @param array<int, string> $args 位置参数
+     */
+    public function callFrom(
+        FeatureContext $context,
+        string $featureKey,
+        array $args = []
+    ): FeatureResult {
+        return $this->callFeature(
+            $featureKey,
+            [
+                'trigger' => $context->trigger(),
+                'args' => $args,
+                'payload' => $context->payload,
+            ],
+            $context->bot,
+            $context->telegram,
+            $context->chatId,
+            $context->userId
+        );
+    }
+
+    /**
      * 按功能定义执行
      *
      * @param array<string, mixed> $options

@@ -60,6 +60,20 @@ class CustomFeatureRegistry
     }
 
     /**
+     * 是否还有代码里写了、但库里没有的功能（后台自动扫描用，避免每次列表都写库）
+     */
+    public function hasPending(): bool
+    {
+        foreach (self::discover() as $class) {
+            if (! Features::query()->where('feature', 'custom:' . $class::featureKey())->exists()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * 同步到数据库
      *
      * @return array<int, string> 同步的功能名称列表
@@ -110,7 +124,8 @@ class CustomFeatureRegistry
             'type' => 'command',
             'requestType' => 'message',
             'location' => 'local',
-            'driver' => $class::key(),
+            // 用哪个执行器由功能代码声明：默认是自己，也可复用已有执行器
+            'driver' => $class::driver(),
             'trigger' => $class::triggerName(),
             'feature' => $key,
             'description' => $class::featureDescription(),
@@ -134,7 +149,11 @@ class CustomFeatureRegistry
     }
 
     /**
-     * 同步命令（幂等，不覆盖后台已改的启用状态）
+     * 同步命令：代码里的声明只作为「兜底默认值」
+     *
+     * 命令（/ye 之类）由后台自定义，代码里写的只是默认值：
+     * 库里没有该命令时才按代码声明创建；已存在（含后台改过的）一律不动，
+     * 避免每次同步把后台配置覆盖回去。
      */
     protected function syncCommand(int $featureId, array $command): void
     {
@@ -142,7 +161,7 @@ class CustomFeatureRegistry
             return;
         }
 
-        FeatureCommands::query()->updateOrCreate(
+        FeatureCommands::query()->firstOrCreate(
             ['command' => $command['command']],
             [
                 'feature_id' => $featureId,
@@ -153,6 +172,7 @@ class CustomFeatureRegistry
                 'permission' => $command['permission'] ?? 'all',
                 'params' => $command['params'] ?? [],
                 'reply_template' => $command['reply_template'] ?? null,
+                'enabled' => true,
             ]
         );
     }

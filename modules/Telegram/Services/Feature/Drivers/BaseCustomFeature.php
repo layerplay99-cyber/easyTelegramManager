@@ -113,6 +113,29 @@ abstract class BaseCustomFeature implements FeatureDriver
         return class_basename(static::class);
     }
 
+    /**
+     * 该功能实际使用的执行器（写进 features.driver）
+     *
+     * 默认就是自己（一个类既是功能代码、也是执行器）；
+     * 只想复用已有执行器时覆盖本方法即可，例如真人功能统一返回
+     * TelegramApiDriver::key()，6 个功能共用一个执行器、靠 config.method 区分。
+     */
+    public static function driver(): string
+    {
+        return static::key();
+    }
+
+    /**
+     * 是否作为「执行器」出现在后台下拉里
+     *
+     * 复用其它执行器的功能类（只声明配置、不含执行逻辑）返回 false，
+     * 避免后台执行器下拉里出现一堆同质的选项。
+     */
+    public static function isDriver(): bool
+    {
+        return true;
+    }
+
     public static function featureDescription(): string
     {
         return '';

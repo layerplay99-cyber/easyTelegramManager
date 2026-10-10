@@ -123,10 +123,9 @@ const dialogTitle = computed(() => {
 
 // 判断是否需要消息输入框
 const needMessageInput = computed(() => {
-    // 根据功能类型判断是否需要输入框
-    // 例如：消息群发需要输入，表情包采集不需要
-    const handler = props.bind?.feature?.handler || ''
-    return handler.includes('message') || handler.includes('send') || dialogTitle.value.includes('群发')
+    // 按功能标识判断：发送类（群发 / 私发 / @ / 快捷回复）需要输入内容，踢人、表情采集不需要
+    const key = props.bind?.feature?.feature || props.bind?.feature?.handler || ''
+    return key.includes('send') || key.includes('reply')
 })
 
 // 监听 modelValue 变化
@@ -273,7 +272,8 @@ const handleSubmit = async () => {
             text: formData.value.text || '',
             mediaPath: '',
             buttons: [],
-            operation: props.bind.feature.handler
+            // 统一用功能标识（features.feature，如 realman.sendToGroups）调用
+            feature: props.bind.feature.feature
         })
 
         if (result.success) {

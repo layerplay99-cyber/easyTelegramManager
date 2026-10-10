@@ -11,7 +11,6 @@ use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
-use Modules\Telegram\Services\Feature\Command\SlashCommandRegistry;
 use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
 use Modules\Telegram\Services\Feature\DriverRegistry;
 use Modules\Telegram\Services\Feature\PlatformEndpointRegistry;
@@ -20,8 +19,7 @@ use Modules\Telegram\Services\Feature\PlatformEndpointRegistry;
 class FeaturesController extends Controller
 {
     public function __construct(
-        protected readonly Features $model,
-        protected readonly SlashCommandRegistry $commandRegistry
+        protected readonly Features $model
     ){}
 
     /**
@@ -30,6 +28,14 @@ class FeaturesController extends Controller
      */
     public function index(Request $request): mixed
     {
+        // 自动扫描：Drivers/Custom/ 下新写的功能代码在此自动同步进数据库，
+        // 后台「功能列表」打开即可见（仅在发现未登记的功能时才写库）。
+        $custom = app(CustomFeatureRegistry::class);
+
+        if ($custom->hasPending()) {
+            $custom->sync();
+        }
+
         return $this->model->setBeforeGetList(function ($query) use ($request) {
             if ($category = $request->input('category')) {
                 $query->where('category', $category);
@@ -86,25 +92,6 @@ class FeaturesController extends Controller
     public function destroy(int|string $id): mixed
     {
         return $this->model->deleteBy($id);
-    }
-
-    /**
-     * 代码里已实现的斜杠命令清单
-     *
-     * 后台新增命令时直接从这个接口选，不用手敲 handler：
-     * 返回命令名、说明、用法、参数定义和配置项 schema（上游 API 等）。
-     */
-    public function slashCommands(): JsonResponse
-    {
-        $this->commandRegistry->discover();
-
-        return response()->json([
-            // 必须带 code=10000：前端响应拦截器（web/src/support/request.ts）只认 code，
-            // 缺 code 会走 Message.error + Promise.reject，导致命令下拉/保存全部静默失败。
-            'code' => 10000,
-            'message' => 'success',
-            'data' => $this->commandRegistry->definitions(),
-        ]);
     }
 
     /**

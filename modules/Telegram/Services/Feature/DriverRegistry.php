@@ -59,6 +59,11 @@ class DriverRegistry
                 continue;
             }
 
+            // 只声明配置、复用其它执行器的功能类不作为执行器暴露（isDriver=false）
+            if (method_exists($class, 'isDriver') && ! $class::isDriver()) {
+                continue;
+            }
+
             $drivers[$class::key()] = $class;
         }
 
@@ -128,7 +133,7 @@ class DriverRegistry
                 ['value' => 'query', 'label' => 'URL 参数'],
                 ['value' => 'body', 'label' => '请求体'],
             ],
-            'telegram_methods' => \Modules\Telegram\Services\Feature\Drivers\TelegramApiDriver::METHODS,
+            'telegram_methods' => \Modules\Telegram\Services\Feature\Drivers\TelegramApiDriver::methodOptions(),
             'parse_modes' => [
                 ['value' => '', 'label' => '纯文本'],
                 ['value' => 'HTML', 'label' => 'HTML'],
@@ -144,6 +149,7 @@ class DriverRegistry
                 ->map(fn ($c) => ['value' => $c->id, 'label' => $c->name])->toArray(),
             'third_api_endpoints' => PlatformEndpointRegistry::options(),
                  'platform_endpoints' => PlatformEndpointRegistry::options(),
+            'realman_message_types' => \Modules\Telegram\Services\Feature\Drivers\TelegramApiDriver::messageTypeOptions(),
             default => [],
         };
     }

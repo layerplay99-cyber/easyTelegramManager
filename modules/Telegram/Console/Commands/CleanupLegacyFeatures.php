@@ -7,13 +7,16 @@ namespace Modules\Telegram\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Modules\Telegram\Models\Features;
+use Modules\Telegram\Services\Feature\DriverRegistry;
 
 /**
  * 清理功能列表里的旧数据
  *
  * 旧数据 = 老 schema 下建的记录：靠 handler 类名执行、config 里是
  * command/paramscount/rule/thridconfig 那套约定，与新的 driver 体系对不上。
- * 判定依据：feature 标识不以 preset: 或 custom: 开头（新体系的功能都带前缀）。
+ * 判定依据（满足任一即旧数据）：
+ *   1) handler 非空 —— 新体系统一走 driver，handler 恒为空；
+ *   2) driver 未在 DriverRegistry 注册 —— 新体系只认已注册的驱动。
  *
  * 用法：
  *   php artisan telegram:cleanup-legacy-features            # 只预览，不删除
@@ -29,14 +32,16 @@ class CleanupLegacyFeatures extends Command
     {
         $force = (bool) $this->option('force');
 
-        // 新体系的功能标识都带前缀；不带前缀的就是旧数据
         $all = Features::query()->orderBy('id')->get();
+        $drivers = DriverRegistry::all();
 
-        $legacy = $all->filter(function ($feature) {
-            $key = (string) ($feature->feature ?? '');
+        // 新体系统一走 driver：handler 必须为空、driver 必须是已注册的驱动
+        $legacy = $all->filter(function ($feature) use ($drivers) {
+            if (trim((string) ($feature->handler ?? '')) !== '') {
+                return true;
+            }
 
-            return ! str_starts_with($key, 'preset:')
-                && ! str_starts_with($key, 'custom:');
+            return ! isset($drivers[(string) $feature->driver]);
         })->values();
 
         $keep = $all->reject(fn ($f) => $legacy->contains('id', $f->id))->values();
@@ -86,15 +91,18 @@ class CleanupLegacyFeatures extends Command
             // 绑定关系
             DB::table('features_binds')->whereIn('feature_id', $ids)->delete();
 
+            // 命令声明（新体系由 Definitions 重新同步）
+            DB::table('feature_commands')->whereIn('feature_id', $ids)->delete();
+
             // 旧日志表（该表本身有设计问题：错误唯一键 + 列名不一致）
             DB::table('features_logs')->whereIn('feature_id', $ids)->delete();
 
-            // 功能本身走软删除，仍可从回收角度恢复
-            Features::query()->whereIn('id', $ids)->get()->each->delete();
+            // 物理删除：旧数据已确认无用，不需要留在回收站里占位
+            Features::query()->whereIn('id', $ids)->get()->each->forceDelete();
         });
 
         $this->newLine();
-        $this->info("已清理 {$legacy->count()} 条旧功能记录（含其绑定与旧日志）。");
+        $this->info("已物理清理 {$legacy->count()} 条旧功能记录（含其绑定、命令与旧日志）。");
         $this->info('接下来执行 php artisan telegram:sync-features 重新注册内置功能。');
 
         return self::SUCCESS;

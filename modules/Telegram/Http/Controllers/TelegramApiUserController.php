@@ -9,9 +9,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Modules\Telegram\Models\Features;
+use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Models\TelegramApiUsers;
 use Modules\Telegram\Services\CollectServer;
-use Modules\Telegram\Services\Feature\RealMan\RealManFeatureRegistry;
+use Modules\Telegram\Services\Feature\FeatureExecutor;
 use Modules\Telegram\Services\FeatureOperateService;
 use Modules\Telegram\Services\Madeline\SyncUserGroupService;
 
@@ -22,6 +24,7 @@ class TelegramApiUserController extends Controller
         protected readonly TelegramApiUsers $model,
         protected readonly CollectServer $collectServer,
         protected readonly FeatureOperateService $featureOperateService,
+        protected readonly FeatureExecutor $featureExecutor,
     ){}
 
     /**
@@ -36,7 +39,7 @@ class TelegramApiUserController extends Controller
                 $query->where('app_id', $appId);
             }
 
-            $query->with('featuresBinds.feature:id,handler,name')
+            $query->with('featuresBinds.feature:id,feature,driver,name')
                   ->withCount('servicePeoples');
 
             return $query;
@@ -261,7 +264,12 @@ class TelegramApiUserController extends Controller
     }
 
     /**
-     * Operate Feature
+     * 执行真人功能
+     *
+     * 统一走功能管线：按功能标识（features.feature，如 realman.sendToGroups）
+     * 定位功能 → 校验该账号是否绑定启用 → 交给 FeatureExecutor 调对应驱动。
+     * 驱动器（telegram.api）自己按凭证三元组派发 TelegramApiOperateFeatureJob。
+     *
      * @throws \Exception|\Throwable
      */
     public function operateFeature(Request $request, string $type): JsonResponse
@@ -273,12 +281,20 @@ class TelegramApiUserController extends Controller
                 'text' => 'nullable|string',
                 'mediaPath' => 'nullable|string',
                 'buttons' => 'nullable|array',
-                'operation' => 'required|string',
+                'feature' => 'nullable|string',
+                // 兼容旧前端：字段名叫 operation，值同样是功能标识
+                'operation' => 'nullable|string',
                 'user_id' => 'nullable|integer',
                 'reply_to_msg_id' => 'nullable|integer',
                 'mention_ids' => 'nullable|array',
                 'mention_ids.*' => 'integer',
             ]);
+
+            $featureKey = (string) ($validated['feature'] ?? $validated['operation'] ?? '');
+
+            if ($featureKey === '') {
+                return $this->jsonError('缺少功能标识');
+            }
 
             // 先查找 TelegramApiUser（非超管只能操作自己名下的账号）
             $usersQuery = $this->model->where('app_id', $validated['app_id']);
@@ -289,40 +305,39 @@ class TelegramApiUserController extends Controller
 
             $users = $usersQuery->firstOrFail();
 
-            // 使用 bot_id (即 app_id 的值) 来查询 features_binds
-            $users->load([
-                'featuresBinds' => function($query) use ($validated, $users) {
-                    $query->where('bot_id', $users->app_id)
-                        ->where('enabled', 1)
-                        ->whereHas('feature', fn($q) => $q->where([
-                            'enabled' => 1,
-                            'handler' => $validated['operation']
-                        ]))
-                        ->with(['feature' => fn($q) => $q->where([
-                            'enabled' => 1,
-                            'handler' => $validated['operation']
-                        ])]);
-                }
-            ]);
+            $feature = Features::query()
+                ->where('feature', $featureKey)
+                ->where('enabled', 1)
+                ->first();
 
-            if ($users->featuresBinds->isEmpty() || !$users->featuresBinds->first()->feature) {
-                return $this->jsonError('功能未启用');
-            }
-
-            $features = RealManFeatureRegistry::allFeatures();
-
-            if (!isset($features[$validated['operation']])) {
+            if (! $feature) {
                 return $this->jsonError('功能不存在');
             }
 
-            $class = $features[$validated['operation']];
-            $featureOperate = new $class(
-                $users->session_file,
-                $users->app_id,
-                $users->app_hash
-            );
+            // 该真人账号是否启用了这个功能（bot_id 存的是 app_id，与绑定时一致）
+            $bound = FeaturesBinds::query()
+                ->where('bot_id', $users->app_id)
+                ->where('feature_id', $feature->id)
+                ->where('enabled', 1)
+                ->exists();
 
-            $featureOperate->handle($type, $validated);
+            if (! $bound) {
+                return $this->jsonError('功能未启用');
+            }
+
+            $result = $this->featureExecutor->callFeature($featureKey, [
+                'trigger' => 'manual',
+                'payload' => array_merge($validated, [
+                    'api_user_id' => $users->id,
+                    'app_id' => $users->app_id,
+                    // 路由上的 text / media：发送类操作以此为准
+                    'message_type' => $type,
+                ]),
+            ]);
+
+            if (! $result->isSuccess()) {
+                return $this->jsonError($result->message);
+            }
 
             return $this->jsonSuccess();
 

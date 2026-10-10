@@ -21,7 +21,9 @@ class Member extends Model
     protected $fillable = [
         'telegram_user_id', 'telegram_username', 'avatar',
         'payment_password', 'register_ip', 'last_ip',
-        'last_active_at', 'status', 'remark'
+        'last_active_at', 'status', 'remark',
+        // 不列进来 CatchAdmin 不会写时间戳（见 BaseOperate::getCreatedAtColumn）
+        'created_at', 'updated_at'
     ];
 
     protected $hidden = [
@@ -142,5 +144,29 @@ class Member extends Model
     {
         $this->status = self::STATUS_NORMAL;
         $this->save();
+    }
+
+    /**
+     * 展示名
+     *
+     * members 表里并没有 username / nickname 列，历史代码却到处在用
+     * $member->username（插值恒为空、严格模式下直接报错）。
+     * 这里统一兜底：telegram_username → 用户ID。
+     */
+    public function getUsernameAttribute(): string
+    {
+        return (string) ($this->attributes['username']
+            ?? $this->telegram_username
+            ?? ('用户' . $this->telegram_user_id));
+    }
+
+    /**
+     * 是否已完成身份校验：以「设置过支付密码」为准
+     *
+     * 机器人钱包菜单里提现前会校验这个，未设置支付密码的用户需要先设置。
+     */
+    public function isVerified(): bool
+    {
+        return ! empty($this->payment_password);
     }
 }

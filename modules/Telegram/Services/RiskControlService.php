@@ -298,7 +298,11 @@ class RiskControlService
      */
     protected function evaluateRule(RiskControlRule $rule, Member $member, float $amount, string $currency, string $type): array
     {
-        $conditions = json_decode($rule->conditions, true);
+        // RiskControlRule 有 getConditionsAttribute()，取出来已经是数组了，
+        // 再 json_decode 会直接 TypeError（array given）—— 充值/提现下单必炸。
+        $conditions = is_array($rule->conditions)
+            ? $rule->conditions
+            : (json_decode((string) $rule->conditions, true) ?: []);
         $triggered = false;
         $triggerData = [];
 
@@ -313,11 +317,15 @@ class RiskControlService
 
         // 检查每日金额
         if (isset($conditions['daily_amount'])) {
-            $today = date('Y-m-d');
+            // created_at 是 int 时间戳，whereDate() 作用在整型列上恒不成立，
+            // 日累计/日笔数的风控条件会永远不触发。改成按时间戳区间查。
+            $dayStart = strtotime(date('Y-m-d 00:00:00'));
+            $dayEnd = $dayStart + 86400;
             $orderModel = $type === 'recharge' ? RechargeOrder::class : WithdrawOrder::class;
 
             $dailyAmount = $orderModel::where('member_id', $member->id)
-                ->whereDate('created_at', $today)
+                ->where('created_at', '>=', $dayStart)
+                ->where('created_at', '<', $dayEnd)
                 ->where('status', '!=', 3)
                 ->sum('amount');
 
@@ -332,11 +340,15 @@ class RiskControlService
 
         // 检查每日次数
         if (isset($conditions['daily_count'])) {
-            $today = date('Y-m-d');
+            // created_at 是 int 时间戳，whereDate() 作用在整型列上恒不成立，
+            // 日累计/日笔数的风控条件会永远不触发。改成按时间戳区间查。
+            $dayStart = strtotime(date('Y-m-d 00:00:00'));
+            $dayEnd = $dayStart + 86400;
             $orderModel = $type === 'recharge' ? RechargeOrder::class : WithdrawOrder::class;
 
             $dailyCount = $orderModel::where('member_id', $member->id)
-                ->whereDate('created_at', $today)
+                ->where('created_at', '>=', $dayStart)
+                ->where('created_at', '<', $dayEnd)
                 ->where('status', '!=', 3)
                 ->count();
 
@@ -352,11 +364,15 @@ class RiskControlService
         // 检查IP限制
         if (isset($conditions['ip_limit'])) {
             $ip = request()->ip();
-            $today = date('Y-m-d');
+            // created_at 是 int 时间戳，whereDate() 作用在整型列上恒不成立，
+            // 日累计/日笔数的风控条件会永远不触发。改成按时间戳区间查。
+            $dayStart = strtotime(date('Y-m-d 00:00:00'));
+            $dayEnd = $dayStart + 86400;
             $orderModel = $type === 'recharge' ? RechargeOrder::class : WithdrawOrder::class;
 
             $ipCount = $orderModel::where('request_ip', $ip)
-                ->whereDate('created_at', $today)
+                ->where('created_at', '>=', $dayStart)
+                ->where('created_at', '<', $dayEnd)
                 ->distinct('member_id')
                 ->count('member_id');
 

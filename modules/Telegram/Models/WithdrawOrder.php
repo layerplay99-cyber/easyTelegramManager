@@ -18,10 +18,13 @@ class WithdrawOrder extends Model
     protected $table = 'withdraw_orders';
 
     protected $fillable = [
-        'order_no', 'member_id', 'channel_id', 'currency', 'amount',
+        'order_no', 'member_id', 'channel_id', 'third_config_id', 'currency', 'amount',
         'fee', 'actual_amount', 'exchange_rate', 'withdraw_method',
         'withdraw_info', 'third_order_no', 'status', 'processed_at',
-        'completed_at', 'request_ip', 'request_sign', 'nonce', 'timestamp', 'remark'
+        'completed_at', 'request_ip', 'request_sign', 'nonce', 'timestamp', 'remark',
+        'idempotency_key',
+        // 不列进来 CatchAdmin 不会写时间戳（见 BaseOperate::getCreatedAtColumn）
+        'created_at', 'updated_at'
     ];
 
     protected $casts = [
@@ -52,6 +55,14 @@ class WithdrawOrder extends Model
     ];
 
     /**
+     * 状态文案（WalletService 查单接口会用到）
+     */
+    public function getStatusText(): string
+    {
+        return self::$statusTexts[(int) $this->status] ?? '未知';
+    }
+
+    /**
      * 关联会员
      */
     public function member()
@@ -65,6 +76,14 @@ class WithdrawOrder extends Model
     public function channel()
     {
         return $this->belongsTo(PaymentChannel::class, 'channel_id');
+    }
+
+    /**
+     * 承接该单的上游实例
+     */
+    public function thirdConfig()
+    {
+        return $this->belongsTo(ThirdApiConfig::class, 'third_config_id');
     }
 
     /**

@@ -2,7 +2,6 @@
 
 namespace Modules\Telegram\Http\Controllers;
 
-use Catch\Base\CatchController;
 use Modules\Telegram\Models\TransactionLimit;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Http\Requests\TransactionLimit\CreateTransactionLimitRequest;
@@ -10,7 +9,7 @@ use Modules\Telegram\Http\Requests\TransactionLimit\UpdateTransactionLimitReques
 use Modules\Telegram\Http\Requests\Common\ToggleStatusRequest;
 use Illuminate\Http\Request;
 
-class TransactionLimitController extends CatchController
+class TransactionLimitController extends BaseController
 {
     protected $model;
 

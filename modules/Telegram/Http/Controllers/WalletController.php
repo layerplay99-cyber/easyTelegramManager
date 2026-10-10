@@ -3,7 +3,6 @@
 namespace Modules\Telegram\Http\Controllers;
 
 use Catch\CatchAdmin;
-use Catch\Base\CatchController;
 use Modules\Telegram\Models\Wallet;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Services\LedgerService;
@@ -13,7 +12,7 @@ use Modules\Telegram\Http\Requests\Wallet\CreateWalletRequest;
 use Modules\Telegram\Http\Requests\Common\ToggleStatusRequest;
 use Illuminate\Support\Facades\DB;
 
-class WalletController extends CatchController
+class WalletController extends BaseController
 {
     protected $model;
     protected $ledgerService;

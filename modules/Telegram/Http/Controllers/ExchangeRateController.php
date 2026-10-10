@@ -2,7 +2,6 @@
 
 namespace Modules\Telegram\Http\Controllers;
 
-use Catch\Base\CatchController;
 use Modules\Telegram\Models\ExchangeRate;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Http\Requests\ExchangeRate\CreateExchangeRateRequest;
@@ -11,7 +10,7 @@ use Modules\Telegram\Http\Requests\ExchangeRate\GetRateRequest;
 use Modules\Telegram\Http\Requests\ExchangeRate\ConvertCurrencyRequest;
 use Illuminate\Http\Request;
 
-class ExchangeRateController extends CatchController
+class ExchangeRateController extends BaseController
 {
     protected $model;
 

@@ -2,7 +2,6 @@
 
 namespace Modules\Telegram\Http\Controllers;
 
-use Catch\Base\CatchController;
 use Modules\Telegram\Models\Member;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Http\Requests\Member\MemberIndexRequest;
@@ -10,7 +9,7 @@ use Modules\Telegram\Http\Requests\Member\UpdateStatusRequest;
 use Modules\Telegram\Http\Requests\Member\ResetPaymentPasswordRequest;
 use Illuminate\Http\Request;
 
-class MemberController extends CatchController
+class MemberController extends BaseController
 {
     protected $model;
 

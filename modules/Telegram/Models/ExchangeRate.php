@@ -19,7 +19,9 @@ class ExchangeRate extends Model
 
     protected $fillable = [
         'from_currency', 'to_currency', 'rate', 'buy_rate', 'sell_rate',
-        'auto_update', 'source', 'status'
+        'auto_update', 'source', 'status',
+        // 不列进来 CatchAdmin 不会写时间戳（见 BaseOperate::getCreatedAtColumn）
+        'created_at', 'updated_at'
     ];
 
     protected $casts = [

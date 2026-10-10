@@ -2,7 +2,6 @@
 
 namespace Modules\Telegram\Http\Controllers;
 
-use Catch\Base\CatchController;
 use Modules\Telegram\Models\RechargeOrder;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Services\RechargeService;
@@ -11,7 +10,7 @@ use Modules\Telegram\Http\Requests\Order\CompleteOrderRequest;
 use Modules\Telegram\Http\Requests\Order\CancelOrderRequest;
 use Illuminate\Http\Request;
 
-class RechargeOrderController extends CatchController
+class RechargeOrderController extends BaseController
 {
     protected $model;
     protected $rechargeService;

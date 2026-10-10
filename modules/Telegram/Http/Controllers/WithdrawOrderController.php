@@ -3,7 +3,6 @@
 namespace Modules\Telegram\Http\Controllers;
 
 use Catch\CatchAdmin;
-use Catch\Base\CatchController;
 use Modules\Telegram\Models\WithdrawOrder;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Services\WithdrawService;
@@ -13,7 +12,7 @@ use Modules\Telegram\Http\Requests\Order\CancelOrderRequest;
 use Modules\Telegram\Http\Requests\Order\BatchProcessRequest;
 use Illuminate\Http\Request;
 
-class WithdrawOrderController extends CatchController
+class WithdrawOrderController extends BaseController
 {
     protected $model;
     protected $withdrawService;

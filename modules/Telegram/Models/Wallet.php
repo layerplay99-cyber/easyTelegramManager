@@ -18,9 +18,18 @@ class Wallet extends Model
 
     protected $table = 'wallets';
 
+    /**
+     * 注意：余额类字段（balance / frozen_balance / total_*）刻意不在 fillable 里。
+     *
+     * 钱只能走 addBalance / reduceBalance / freeze / unfreeze / deductFrozen
+     * 这几个带行锁 + 写流水的方法，任何 create/update 批量赋值都改不了余额，
+     * 从模型层堵死「绕过接口直接改钱包余额」。
+     */
     protected $fillable = [
-        'member_id', 'currency', 'balance', 'frozen_balance',
-        'total_recharge', 'total_withdraw', 'status', 'remark'
+        'member_id', 'currency', 'status', 'remark',
+        // CatchAdmin 的 BaseOperate 只在这两个字段进了 fillable 时才写时间戳，
+        // 不列进来 created_at / updated_at 恒为 0（列表里显示 1970-01-01）。
+        'created_at', 'updated_at'
     ];
 
     protected $casts = [

@@ -24,6 +24,7 @@ class UpdateRiskRuleRequest extends FormRequest
             'action_config' => 'nullable|array',
             'risk_level' => 'sometimes|in:1,2,3,4',
             'priority' => 'nullable|integer|min:0|max:999',
+            'status' => 'nullable|in:0,1',
             'remark' => 'nullable|string|max:500',
         ];
     }

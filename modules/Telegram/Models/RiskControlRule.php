@@ -19,7 +19,9 @@ class RiskControlRule extends Model
 
     protected $fillable = [
         'name', 'code', 'type', 'conditions', 'action', 'action_config',
-        'risk_level', 'priority', 'status', 'remark'
+        'risk_level', 'priority', 'status', 'remark',
+        // 不列进来 CatchAdmin 不会写时间戳（见 BaseOperate::getCreatedAtColumn）
+        'created_at', 'updated_at'
     ];
 
     /**

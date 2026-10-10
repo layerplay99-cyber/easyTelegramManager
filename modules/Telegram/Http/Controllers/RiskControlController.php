@@ -2,7 +2,6 @@
 
 namespace Modules\Telegram\Http\Controllers;
 
-use Catch\Base\CatchController;
 use Modules\Telegram\Models\RiskControlRule;
 use Modules\Telegram\Models\RiskControlLog;
 use Modules\Telegram\Models\OperationLog;
@@ -13,7 +12,7 @@ use Modules\Telegram\Http\Requests\RiskControl\HandleRiskLogRequest;
 use Modules\Telegram\Http\Requests\Common\ToggleStatusRequest;
 use Illuminate\Http\Request;
 
-class RiskControlController extends CatchController
+class RiskControlController extends BaseController
 {
     protected $ruleModel;
     protected $logModel;

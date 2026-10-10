@@ -2,8 +2,12 @@
 
 namespace Modules\Telegram\Http\Requests\Common;
 
-use Catch\Base\CatchRequest as FormRequest;
+use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * 原来 extends Catch\Base\CatchRequest —— 这个类在 catchadmin 里根本不存在，
+ * 一调用「启用/停用」就直接 500：Class "Catch\Base\CatchRequest" not found。
+ */
 class ToggleStatusRequest extends FormRequest
 {
     /**

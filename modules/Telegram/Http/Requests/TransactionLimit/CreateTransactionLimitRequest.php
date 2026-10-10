@@ -24,6 +24,7 @@ class CreateTransactionLimitRequest extends FormRequest
             'daily_count' => 'nullable|integer|min:0',
             'monthly_amount' => 'nullable|numeric|min:0',
             'monthly_count' => 'nullable|integer|min:0',
+            'status' => 'nullable|in:0,1',
             'remark' => 'nullable|string|max:500',
         ];
     }

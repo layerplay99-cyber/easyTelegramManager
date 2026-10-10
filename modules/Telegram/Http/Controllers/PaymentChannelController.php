@@ -2,7 +2,6 @@
 
 namespace Modules\Telegram\Http\Controllers;
 
-use Catch\Base\CatchController;
 use Modules\Telegram\Models\PaymentChannel;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Http\Requests\PaymentChannel\PaymentChannelIndexRequest;
@@ -11,7 +10,7 @@ use Modules\Telegram\Http\Requests\PaymentChannel\UpdatePaymentChannelRequest;
 use Modules\Telegram\Http\Requests\Common\ToggleStatusRequest;
 use Illuminate\Http\Request;
 
-class PaymentChannelController extends CatchController
+class PaymentChannelController extends BaseController
 {
     protected $model;
 

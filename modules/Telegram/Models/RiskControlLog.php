@@ -19,10 +19,32 @@ class RiskControlLog extends Model
 
     public $timestamps = false;
 
+    /**
+     * 关了自动时间戳就得自己填，否则 created_at 恒为 0，
+     * 风控日志列表的时间列会全部显示 1970-01-01。
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (self $log) {
+            $now = time();
+
+            if (empty($log->created_at)) {
+                $log->created_at = $now;
+            }
+
+            if (empty($log->updated_at)) {
+                $log->updated_at = $now;
+            }
+        });
+    }
+
     protected $fillable = [
         'member_id', 'rule_id', 'order_no', 'type', 'risk_level',
         'trigger_data', 'action', 'action_result', 'status',
-        'handler_id', 'handled_at', 'handle_remark', 'ip'
+        'handler_id', 'handled_at', 'handle_remark', 'ip',
+        'created_at', 'updated_at'
     ];
 
     /**

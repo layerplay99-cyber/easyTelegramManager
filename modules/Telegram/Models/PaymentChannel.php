@@ -21,7 +21,9 @@ class PaymentChannel extends Model
         'name', 'code', 'type', 'currency', 'method',
         'submit_api', 'query_api', 'merchant_id', 'secret_key', 'extra_config',
         'fee_rate', 'fixed_fee', 'min_amount', 'max_amount',
-        'daily_limit', 'daily_count_limit', 'status', 'priority', 'remark'
+        'daily_limit', 'daily_count_limit', 'status', 'priority', 'remark',
+        // 不列进来 CatchAdmin 不会写时间戳（见 BaseOperate::getCreatedAtColumn）
+        'created_at', 'updated_at'
     ];
 
     protected $casts = [

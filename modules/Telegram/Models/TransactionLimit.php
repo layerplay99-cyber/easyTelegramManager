@@ -20,7 +20,9 @@ class TransactionLimit extends Model
     protected $fillable = [
         'name', 'type', 'level', 'currency', 'min_amount', 'max_amount',
         'daily_amount', 'daily_count', 'monthly_amount', 'monthly_count',
-        'status', 'remark'
+        'status', 'remark',
+        // 不列进来 CatchAdmin 不会写时间戳（见 BaseOperate::getCreatedAtColumn）
+        'created_at', 'updated_at'
     ];
 
     protected $casts = [

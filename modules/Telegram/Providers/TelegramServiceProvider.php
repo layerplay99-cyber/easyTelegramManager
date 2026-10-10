@@ -11,6 +11,27 @@ class TelegramServiceProvider extends CatchModuleServiceProvider
     public function register(): void
     {
         $this->registerProvider();
+        $this->loadModuleConfig();
+    }
+
+    /**
+     * 合并模块自己的 config/*.php
+     *
+     * Catch 不会自动加载模块 config 目录（config('wallet.*') / config('hook.*')
+     * 一直是 null），导致写在里面的默认值全部失效、env 也读不到。这里显式合并：
+     *   modules/Telegram/config/hook.php   → config('hook.*')
+     *   modules/Telegram/config/wallet.php → config('wallet.*')
+     */
+    protected function loadModuleConfig(): void
+    {
+        foreach (glob(__DIR__ . '/../config/*.php') as $file) {
+            $key = basename($file, '.php');
+
+            config([$key => array_merge(
+                require $file,
+                is_array(config($key, [])) ? config($key, []) : []
+            )]);
+        }
     }
 
     /**

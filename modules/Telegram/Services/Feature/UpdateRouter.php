@@ -9,6 +9,7 @@ use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Services\Bot\BotApiFactory;
+use Modules\Telegram\Services\LogMessageService;
 
 /**
  * Update 路由器（功能分发的唯一入口，调用链一目了然）
@@ -116,8 +117,10 @@ class UpdateRouter
         $chatId = $intent->chatId;
 
         // 该会话下已绑定的功能：chat_id 有值为群覆盖，NULL 为实体级默认（对任意群生效）
+        // 关联名是 feature（单数），写成 features 会抛 RelationNotFoundException，
+        // 导致按钮/图片等一切非命令 update 全部分发失败。
         $raw = FeaturesBinds::query()
-            ->with('features')
+            ->with('feature')
             ->where('bot_id', $bot->id)
             ->where(function ($q) use ($chatId) {
                 $q->where('chat_id', $chatId)->orWhereNull('chat_id');
@@ -147,7 +150,7 @@ class UpdateRouter
         $telegram = null;
 
         foreach ($bindings as $binding) {
-            $feature = $binding->features;
+            $feature = $binding->feature;
 
             if (! $feature || ! $feature->enabled) {
                 continue;
@@ -172,6 +175,10 @@ class UpdateRouter
                             '__trigger' => $intent->type,
                             'text' => $intent->text,
                             'callback_data' => $intent->callbackData,
+                            // 按钮交互要用：应答这条点击、定位/编辑被点的那条消息
+                            'callback_query_id' => $intent->callbackQueryId,
+                            'message_id' => $intent->messageId,
+                            'username' => $intent->username,
                             'media_type' => $intent->messageType,
                         ],
                     ],

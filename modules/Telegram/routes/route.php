@@ -55,9 +55,6 @@ Route::prefix('telegram')->group(function(){
     // Plug in Specific Routes
     Route::post('feature/bind/super/store', [FeatureBindsController::class, 'superStore']);
 
-    // 代码里已实现的斜杠命令清单（后台新增命令时选，避免手敲 handler）
-    Route::get('features/slash/commands', [FeaturesController::class, 'slashCommands']);
-
     // 功能下的命令管理（{id} 占位，三段路径，不会与上面的具体路由冲突）
     Route::get('features/{id}/commands', [FeaturesController::class, 'commands']);
     Route::post('features/{id}/commands', [FeaturesController::class, 'saveCommands']);

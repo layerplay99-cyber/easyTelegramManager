@@ -11,7 +11,7 @@ class TelegramModuleLoader
         $basePath = base_path('modules/Telegram/Services/Feature');
         $baseNamespace = 'Modules\\Telegram\\Services\\Feature\\';
 
-        $folders = ['Command', 'Callback', 'InlineQuery'];
+        $folders = ['Callback', 'InlineQuery'];
 
         foreach ($folders as $folder) {
             $path = $basePath . '/' . $folder;

@@ -51,9 +51,6 @@ class Installer extends ModuleInstaller
     public function install(): void
     {
         parent::install();
-
-        // 运行 Features Seeder
-        $this->seedFeatures();
     }
 
     /**
@@ -106,44 +103,11 @@ class Installer extends ModuleInstaller
     }
 
     /**
-     * 初始化功能数据
+     * 功能数据不再由安装流程播种
+     *
+     * 统一标准：所有功能都通过后台「功能列表」创建（由 Drivers/ 下的驱动自动发现），
+     * 或执行 php artisan telegram:sync-features 同步。不再有硬编码的内置功能清单。
      */
-    protected function seedFeatures(): void
-    {
-        try {
-            $seederPath = __DIR__ . '/database/seeder/FeaturesSeeder.php';
-
-            if (!file_exists($seederPath)) {
-                $this->command->warn('⚠ FeaturesSeeder.php 文件不存在，跳过功能数据初始化');
-                return;
-            }
-
-            if (!Schema::hasTable('features')) {
-                $this->command->warn('⚠ features 表不存在，跳过数据填充');
-                return;
-            }
-
-            $this->command->info('正在初始化功能数据...');
-
-            // 加载并运行 Seeder
-            $seeder = require $seederPath;
-            $seeder->run();
-
-            // 统计填充的数据
-            $totalCount = DB::table('features')->count();
-            $enabledCount = DB::table('features')->where('enabled', 1)->count();
-
-            $this->command->info("✓ 功能数据初始化成功：共 {$totalCount} 条记录，其中 {$enabledCount} 条已启用");
-        } catch (\Exception $e) {
-            $this->command->error('✗ 功能数据初始化失败: ' . $e->getMessage());
-
-            if ($this->command->getOutput()->isVerbose()) {
-                $this->command->line('  详细错误: ' . $e->getTraceAsString());
-            } else {
-                $this->command->line('  提示: 使用 -v 参数查看详细错误信息');
-            }
-        }
-    }
 
     /**
      * 模块安装后的自定义操作

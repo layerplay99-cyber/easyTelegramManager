@@ -9,8 +9,6 @@ use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Services\Bot\BotApiFactory;
-use Modules\Telegram\Services\Feature\Command\FeatureCommandDispatcher;
-use Modules\Telegram\Services\Feature\Command\SlashCommandDispatcher;
 
 /**
  * Update 路由器（功能分发的唯一入口，调用链一目了然）
@@ -22,8 +20,8 @@ use Modules\Telegram\Services\Feature\Command\SlashCommandDispatcher;
  *          └─ UpdateRouter::route
  *               ├─ 群成员事件   → ListenBotInGroupService::handleUpdate
  *               ├─ 纯闲聊文本   → 直接丢弃（唯一允许过滤的情况）
- *               ├─ 斜杠命令     → FeatureCommandDispatcher（后台无代码配置优先）
- *               │                → 未命中回退 SlashCommandDispatcher（旧类命令）
+ *               ├─ 斜杠命令     → FeatureCommandDispatcher
+ *               │                （feature_commands 表 → FeatureExecutor，后台可配）
  *               └─ 其它全部     → 按 trigger 匹配功能并执行
  *                              （图片/语音/贴纸/文件/位置/按钮/投票… 一律放行）
  *
@@ -37,7 +35,6 @@ class UpdateRouter
         protected UpdateTypeResolver $resolver,
         protected ListenBotInGroupService $botInGroupService,
         protected FeatureCommandDispatcher $featureCommandDispatcher,
-        protected SlashCommandDispatcher $legacyCommandDispatcher,
         protected FeatureExecutor $executor,
         protected BotApiFactory $botApiFactory,
         protected LogMessageService $logMessageService,
@@ -86,20 +83,13 @@ class UpdateRouter
     protected function routeCommand(Bots $bot, mixed $update, UpdateIntent $intent): void
     {
         try {
-            // 后台无代码配置的功能命令优先
-            $handled = $this->featureCommandDispatcher->dispatch(
+            // 统一走后台配置的命令（feature_commands → FeatureExecutor），不再有 PHP 命令类兜底
+            $this->featureCommandDispatcher->dispatch(
                 $bot,
                 $update,
                 (string) $intent->text,
                 $intent
             );
-
-            if ($handled) {
-                return;
-            }
-
-            // 未命中则回退到旧的类命令（存量 /bdcs /bm /ye /cx 保持可用）
-            $this->legacyCommandDispatcher->dispatch($bot, $update, (string) $intent->text);
         } catch (\Throwable $e) {
             $this->logMessageService->createLaravelLog(
                 'telegram_features',

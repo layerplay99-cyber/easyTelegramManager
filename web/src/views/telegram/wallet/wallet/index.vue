@@ -67,7 +67,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import http from '@/support/http'
 import { ElMessage } from 'element-plus'
@@ -111,4 +111,10 @@ const toggleStatus = async (row: any) => {
     ElMessage.success('操作成功')
     reset()
 }
+
+// useGetList 不会自动发首次请求（loading 初始为 true），
+// 必须在这里触发，否则列表一直转圈且 Network 里没有任何请求。
+onMounted(() => {
+    search()
+})
 </script>

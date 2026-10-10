@@ -65,7 +65,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import http from '@/support/http'
 import { ElMessage } from 'element-plus'
@@ -106,4 +106,9 @@ const toggleStatus = async (row: any) => {
 }
 
 defineExpose({ search: computed(() => search) })
+
+// useGetList 不会自动发首次请求，必须在这里触发
+onMounted(() => {
+    search()
+})
 </script>

@@ -63,6 +63,7 @@
 </template>
 
 <script lang="ts" setup>
+import { onMounted } from 'vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import http from '@/support/http'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -88,4 +89,9 @@ const doAction = async (id: number, action: string, tip: string) => {
     ElMessage.success('操作成功')
     reset()
 }
+
+// useGetList 不会自动发首次请求，必须在这里触发
+onMounted(() => {
+    search()
+})
 </script>

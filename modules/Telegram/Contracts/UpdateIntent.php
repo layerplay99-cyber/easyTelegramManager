@@ -55,6 +55,10 @@ class UpdateIntent
         public readonly ?string $text = null,
         public readonly ?string $callbackData = null,
         public readonly mixed $update = null,
+        // 按钮点击场景：answerCallbackQuery 要用的 id、被点按钮所在消息的 id
+        public readonly ?string $callbackQueryId = null,
+        public readonly ?string $messageId = null,
+        public readonly ?string $username = null,
     ) {
     }
 

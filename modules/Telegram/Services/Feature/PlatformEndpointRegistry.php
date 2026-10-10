@@ -170,6 +170,23 @@ class PlatformEndpointRegistry
                 ],
                 'remark' => '查询上游商户可用余额（平台侧余额以本地钱包为准）',
             ],
+            'merchant.trade.submit' => [
+                'code' => 'merchant.trade.submit',
+                'name' => '提交交易处理结果',
+                'method' => 'POST',
+                'path_template' => 'api/merchant/trade/submit',
+                'params_schema' => [
+                    ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
+                    ['name' => 'trade_no', 'required' => true, 'desc' => '上游单据号', 'map_to' => 'tradeNo'],
+                    ['name' => 'action', 'required' => true, 'desc' => '动作码，对应按钮的 act', 'map_to' => 'action'],
+                    ['name' => 'operator_id', 'required' => false, 'desc' => '操作人 Telegram ID', 'map_to' => 'operatorId'],
+                ],
+                'response_schema' => [
+                    'success' => '是否成功',
+                    'message' => '上游返回说明',
+                ],
+                'remark' => '群里点了交易按钮之后，把结果提交给上游（上游验签通过才执行）',
+            ],
         ];
     }
 

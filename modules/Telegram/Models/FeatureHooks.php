@@ -25,13 +25,23 @@ class FeatureHooks extends Model
 {
     protected $table = 'feature_hooks';
 
-    protected $fillable = ['id','feature_id','token','name','dedup_field','enabled','last_fired_at'];
+    protected $fillable = [
+        'id','feature_id','token','name','dedup_field','enabled','last_fired_at',
+        // 回调验签：留空则回落 config/hook.php 的全局密钥，仍为空就不验签
+        'secret','sign_field','sign_algo','check_timestamp',
+    ];
 
-    protected $casts = ['enabled' => 'boolean'];
+    protected $casts = ['enabled' => 'boolean', 'check_timestamp' => 'boolean'];
 
-    protected array $fields = ['id','feature_id','token','name','dedup_field','enabled','last_fired_at','created_at'];
+    protected array $fields = [
+        'id','feature_id','token','name','dedup_field','enabled','last_fired_at',
+        'secret','sign_field','sign_algo','check_timestamp','created_at',
+    ];
 
-    protected array $form = ['feature_id','token','name','dedup_field','enabled'];
+    protected array $form = [
+        'feature_id','token','name','dedup_field','enabled',
+        'secret','sign_field','sign_algo','check_timestamp',
+    ];
 
     public array $searchable = ['token' => 'like','feature_id' => '='];
 

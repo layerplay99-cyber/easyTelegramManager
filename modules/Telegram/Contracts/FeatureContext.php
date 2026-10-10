@@ -110,4 +110,34 @@ class FeatureContext
 
         return $data !== null ? (string) $data : null;
     }
+
+    /**
+     * 本次点击的 callback_query id（用于 answerCallbackQuery，不回的话按钮一直转圈）
+     */
+    public function callbackQueryId(): ?string
+    {
+        $id = $this->payload['callback_query_id'] ?? null;
+
+        return $id !== null ? (string) $id : null;
+    }
+
+    /**
+     * 触发本次事件的那条消息 id（按钮所在消息，用于编辑/撤按钮）
+     */
+    public function messageId(): ?string
+    {
+        $id = $this->payload['message_id'] ?? null;
+
+        return $id !== null ? (string) $id : null;
+    }
+
+    /**
+     * 触发者的 username（无 username 时为空）
+     */
+    public function username(): ?string
+    {
+        $name = $this->payload['username'] ?? null;
+
+        return $name !== null ? (string) $name : null;
+    }
 }

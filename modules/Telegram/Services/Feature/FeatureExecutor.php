@@ -192,15 +192,82 @@ class FeatureExecutor
 
         $this->log($result, $feature, $context, $startedAt);
 
-        // webhook 场景不回当前会话（由驱动自己指定目标群）
+        $meta = $result->meta;
+
+        // ---- 1) 按钮应答：不调的话用户那边会一直转圈 ----
+        if ($telegram && isset($meta['answer_callback']) && is_array($meta['answer_callback'])) {
+            $queryId = $options['payload']['callback_query_id'] ?? null;
+
+            if ($queryId) {
+                $answer = $meta['answer_callback'];
+
+                try {
+                    $telegram->answerCallbackQuery([
+                        'callback_query_id' => (string) $queryId,
+                        'text' => (string) ($answer['text'] ?? ''),
+                        'show_alert' => (bool) ($answer['show_alert'] ?? false),
+                    ]);
+                } catch (\Throwable) {
+                    // 应答失败不影响主流程
+                }
+            }
+        }
+
+        // ---- 2) 编辑触发消息：二次确认、处理完撤掉按钮 ----
+        if ($telegram && $chatId !== null && isset($meta['edit_message']) && is_array($meta['edit_message'])) {
+            $edit = $meta['edit_message'];
+            $targetMessageId = $edit['message_id'] ?? ($options['payload']['message_id'] ?? null);
+
+            if ($targetMessageId) {
+                try {
+                    if (! empty($edit['remove_markup'])) {
+                        $telegram->editMessageReplyMarkup([
+                            'chat_id' => $chatId,
+                            'message_id' => $targetMessageId,
+                            'reply_markup' => ['inline_keyboard' => []],
+                        ]);
+                    } else {
+                        $params = [
+                            'chat_id' => $chatId,
+                            'message_id' => $targetMessageId,
+                            'text' => (string) ($edit['text'] ?? ''),
+                        ];
+
+                        if (isset($edit['reply_markup'])) {
+                            $params['reply_markup'] = $edit['reply_markup'];
+                        }
+
+                        if (! empty($edit['parse_mode'])) {
+                            $params['parse_mode'] = $edit['parse_mode'];
+                        }
+
+                        $telegram->editMessageText($params);
+                    }
+                } catch (\Throwable) {
+                    // 编辑失败（消息太旧/被删）不影响主流程，仍继续发新消息
+                }
+            }
+        }
+
+        // ---- 3) 发新消息：webhook 场景不回当前会话（由驱动自己指定目标群）----
         if (($options['send'] ?? true)
             && $result->message !== ''
             && $telegram
             && $chatId !== null
             && $trigger !== 'webhook'
         ) {
+            $params = ['chat_id' => $chatId, 'text' => $result->message];
+
+            if (isset($meta['reply_markup'])) {
+                $params['reply_markup'] = $meta['reply_markup'];
+            }
+
+            if (! empty($meta['parse_mode'])) {
+                $params['parse_mode'] = $meta['parse_mode'];
+            }
+
             try {
-                $telegram->sendMessage(['chat_id' => $chatId, 'text' => $result->message]);
+                $telegram->sendMessage($params);
             } catch (\Throwable) {
                 // 回复失败不影响功能结果
             }

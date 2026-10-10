@@ -63,6 +63,13 @@ class UpdateTypeResolver
                 userId: $update->callbackQuery->from->id ?? null,
                 callbackData: $update->callbackQuery->data ?? null,
                 update: $update,
+                callbackQueryId: isset($update->callbackQuery->id)
+                    ? (string) $update->callbackQuery->id
+                    : null,
+                messageId: isset($update->callbackQuery->message->message_id)
+                    ? (string) $update->callbackQuery->message->message_id
+                    : null,
+                username: $update->callbackQuery->from->username ?? null,
             );
         }
 

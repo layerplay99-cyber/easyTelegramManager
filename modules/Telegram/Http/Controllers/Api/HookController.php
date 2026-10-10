@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Modules\Telegram\Models\FeatureHooks;
 use Modules\Telegram\Services\Bot\BotApiFactory;
+use Modules\Telegram\Services\Feature\CallbackSigner;
 use Modules\Telegram\Services\Feature\FeatureExecutor;
 use Modules\Telegram\Models\Bots;
 
@@ -48,6 +49,40 @@ class HookController extends CatchController
         }
 
         $payload = $request->all();
+
+        // ---- 验签：配了密钥就必须验，验不过一律丢弃 ----
+        // 旧实现只在 env 里放一把全局密钥，谁拿到谁能伪造通知（虽不知密钥，
+        // 但重放一条合法通知也能在群里刷屏）。这里：
+        //   · 密钥可按 hook 单独配，泄露可单独吊销
+        //   · 签名覆盖全部业务字段
+        //   · 可选 timestamp + nonce 防重放
+        $secret = (string) ($hook->secret ?: config('hook.secret', ''));
+
+        if ($secret !== '') {
+            $signField = (string) ($hook->sign_field ?: config('hook.sign_field', 'sign'));
+            $algo = (string) ($hook->sign_algo ?: config('hook.sign_algo', 'hmac_sha256'));
+
+            $sign = $request->input($signField);
+            $sign = is_scalar($sign) ? (string) $sign : null;
+
+            if (! CallbackSigner::verify($payload, $secret, $algo, $sign)) {
+                return response()->json(['status' => 'error', 'message' => '签名校验失败'], 403);
+            }
+
+            if ($hook->check_timestamp) {
+                $ttl = (int) config('hook.sign_ttl', 300);
+
+                if (! CallbackSigner::timestampFresh($request->input('timestamp'), $ttl)) {
+                    return response()->json(['status' => 'error', 'message' => '请求已过期'], 403);
+                }
+
+                $nonce = (string) $request->input('nonce', '');
+
+                if ($nonce !== '' && CallbackSigner::nonceSeen((string) $hook->token, $nonce, $ttl * 2)) {
+                    return response()->json(['status' => 'success', 'message' => 'duplicate ignored']);
+                }
+            }
+        }
 
         // ---- 幂等去重：同一值不重复投递 ----
         $dedupField = $hook->dedup_field;

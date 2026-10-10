@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Catch\Middleware\AuthMiddleware;
 use Illuminate\Support\Facades\Route;
 use Modules\Telegram\Http\Controllers\Api\CollectPhoneApiController;
 use Modules\Telegram\Http\Controllers\Api\HookController;
@@ -55,9 +56,9 @@ Route::prefix('api')->group(function () {
     });
 
     // Telegram 用户路由 - Telegram User Routes
-    Route::prefix('tg/user')->middleware(['validate.apikey'])->group(function () {
-        // 登录相关 - Login Routes
-        Route::prefix('login')->group(function () {
+    Route::prefix('tg/user')->group(function () {
+        // 登录相关：外部（采集器 App）调用，只用平台 Api-Key + 签名，没有后台登录态
+        Route::prefix('login')->middleware(['validate.apikey'])->group(function () {
             Route::post('/', [TelegramApiUserController::class, 'appLogin'])
                 ->middleware(['throttle:10,1'])
                 ->name('api.tg.user.login');
@@ -72,19 +73,25 @@ Route::prefix('api')->group(function () {
                 ->name('api.tg.user.login.checkStatus');
         });
 
-        // 其他用户操作
-        Route::post('logout', [TelegramApiUserController::class, 'logout'])
-            ->middleware(['throttle:10,1'])
-            ->name('api.tg.user.logout');
+        // 后台操作：控制器里用 getLoginUser() 按 creator_id 做数据范围，
+        // 因此除了平台签名，还必须有后台登录态（AuthMiddleware），
+        // 否则会直接抛「登录失效」。
+        Route::middleware(['validate.apikey', AuthMiddleware::class])->group(function () {
+            Route::post('logout', [TelegramApiUserController::class, 'logout'])
+                ->middleware(['throttle:10,1'])
+                ->name('api.tg.user.logout');
 
-        Route::post('operate/{type}/feature', [TelegramApiUserController::class, 'operateFeature'])
-            ->middleware(['throttle:10,1'])
-            ->whereIn('type', ['send', 'delete', 'edit'])
-            ->name('api.tg.user.operateFeature');
+            // {type} 是消息类型：text / media（与前端「消息类型」下拉、Job 的 type 一致）。
+            // 曾误写成 send/delete/edit，导致后台点真人功能全部落到 route_not_found_or_register。
+            Route::post('operate/{type}/feature', [TelegramApiUserController::class, 'operateFeature'])
+                ->middleware(['throttle:10,1'])
+                ->whereIn('type', ['text', 'media'])
+                ->name('api.tg.user.operateFeature');
 
-        Route::post('sync/groups', [TelegramApiUserController::class, 'syncGroups'])
-            ->middleware(['throttle:10,1'])
-            ->name('api.tg.user.syncGroups');
+            Route::post('sync/groups', [TelegramApiUserController::class, 'syncGroups'])
+                ->middleware(['throttle:10,1'])
+                ->name('api.tg.user.syncGroups');
+        });
     });
 
     // Bot 路由 - Bot Routes

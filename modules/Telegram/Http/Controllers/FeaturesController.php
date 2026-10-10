@@ -138,7 +138,17 @@ class FeaturesController extends Controller
                 ->map(fn ($c) => ['value' => $c->id, 'label' => $c->name])
                 ->toArray(),
             'third_api_endpoints' => PlatformEndpointRegistry::options(),
-                   'platform_endpoints' => PlatformEndpointRegistry::options(),
+            'platform_endpoints' => PlatformEndpointRegistry::options(),
+            'sign_algos' => [
+                ['value' => 'hmac_sha256', 'label' => 'HMAC-SHA256（推荐）'],
+                ['value' => 'md5', 'label' => 'MD5 + key 后缀（老上游）'],
+            ],
+            'parse_modes' => [
+                ['value' => '', 'label' => '纯文本'],
+                ['value' => 'HTML', 'label' => 'HTML'],
+                ['value' => 'Markdown', 'label' => 'Markdown'],
+                ['value' => 'MarkdownV2', 'label' => 'MarkdownV2'],
+            ],
             'bot_groups' => BotGroups::query()
                 ->where('enabled', true)
                 ->get(['id', 'name', 'chat_id'])

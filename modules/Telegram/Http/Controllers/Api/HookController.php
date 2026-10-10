@@ -87,19 +87,18 @@ class HookController extends CatchController
         // ---- 幂等去重：同一值不重复投递 ----
         $dedupField = $hook->dedup_field;
 
+        $dedupKey = null;
+
         if (! empty($dedupField)) {
             $fingerprint = (string) data_get($payload, $dedupField, '');
 
             if ($fingerprint !== '') {
-                $cacheKey = "hook:dedup:{$hook->id}:{$fingerprint}";
+                $dedupKey = "hook:dedup:{$hook->id}:{$fingerprint}";
 
-                if (Cache::has($cacheKey)) {
+                if (Cache::has($dedupKey)) {
                     // 已处理过，直接返回成功（上游无需重试）
                     return response()->json(['status' => 'success', 'message' => 'duplicate ignored']);
                 }
-
-                // 缓存只用于去重（可丢失），业务数据仍落库，不受影响
-                Cache::put($cacheKey, true, now()->addDay());
             }
         }
 
@@ -127,6 +126,12 @@ class HookController extends CatchController
             null,
             null
         );
+
+        // 只有真正处理成功才占住去重键：失败的话上游会重试，
+        // 提前占住会让这笔单在 24h 内的所有重试都被当成重复投递吞掉。
+        if ($dedupKey !== null && $result->isSuccess()) {
+            Cache::put($dedupKey, true, now()->addDay());
+        }
 
         $hook->last_fired_at = time();
         $hook->save();

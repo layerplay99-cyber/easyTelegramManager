@@ -70,8 +70,8 @@
 | 17 | `app/Models/Modules/Users/Models/CatchController.php` | 路径嵌套错乱 + 类名语义矛盾 |
 | 18 | `app/Events/Create.php`、`app/Events/Test.php` | 调试遗留 |
 | 19 | `app/Listeners/Command.php`、`RouteMatched.php`、`test.php` | 空壳/注释掉的 dd() |
-| 20 | `Services/Feature/Callback/SomeCallbackHandler.php` | 空类 |
-| 21 | `Services/Feature/InlineQuery/SomeInlineHandler.php` | 空类 |
+| 20 | ~~`Services/Feature/Callback/SomeCallbackHandler.php`~~ | 空类 —— ✅ 已删除 |
+| 21 | ~~`Services/Feature/InlineQuery/SomeInlineHandler.php`~~ | 空类 —— ✅ 已删除 |
 | 22 | `Services/Feature/RealMan/FastReplayMsg.php`、`KickOutGroup.php` | TODO 空实现（**注意**：已被 `RealManFeatureRegistry` 和 `FeaturesSeeder` 引用，删除需同步处理） |
 | 23 | `routes/override.php` | 悬空死代码 |
 
@@ -89,9 +89,9 @@
    - `app/Events/Create.php`、`app/Events/Test.php`
    - `app/Listeners/Command.php`、`app/Listeners/RouteMatched.php`、`app/Listeners/test.php`
    - `app/Models/Modules/Users/Models/CatchController.php`（含空目录）
-3. **删除空类**
-   - `Services/Feature/Callback/SomeCallbackHandler.php`
-   - `Services/Feature/InlineQuery/SomeInlineHandler.php`
+3. **删除空类** —— ✅ 已完成（连同空目录 `Command/`、`Definitions/`、`RealMan/`）
+   - ~~`Services/Feature/Callback/SomeCallbackHandler.php`~~
+   - ~~`Services/Feature/InlineQuery/SomeInlineHandler.php`~~
 4. **修正 `config/auth.php`** 认证模型指向 `Modules\User\Models\User::class`
 
 > 注意：`FastReplayMsg`、`KickOutGroup` 虽是 TODO 空实现，但被 `RealManFeatureRegistry` + `FeaturesSeeder` 引用，**本阶段暂不删**，留待阶段 C 决定（补实现或统一移出注册表）。

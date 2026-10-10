@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Modules\Telegram\Services\Feature\Drivers\Custom;
+namespace Modules\Telegram\Services\Feature\Drivers\Custom\Merchant;
 
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;

@@ -81,8 +81,6 @@ php artisan app:module:install cms
 php artisan app:module:install system
 php artisan app:module:install telegram
 
-php artisan telegram:scan-activity
-
 php artisan storage:link
 sudo chown -R www-data:www-data storage bootstrap/cache
 sudo chmod -R 775 storage bootstrap/cache
@@ -174,10 +172,7 @@ php artisan app:module:install cms
 php artisan app:module:install system
 php artisan app:module:install telegram
 
-# 3) 一次性命令
-php artisan telegram:scan-activity
-
-# 4) 收尾
+# 3) 收尾
 php artisan storage:link
 php artisan config:clear
 sudo chown -R www-data:www-data storage bootstrap/cache

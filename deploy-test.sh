@@ -484,7 +484,6 @@ run_install() {
     php_exec "php artisan app:install"
 
     log "一次性命令"
-    php_exec "php artisan telegram:scan-activity"
     php_exec "php artisan storage:link"
 }
 

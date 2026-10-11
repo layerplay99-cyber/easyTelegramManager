@@ -1,0 +1,27 @@
+# ============================================================================
+# 测试 / 共享环境覆盖（docker-compose.yml 的补充，不修改生产那份）
+# ----------------------------------------------------------------------------
+# 用途：本机已经有别的 nginx 占了宿主机 80/443（如 easycall-nginx），
+#       所以 telegram-bot 在 stack 网络里加一个「只对内」的 nginx，
+#       不映射宿主机端口，由你现有的边缘 nginx 反代过来，避免端口冲突。
+#
+# 用法（deploy-test.sh 会自动拼这两个文件）：
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+#
+# 注意：主 docker-compose.yml 里的 `name: telegram-bot` 与容器名（tgbot-*）
+#       保持不变；本文件只是「额外增加」一个 nginx 服务。
+# ============================================================================
+
+services:
+    # 只对内（stack 网络）的 nginx，宿主机不占 80/443
+    nginx:
+        image: nginx:1.27-alpine
+        container_name: tgbot-nginx
+        working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
+        volumes:
+            - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}:ro
+            - ${PROJECTS_ROOT:-/var/www}:/opt/projects:ro
+            - ./deploy-output/nginx:/etc/nginx/conf.d:ro
+        networks:
+            - stack
+        restart: unless-stopped

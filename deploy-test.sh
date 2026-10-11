@@ -460,35 +460,32 @@ ensure_writable_dirs() {
         && chmod -R ug+rwX storage bootstrap/cache"
 }
 
-# 全新库才灌初始数据：管理员账号 + 权限菜单树。
-# 判断依据：users 表行数为 0（已有数据说明是升级，不能重复 seed 造成菜单重复）。
-seed_initial_data() {
-    local pw; pw="$(mysql_root_pw)"
-    local n
-    n="$(docker exec stack-mysql mysql -uroot -p"$pw" -N -B \
-        -e "SELECT COUNT(*) FROM \`${DB_PREFIX}users\`" "$DB_DATABASE" 2>/dev/null | tr -d '[:space:]')"
-    if [ -z "$n" ] || [ "$n" = "0" ]; then
-        log "全新库：灌入初始管理员与权限菜单"
-        php_exec "php artisan catch:db:seed user --force"
-        php_exec "php artisan catch:db:seed permissions --force"
-    else
-        log "库已有数据（users=$n 行），跳过初始数据灌入"
-    fi
-}
-
-# 迁移顺序很关键：
-#   users 表在 User 模块里，应用迁移 add_unique_username_to_users 会直接查 users，
-#   所以必须先 catch:migrate user，再 php artisan migrate，最后才是 Telegram 模块。
-run_migrations() {
-    log "执行迁移（测试库 $DB_DATABASE）"
+# CatchAdmin 安装 / 升级（见 docs/deployment.md 第 3 节）
+#
+# app:install（app/Console/Commands/InstallApp.php）一步到位，内部依次：
+#   1) 核心 migrate --force
+#   2) 按 permissions → user → develop → cms → system → telegram 顺序
+#      app:module:install（未注册则注册+迁移+seed；已注册则跳过 create，只补跑迁移+seed）
+#   3) 各模块 seed（后台菜单/权限数据）+ 菜单可见性修正
+# 幂等、可安全重复执行，且会绕过 production 下 migrate 的交互确认。
+#
+# ⚠️ 不要用 catch:install / catch:module:install：
+#    它们在 production 下 migrate 会被确认拦截而静默不建表，
+#    紧接着 seed 报 1146（表象是表不存在，实际是迁移被取消）。
+#
+# 额外一步：app:install 是「先核心 migrate、后装模块」，而核心迁移
+# add_unique_username_to_users 会直接查 users 表，users 却在 User 模块里，
+# 全新库上会报 1146。所以先单独把 user 模块迁移跑掉（无外部依赖，可安全先跑）。
+run_install() {
+    log "User 模块迁移（先建 users 表，供核心迁移使用）"
     php_exec "php artisan catch:migrate user --force"
-    php_exec "php artisan catch:migrate permissions --force"
-    php_exec "php artisan catch:migrate system --force"
 
-    seed_initial_data
+    log "app:install（核心迁移 + 全部模块迁移与 seed）"
+    php_exec "php artisan app:install"
 
-    php_exec "php artisan migrate --force"
-    php_exec "php artisan catch:migrate telegram --force"
+    log "一次性命令"
+    php_exec "php artisan telegram:scan-activity"
+    php_exec "php artisan storage:link"
 }
 
 deploy_app() {
@@ -510,7 +507,7 @@ deploy_app() {
         php_exec "php artisan key:generate --force"
     fi
 
-    run_migrations
+    run_install
 
     log "刷新缓存"
     php_exec "php artisan optimize:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache"
@@ -542,7 +539,7 @@ update_app() {
     fetch_code
     ensure_writable_dirs
     php_exec "composer install --no-dev --optimize-autoloader"
-    run_migrations
+    run_install
     php_exec "php artisan optimize:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache"
     php_exec "php artisan telegram:sync-features"
     php_exec "chown -R www-data:www-data storage bootstrap/cache"

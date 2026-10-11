@@ -1,11 +1,4 @@
-* text=auto
-
-*.blade.php diff=html
-*.css diff=css
-*.html diff=html
-*.md diff=markdown
-*.php diff=php
-
-/.github export-ignore
-CHANGELOG.md export-ignore
-.styleci.yml export-ignore
+# Shell 脚本必须用 LF。
+# Windows 上若 core.autocrlf=true，检出会把 LF 转成 CRLF，导致 bash 把 `then\r`
+# 当成普通单词、下一行的 elif/fi 报 "syntax error near unexpected token"。
+*.sh text eol=lf

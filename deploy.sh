@@ -153,7 +153,7 @@ EOF
     fi
 
     if [ "$SKIP_IMAGE_BUILD" != "1" ]; then
-        log "构建公共镜像 stack-php / stack-node（首次较慢）"
+        log "构建公共镜像 telegram-bot-php / telegram-bot-node（首次较慢）"
         stack_compose build php node
     fi
 
@@ -166,10 +166,17 @@ EOF
     log "✅ 共享栈就绪"
 }
 
+# 取正在运行的 stack-mysql 容器的实际 root 密码
+# （避免 .env 与已初始化数据不一致导致 ERROR 1045 / ERROR 1524）
+mysql_root_pw() {
+    docker exec stack-mysql sh -c 'echo "$MYSQL_ROOT_PASSWORD"' 2>/dev/null || echo "$MYSQL_ROOT_PASSWORD"
+}
+
 wait_mysql() {
     log "等待 mysql 就绪"
+    local pw; pw="$(mysql_root_pw)"
     for i in $(seq 1 60); do
-        if docker exec stack-mysql mysqladmin ping -uroot -p"$MYSQL_ROOT_PASSWORD" --silent >/dev/null 2>&1; then
+        if docker exec stack-mysql mysqladmin ping -uroot -p"$pw" --silent >/dev/null 2>&1; then
             log "mysql 已就绪"
             return 0
         fi
@@ -180,7 +187,8 @@ wait_mysql() {
 
 create_db() {
     log "确保库与账号存在（幂等）"
-    docker exec stack-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "
+    local pw; pw="$(mysql_root_pw)"
+    docker exec stack-mysql mysql -uroot -p"$pw" -e "
 CREATE DATABASE IF NOT EXISTS \`$DB_DATABASE\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '$DB_USERNAME'@'%' IDENTIFIED BY '$DB_PASSWORD';
 GRANT ALL PRIVILEGES ON \`$DB_DATABASE\`.* TO '$DB_USERNAME'@'%';
@@ -442,12 +450,33 @@ reload_nginx() {
 # ============================================================================
 # 5. 项目容器与后端
 # ============================================================================
+
+# bootstrap/cache 与 storage/framework/* 被 .gitignore 忽略，全新代码里不存在；
+# 且 docker exec 是 root、php-fpm 跑 www-data，不建目录/不改属主会报
+# "The bootstrap/cache directory must be present and writable"。
+ensure_writable_dirs() {
+    log "确保 storage / bootstrap/cache 存在且属主为 www-data（php-fpm 运行用户）"
+    php_exec "mkdir -p bootstrap/cache \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/testing \
+        storage/framework/views \
+        storage/logs \
+        && chown -R www-data:www-data storage bootstrap/cache \
+        && chmod -R ug+rwX storage bootstrap/cache"
+}
+
 deploy_app() {
     write_envs
     write_nginx_conf
 
+    log "构建 Telethon 镜像（本地构建，不去 registry 拉）"
+    app_compose build telegram-py
+
     log "启动项目容器"
     app_compose up -d
+
+    ensure_writable_dirs
 
     log "安装 PHP 依赖"
     php_exec "composer install --no-dev --optimize-autoloader"
@@ -466,6 +495,9 @@ deploy_app() {
 
     log "同步功能与平台接口"
     php_exec "php artisan telegram:sync-features"
+
+    # 上面是 root 执行的，缓存文件会变成 root 属主，php-fpm(www-data) 写不了
+    php_exec "chown -R www-data:www-data storage bootstrap/cache"
 
     build_frontend
 
@@ -488,6 +520,7 @@ build_frontend() {
 # ============================================================================
 update_app() {
     fetch_code
+    ensure_writable_dirs
 
     log "更新依赖"
     php_exec "composer install --no-dev --optimize-autoloader"
@@ -501,6 +534,7 @@ update_app() {
 
     log "同步功能与平台接口"
     php_exec "php artisan telegram:sync-features"
+    php_exec "chown -R www-data:www-data storage bootstrap/cache"
 
     build_frontend
 

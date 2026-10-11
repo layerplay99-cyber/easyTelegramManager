@@ -444,6 +444,22 @@ reload_nginx() {
 # ============================================================================
 # 5. 项目容器 + 后端
 # ============================================================================
+
+# bootstrap/cache 与 storage/framework/* 被 .gitignore 忽略，全新代码里不存在；
+# 且 docker exec 是 root、php-fpm 跑 www-data，不建目录/不改属主会报
+# "The bootstrap/cache directory must be present and writable"。
+ensure_writable_dirs() {
+    log "确保 storage / bootstrap/cache 存在且属主为 www-data（php-fpm 运行用户）"
+    php_exec "mkdir -p bootstrap/cache \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/testing \
+        storage/framework/views \
+        storage/logs \
+        && chown -R www-data:www-data storage bootstrap/cache \
+        && chmod -R ug+rwX storage bootstrap/cache"
+}
+
 deploy_app() {
     write_envs
     write_nginx_conf
@@ -453,6 +469,8 @@ deploy_app() {
 
     log "启动项目容器（含内部 nginx，不占宿主 80/443）"
     app_compose up -d
+
+    ensure_writable_dirs
 
     php_exec "composer install --no-dev --optimize-autoloader"
 
@@ -470,6 +488,9 @@ deploy_app() {
 
     log "同步功能与平台接口"
     php_exec "php artisan telegram:sync-features"
+
+    # 上面是 root 执行的，缓存文件会变成 root 属主，php-fpm(www-data) 写不了
+    php_exec "chown -R www-data:www-data storage bootstrap/cache"
 
     build_frontend
 
@@ -490,11 +511,13 @@ build_frontend() {
 # ============================================================================
 update_app() {
     fetch_code
+    ensure_writable_dirs
     php_exec "composer install --no-dev --optimize-autoloader"
     php_exec "php artisan migrate --force"
     php_exec "php artisan catch:migrate telegram --force"
     php_exec "php artisan optimize:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache"
     php_exec "php artisan telegram:sync-features"
+    php_exec "chown -R www-data:www-data storage bootstrap/cache"
     build_frontend
     app_compose restart queue reverb
     reload_nginx

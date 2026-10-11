@@ -31,9 +31,21 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="hidden" label="状态" width="100">
+        <el-table-column prop="hidden" label="显示" width="120">
           <template #default="scope">
-            <Status v-model="scope.row.hidden" :id="scope.row.id" :api="api" @refresh="search" />
+            <!-- hidden: 0=显示 / 1=隐藏（与 InstallApp::ensureMenusVisible 一致）。
+                 这里不能用通用 Status 组件：它的值是 Status.ENABLE(1)/DISABLE(2)，
+                 与 hidden 的 0/1 语义错位，切换时会把 hidden 写成非法值，菜单直接错乱。
+                 后端 enable() 是 toggleBy($id,'hidden')，只取反，不接收值。 -->
+            <el-switch
+              :model-value="scope.row.hidden"
+              :active-value="0"
+              :inactive-value="1"
+              active-text="显示"
+              inactive-text="隐藏"
+              :loading="scope.row.hiddenLoading"
+              @change="toggleHidden(scope.row)"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" />
@@ -74,6 +86,18 @@ onMounted(() => {
   search()
   deleted(reset)
 })
+
+// 切换菜单显示/隐藏：后端 PUT {api}/enable/{id} 是 toggleBy($id,'hidden')，只取反
+const toggleHidden = async (row: any) => {
+  if (!row?.id) return
+  row.hiddenLoading = true
+  try {
+    await http.put(`${api}/enable/${row.id}`)
+    search()
+  } finally {
+    row.hiddenLoading = false
+  }
+}
 
 const generateId = ref<number>(0)
 const actionGenerate = async (id: number) => {

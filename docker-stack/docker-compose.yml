@@ -50,6 +50,9 @@ services:
     mysql:
         image: mysql:8.4
         container_name: stack-mysql
+        # 8.4 起 mysql_native_password 默认禁用；老数据目录（8.0 时代初始化）的账号
+        # 用的还是它，不显式启用会导致 root 无法登录（ERROR 1524）。
+        command: --mysql-native-password=ON
         environment:
             MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
             MYSQL_DATABASE: ${MYSQL_DATABASE}

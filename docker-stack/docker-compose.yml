@@ -21,14 +21,14 @@ name: stack
 
 services:
     # ---------------------------------------------------------- PHP 基础镜像
-    # 仅作为镜像构建目标，打 tag 为 stack-php:8.4。
-    # 各项目 app 容器直接引用该镜像（image: stack-php:8.4），无需各自 build。
+    # 仅作为镜像构建目标，打 tag 为 telegram-bot-php:8.4。
+    # 各项目 app 容器直接引用该镜像（image: telegram-bot-php:8.4），无需各自 build。
     # command: ["true"] 使其不参与运行时；启动共享栈时显式列出服务（不含 php）即可。
     php:
         build:
             context: ./php
             dockerfile: Dockerfile
-        image: stack-php:8.4
+        image: telegram-bot-php:8.4
         command: ["true"]
 
     # ---------------------------------------------------------- Node 基础镜像 + 共享环境
@@ -39,7 +39,7 @@ services:
         build:
             context: ./node
             dockerfile: Dockerfile
-        image: stack-node:20
+        image: telegram-bot-node:20
         command: ["tail", "-f", "/dev/null"]
         working_dir: /opt/projects
         volumes:
@@ -48,9 +48,8 @@ services:
 
     # ---------------------------------------------------------- MySQL（共享）
     mysql:
-        image: mysql:8.0
+        image: mysql:8.4
         container_name: stack-mysql
-        command: --default-authentication-plugin=mysql_native_password
         environment:
             MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
             MYSQL_DATABASE: ${MYSQL_DATABASE}

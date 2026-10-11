@@ -140,7 +140,7 @@ EOF
     fi
 
     if [ "$SKIP_IMAGE_BUILD" != "1" ]; then
-        log "构建公共镜像 stack-php / stack-node（首次较慢）"
+        log "构建公共镜像 telegram-bot-php / telegram-bot-node（首次较慢）"
         stack_compose build php node
     fi
 
@@ -152,10 +152,16 @@ EOF
     log "✅ 共享栈就绪"
 }
 
+# 取正在运行的 stack-mysql 容器的实际 root 密码（避免 .env 与已初始化数据不一致）
+mysql_root_pw() {
+    docker exec stack-mysql sh -c 'echo "$MYSQL_ROOT_PASSWORD"' 2>/dev/null || echo "$MYSQL_ROOT_PASSWORD"
+}
+
 wait_mysql() {
     log "等待 mysql 就绪"
+    local pw; pw="$(mysql_root_pw)"
     for i in $(seq 1 60); do
-        if docker exec stack-mysql mysqladmin ping -uroot -p"$MYSQL_ROOT_PASSWORD" --silent >/dev/null 2>&1; then
+        if docker exec stack-mysql mysqladmin ping -uroot -p"$pw" --silent >/dev/null 2>&1; then
             log "mysql 已就绪"; return 0
         fi
         sleep 2
@@ -165,7 +171,8 @@ wait_mysql() {
 
 create_db() {
     log "确保测试库与账号存在（幂等）"
-    docker exec stack-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "
+    local pw; pw="$(mysql_root_pw)"
+    docker exec stack-mysql mysql -uroot -p"$pw" -e "
 CREATE DATABASE IF NOT EXISTS \`$DB_DATABASE\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '$DB_USERNAME'@'%' IDENTIFIED BY '$DB_PASSWORD';
 GRANT ALL PRIVILEGES ON \`$DB_DATABASE\`.* TO '$DB_USERNAME'@'%';

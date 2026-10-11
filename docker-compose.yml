@@ -22,7 +22,7 @@ name: telegram-bot
 services:
     # ---------------------------------------------------------- PHP-FPM（app）
     php:
-        image: stack-php:8.4
+        image: telegram-bot-php:8.4
         container_name: tgbot-php
         working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
         volumes:
@@ -41,7 +41,7 @@ services:
 
     # ---------------------------------------------------------- 前端（Node / vite dev）
     frontend:
-        image: stack-node:20
+        image: telegram-bot-node:20
         container_name: tgbot-frontend
         working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}/web
         # 用 build --watch 而不是 yarn dev：
@@ -68,7 +68,7 @@ services:
 
     # ---------------------------------------------------------- 队列 worker
     queue:
-        image: stack-php:8.4
+        image: telegram-bot-php:8.4
         container_name: tgbot-queue
         working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
         volumes:
@@ -86,7 +86,7 @@ services:
 
     # ---------------------------------------------------------- Reverb（WebSocket）
     reverb:
-        image: stack-php:8.4
+        image: telegram-bot-php:8.4
         container_name: tgbot-reverb
         working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
         ports:
@@ -132,7 +132,7 @@ services:
     # 事件处理已改由 Python Telethon 负责，默认关闭以避免双处理。
     # 如需回退：docker compose --profile madeline-legacy up -d telegram
     telegram:
-        image: stack-php:8.4
+        image: telegram-bot-php:8.4
         container_name: tgbot-telegram
         working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
         volumes:

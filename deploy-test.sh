@@ -448,6 +448,9 @@ deploy_app() {
     write_envs
     write_nginx_conf
 
+    log "构建 Telethon 镜像（本地构建，不去 registry 拉）"
+    app_compose build telegram-py
+
     log "启动项目容器（含内部 nginx，不占宿主 80/443）"
     app_compose up -d
 

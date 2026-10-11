@@ -108,7 +108,10 @@ services:
         build:
             context: ./telegram-service
             dockerfile: Dockerfile
-        image: tgbot-telethon:latest
+        image: telegram-bot-telethon:latest
+        # 同时写了 build 和 image 时，Compose 会先去 registry 拉镜像，拉不到才构建，
+        # 导致满屏 "pull access denied"。强制本地构建。
+        pull_policy: build
         container_name: tgbot-telethon
         working_dir: /app
         environment:

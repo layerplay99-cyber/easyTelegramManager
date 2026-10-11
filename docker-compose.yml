@@ -60,8 +60,8 @@ services:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}/web:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/web
             # node_modules 放容器卷，避免跨平台二进制互相覆盖
             - node_modules:/opt/projects/${PROJECT_DIR:-easyTelegramManager}/web/node_modules
-        ports:
-            - "5173:5173"
+        # 不映射宿主端口：静态资源由 nginx 托管 web/dist，dev server 也由 nginx 反代
+        # tgbot-frontend:5173。需要从宿主直接调试时再自行加 ports（注意避开已占用端口）。
         restart: unless-stopped
         networks:
             - stack
@@ -89,8 +89,8 @@ services:
         image: telegram-bot-php:8.4
         container_name: tgbot-reverb
         working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
-        ports:
-            - "8080:8080"
+        # 不映射宿主端口：WebSocket 由 nginx 的 /app 反代到 tgbot-reverb:8080（走 stack 网络），
+        # 避免与宿主上已占用 8080 的容器冲突。
         volumes:
             - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
@@ -125,8 +125,8 @@ services:
             REDIS_URL: redis://redis:6379/0
         volumes:
             - tgbot_media:/data
-        ports:
-            - "8081:8081"
+        # 不映射宿主端口：Laravel 通过 TELETHON_BASE_URL=http://telegram-py:8081 内部调用，
+        # 避免与宿主上已占用 8081 的容器冲突。
         restart: unless-stopped
         networks:
             - stack

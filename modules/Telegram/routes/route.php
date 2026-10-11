@@ -40,7 +40,19 @@ Route::prefix('telegram')->group(function(){
 
     Route::apiResource('features', FeaturesController::class);
     Route::apiResource('feature/bind', FeatureBindsController::class);
-    Route::apiResource('third/config', ThridConfigController::class);
+
+    // 与上面的 bot/group/config 末段同为 config，Laravel 取末段生成路由名，
+    // 两者都会想叫 config.index —— 平时不报错，但 route:cache 时会直接失败：
+    //   "Unable to prepare route [api/telegram/third/config] for serialization.
+    //    Another route has already been assigned name [config.index]"
+    // 这里显式改成 third-config.* 避让（config.* 归 bot/group/config 所有）。
+    Route::apiResource('third/config', ThridConfigController::class)->names([
+        'index'   => 'third-config.index',
+        'store'   => 'third-config.store',
+        'show'    => 'third-config.show',
+        'update'  => 'third-config.update',
+        'destroy' => 'third-config.destroy',
+    ]);
 
     // 三方接口（从上游配置里拆出来的「接口」层，可被多个功能复用）
     Route::apiResource('third/endpoint', ThirdApiEndpointsController::class);

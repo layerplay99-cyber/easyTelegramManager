@@ -407,14 +407,23 @@ write_edge_vhost() {
 # 然后： docker exec $EDGE_NGINX_CONTAINER nginx -t && docker exec $EDGE_NGINX_CONTAINER nginx -s reload
 #
 # 如果边缘已经做 HTTPS（推荐），把下面 80 这段改成 443 + 你的证书即可，proxy_pass 不变。
+#
+# ⚠️ 用「变量 + resolver」做运行时解析，不要直接写 proxy_pass http://主机:端口：
+#    后者 nginx 在加载配置阶段就要解析主机，本项目容器没起来时会导致
+#    nginx -t 失败，甚至边缘 nginx 重启时直接起不来（会连带你其它站点一起挂）。
+#    127.0.0.11 是 Docker 内嵌 DNS，只在同网络内容器间生效——所以必须先把
+#    边缘 nginx 接入 stack 网络：docker network connect stack $EDGE_NGINX_CONTAINER
 server {
     listen 80;
     server_name $DOMAIN;
 
     client_max_body_size 50m;
 
+    resolver 127.0.0.11 valid=30s ipv6=off;
+    set \$tgbot_upstream "$EDGE_PROXY_TARGET";
+
     location / {
-        proxy_pass             http://$EDGE_PROXY_TARGET;
+        proxy_pass             http://\$tgbot_upstream;
         proxy_http_version     1.1;
         proxy_set_header       Host \$host;
         proxy_set_header       X-Real-IP \$remote_addr;

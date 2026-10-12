@@ -34,3 +34,23 @@ services:
         environment:
             LARAVEL_BASE_URL: http://tgbot-nginx
             LARAVEL_HOST: tgbot.local
+
+    # 测试环境自带一个「独立」redis，不再依赖共享栈的 stack-redis。
+    # 背景：本机已有 easycall-redis，stack-redis 与其共用数据目录/端口会起不来
+    # （曾 Exited 139 段错误），导致 tgbot-php 在 stack 网络解析不到 redis，
+    # webhook 推队列失败 → 群不同步。
+    # 这里单独起一个 redis：独占命名卷、不映射宿主端口，并借服务名 redis 在
+    # stack 网络提供别名；tgbot-php / tgbot-queue / tgbot-reverb 的 REDIS_HOST=redis
+    # 即解析到它，与 easycall-redis 彻底解耦。
+    # 前提：先删除/停用共享栈已崩溃的 stack-redis，释放 stack 网络上的 redis 别名。
+    redis:
+        image: redis:7-alpine
+        container_name: tgbot-redis
+        restart: unless-stopped
+        volumes:
+            - tgbot_redis:/data
+        networks:
+            - stack
+
+volumes:
+    tgbot_redis:

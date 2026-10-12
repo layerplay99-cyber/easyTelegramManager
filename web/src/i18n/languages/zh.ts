@@ -163,6 +163,30 @@ const zh = {
     selectGroupPlaceholder: '请选择群聊'
   },
 
+  account: {
+    phone: '电话号码',
+    nickname: '昵称',
+    loginStatus: '登录状态',
+    userStatus: '用户状态',
+    joinCount: '入群数',
+    import: '导入',
+    login: '登录',
+    logout: '注销',
+    feature: '功能',
+    syncGroups: '同步群',
+    invalidFileType: '文件格式不正确，请上传Excel或CSV文件',
+    uploadSuccess: '文件上传成功',
+    uploadFailed: '上传失败',
+    uploadFailedRetry: '上传失败，请稍后重试',
+    loginStatusLogged: '已登录',
+    loginStatusNotLogged: '未登录',
+    loginStatusWaitingCode: '等待验证码',
+    loginStatusWaitingVerify: '等待验证',
+    loginStatusExpired: '登录过期',
+    loginStatusWaitingLogin: '等待登录完成',
+    loginStatusUnknown: '未知状态'
+  },
+
   // 功能（执行器 / 触发方式 / 分类）
   // 注意：必须挂在顶层，代码中使用的是 feature.triggers.*，
   // 之前误嵌在 system 内导致取不到而回落到原始 key（command、callback_query…）

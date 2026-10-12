@@ -163,6 +163,30 @@ const th = {
     selectGroupPlaceholder: 'กรุณาเลือกกลุ่ม'
   },
 
+  account: {
+    phone: 'หมายเลขโทรศัพท์',
+    nickname: 'ชื่อเล่น',
+    loginStatus: 'สถานะเข้าสู่ระบบ',
+    userStatus: 'สถานะผู้ใช้',
+    joinCount: 'จำนวนกลุ่มที่เข้าร่วม',
+    import: 'นำเข้า',
+    login: 'เข้าสู่ระบบ',
+    logout: 'ออกจากระบบ',
+    feature: 'ฟีเจอร์',
+    syncGroups: 'ซิงก์กลุ่ม',
+    invalidFileType: 'รูปแบบไฟล์ไม่ถูกต้อง กรุณาอัปโหลด Excel หรือ CSV',
+    uploadSuccess: 'อัปโหลดสำเร็จ',
+    uploadFailed: 'อัปโหลดล้มเหลว',
+    uploadFailedRetry: 'อัปโหลดล้มเหลว กรุณาลองใหม่ภายหลัง',
+    loginStatusLogged: 'เข้าสู่ระบบแล้ว',
+    loginStatusNotLogged: 'ยังไม่เข้าสู่ระบบ',
+    loginStatusWaitingCode: 'รอโค้ดยืนยัน',
+    loginStatusWaitingVerify: 'รอยืนยัน',
+    loginStatusExpired: 'การเข้าสู่ระบบหมดอายุ',
+    loginStatusWaitingLogin: 'รอเข้าสู่ระบบเสร็จ',
+    loginStatusUnknown: 'ไม่ทราบสถานะ'
+  },
+
   // 功能（执行器 / 触发方式 / 分类）
   // 注意：必须挂在顶层，代码中使用的是 feature.triggers.*，
   // 之前误嵌在 system 内导致取不到而回落到原始 key（command、callback_query…）

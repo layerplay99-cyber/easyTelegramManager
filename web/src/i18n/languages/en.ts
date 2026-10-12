@@ -164,6 +164,30 @@ const en = {
     selectGroupPlaceholder: 'Select group'
   },
 
+  account: {
+    phone: 'Phone',
+    nickname: 'Nickname',
+    loginStatus: 'Login Status',
+    userStatus: 'User Status',
+    joinCount: 'Groups Joined',
+    import: 'Import',
+    login: 'Login',
+    logout: 'Logout',
+    feature: 'Features',
+    syncGroups: 'Sync Groups',
+    invalidFileType: 'Invalid file format, please upload Excel or CSV',
+    uploadSuccess: 'Upload successful',
+    uploadFailed: 'Upload failed',
+    uploadFailedRetry: 'Upload failed, please try again later',
+    loginStatusLogged: 'Logged In',
+    loginStatusNotLogged: 'Not Logged In',
+    loginStatusWaitingCode: 'Waiting for code',
+    loginStatusWaitingVerify: 'Waiting for verification',
+    loginStatusExpired: 'Login Expired',
+    loginStatusWaitingLogin: 'Waiting to complete login',
+    loginStatusUnknown: 'Unknown'
+  },
+
   // 功能（执行器 / 触发方式 / 分类）
   // 注意：必须挂在顶层，代码中使用的是 feature.triggers.*，
   // 之前误嵌在 system 内导致取不到而回落到原始 key（command、callback_query…）

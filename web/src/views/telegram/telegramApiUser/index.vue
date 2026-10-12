@@ -8,14 +8,14 @@
                 <el-form-item label="APP Hash" prop="app_hash">
                     <el-input v-model="query.app_hash" name="app_hash" clearable />
                 </el-form-item>
-                <el-form-item label="电话号码" prop="phone_number">
+                <el-form-item :label="$t('account.phone')" prop="phone_number">
                     <el-input v-model="query.phone_number" name="phone_number" clearable />
                 </el-form-item>
-                <el-form-item label="昵称" prop="nickname">
+                <el-form-item :label="$t('account.nickname')" prop="nickname">
                     <el-input v-model="query.nickname" name="nickname" clearable />
                 </el-form-item>
-                <el-form-item label="登录状态" prop="login_status">
-                    <el-select v-model="query.login_status" placeholder="请选择" clearable>
+                <el-form-item :label="$t('account.loginStatus')" prop="login_status">
+                    <el-select v-model="query.login_status" :placeholder="$t('system.pleaseSelect')" clearable>
                         <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                 </el-form-item>
@@ -29,35 +29,35 @@
                     accept=".xls,.xlsx,.csv"
                     :before-upload="beforeUpload"
                 >
-                    <el-button :icon="Upload" type="success">导入</el-button>
+                    <el-button :icon="Upload" type="success">{{ $t('account.import') }}</el-button>
                 </el-upload>
-                <el-button :icon="Download" type="warning" @click="() => handleExport('telegram/telegram/api/user')">导出</el-button>
+                <el-button :icon="Download" type="warning" @click="() => handleExport('telegram/telegram/api/user')">{{ $t('table.export') }}</el-button>
             </div>
             <Operate :show="open" />
             <el-table :data="(data as any)?.data || []" v-loading="loading">
                 <el-table-column prop="id" label="ID" width="80" />
                 <el-table-column prop="app_id" label="app_id" />
                 <el-table-column prop="app_hash" label="app_hash" />
-                <el-table-column prop="phone_number" label="手机号" />
-                <el-table-column prop="nickname" label="昵称" />
-                <el-table-column prop="service_peoples_count" label="入群数" />
+                <el-table-column prop="phone_number" :label="$t('account.phone')" />
+                <el-table-column prop="nickname" :label="$t('account.nickname')" />
+                <el-table-column prop="service_peoples_count" :label="$t('account.joinCount')" />
                 <!-- <el-table-column prop="code" label="验证码" /> -->
-                <el-table-column prop="login_status" label="登录状态">
+                <el-table-column prop="login_status" :label="$t('account.loginStatus')">
                     <template #default="scope">
                         <el-tag :type="getLoginStatusType(scope.row.login_status)">
                             {{ getLoginStatusText(scope.row.login_status) }}
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="status" label="用户状态">
+                <el-table-column prop="status" :label="$t('account.userStatus')">
                     <template #default="scope">
                         <el-tag :type="scope.row.status === 1 ? 'success' : 'info'">
-                            {{ scope.row.status === 1 ? '启用' : '禁用' }}
+                            {{ scope.row.status === 1 ? $t('system.enabled') : $t('system.disabled') }}
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="created_at" label="创建时间" />
-                <el-table-column label="操作" width="500">
+                <el-table-column prop="created_at" :label="$t('system.createTime')" />
+                <el-table-column :label="$t('system.operation')" width="500">
                     <template #default="scope">
                         <div class="flex flex-col gap-2">
                             <!-- 第一排：原有按钮 -->
@@ -68,7 +68,7 @@
                                     size="small"
                                     @click="submitLogin(scope.row)"
                                 >
-                                    <Icon name="right-to-bracket" className="w-4 h-4 mr-1" /> 登录
+                                    <Icon name="right-to-bracket" className="w-4 h-4 mr-1" /> {{ $t('account.login') }}
                                 </el-button>
                                 <el-button
                                     v-else
@@ -76,19 +76,19 @@
                                     size="small"
                                     @click="submitLogout(scope.row)"
                                 >
-                                    <Icon name="right-from-bracket" className="w-4 h-4 mr-1" /> 注销
+                                    <Icon name="right-from-bracket" className="w-4 h-4 mr-1" /> {{ $t('account.logout') }}
                                 </el-button>
                                 <el-button type="primary" size="small" @click="open(scope.row.id)">
-                                    <Icon name="pen-to-square" className="w-4 h-4 mr-1" /> 编辑
+                                    <Icon name="pen-to-square" className="w-4 h-4 mr-1" /> {{ $t('system.edit') }}
                                 </el-button>
                                 <el-button type="info" size="small" @click="openFeatureDialog(scope.row)">
-                                    <Icon name="puzzle-piece" className="w-4 h-4 mr-1" /> 功能
+                                    <Icon name="puzzle-piece" className="w-4 h-4 mr-1" /> {{ $t('account.feature') }}
                                 </el-button>
                                 <el-button type="success" size="small" @click="syncGroups(scope.row.app_id)">
-                                    <Icon name="rotate" className="w-4 h-4 mr-1" /> 同步群
+                                    <Icon name="rotate" className="w-4 h-4 mr-1" /> {{ $t('account.syncGroups') }}
                                 </el-button>
                                 <el-button type="danger" size="small" @click="destroy(api, scope.row.id)">
-                                    <Icon name="trash" className="w-4 h-4 mr-1" /> 删除
+                                    <Icon name="trash" className="w-4 h-4 mr-1" /> {{ $t('system.delete') }}
                                 </el-button>
                             </div>
                             <!-- 第二排：功能按钮 -->
@@ -158,6 +158,7 @@ import FeatureConfig from '@/components/telegram/FeatureConfig.vue'
 import GroupSelectDialog from './GroupSelectDialog.vue'
 import LoginDialogs from './LoginDialogs.vue'
 import { useLoginActions } from './useLoginActions'
+import { t } from '@/support/helper'
 
 const api = 'telegram/telegram/api/user'
 
@@ -172,7 +173,7 @@ const { download: handleExport } = useExcelDownload()
 const beforeUpload = (file: File) => {
     const validTypes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv']
     if (!validTypes.includes(file.type)) {
-        ElMessage({ message: '文件格式不正确，请上传Excel或CSV文件', type: 'error' })
+        ElMessage({ message: t('account.invalidFileType'), type: 'error' })
         return false
     }
     return true
@@ -183,14 +184,14 @@ const customUploadFile = async (options: any) => {
     try {
         const result = await telegramStore.uploadFile(file)
         if (result.success) {
-            ElMessage({ message: '文件上传成功', type: 'success' })
+            ElMessage({ message: t('account.uploadSuccess'), type: 'success' })
             search()
         } else {
-            ElMessage({ message: result.message || '上传失败', type: 'error' })
+            ElMessage({ message: result.message || t('account.uploadFailed'), type: 'error' })
         }
     } catch (error) {
         console.error('上传失败:', error)
-        ElMessage({ message: '上传失败，请稍后重试', type: 'error' })
+        ElMessage({ message: t('account.uploadFailedRetry'), type: 'error' })
     }
 }
 
@@ -246,23 +247,23 @@ const handleFeatureAction = (row: any, bind: any) => {
 }
 
 const options = [
-    { label: '已登录', value: 1 },
-    { label: '未登录', value: 0 },
-    { label: '等待验证码', value: 2 },
-    { label: '登录过期', value: 3 },
-    { label: '等待登录完成', value: 4 },
+    { label: t('account.loginStatusLogged'), value: 1 },
+    { label: t('account.loginStatusNotLogged'), value: 0 },
+    { label: t('account.loginStatusWaitingCode'), value: 2 },
+    { label: t('account.loginStatusExpired'), value: 3 },
+    { label: t('account.loginStatusWaitingLogin'), value: 4 },
 ]
 
 // 获取登录状态文本
 const getLoginStatusText = (status: number) => {
     const statusMap = {
-        1: '已登录',
-        0: '未登录',
-        2: '等待验证',
-        3: '登录过期',
-        4: '等待登录完成',
+        1: t('account.loginStatusLogged'),
+        0: t('account.loginStatusNotLogged'),
+        2: t('account.loginStatusWaitingVerify'),
+        3: t('account.loginStatusExpired'),
+        4: t('account.loginStatusWaitingLogin'),
     }
-    return statusMap[status as keyof typeof statusMap] || '未知状态'
+    return statusMap[status as keyof typeof statusMap] || t('account.loginStatusUnknown')
 }
 
 // 获取登录状态标签类型

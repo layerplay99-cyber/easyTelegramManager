@@ -163,6 +163,30 @@ const vi = {
     selectGroupPlaceholder: 'Chọn nhóm'
   },
 
+  account: {
+    phone: 'Số điện thoại',
+    nickname: 'Biệt danh',
+    loginStatus: 'Trạng thái đăng nhập',
+    userStatus: 'Trạng thái người dùng',
+    joinCount: 'Số nhóm tham gia',
+    import: 'Nhập',
+    login: 'Đăng nhập',
+    logout: 'Đăng xuất',
+    feature: 'Tính năng',
+    syncGroups: 'Đồng bộ nhóm',
+    invalidFileType: 'Định dạng tệp không đúng, vui lòng tải lên Excel hoặc CSV',
+    uploadSuccess: 'Tải lên thành công',
+    uploadFailed: 'Tải lên thất bại',
+    uploadFailedRetry: 'Tải lên thất bại, vui lòng thử lại sau',
+    loginStatusLogged: 'Đã đăng nhập',
+    loginStatusNotLogged: 'Chưa đăng nhập',
+    loginStatusWaitingCode: 'Chờ mã xác minh',
+    loginStatusWaitingVerify: 'Chờ xác minh',
+    loginStatusExpired: 'Đăng nhập hết hạn',
+    loginStatusWaitingLogin: 'Chờ hoàn tất đăng nhập',
+    loginStatusUnknown: 'Không rõ'
+  },
+
   // 功能（执行器 / 触发方式 / 分类）
   // 注意：必须挂在顶层，代码中使用的是 feature.triggers.*，
   // 之前误嵌在 system 内导致取不到而回落到原始 key（command、callback_query…）

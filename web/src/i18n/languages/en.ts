@@ -47,6 +47,12 @@ const en = {
     pleaseInput: 'Please enter',
     fieldRequired: 'This field is required',
     batchDelete: 'Batch Delete',
+    envNotConfigured: 'VITE_BASE_URL env not configured',
+    tokenNotFound: 'Auth token not found',
+    httpError: 'HTTP error: {status}',
+    apiRequestFailed: 'API request failed',
+    exportFailed: 'Export failed: {status}',
+    uploadFailed: 'Upload failed: {status}',
     create: 'Create',
     invalidFileType: 'Unsupported file type, only ',
     loginExpiredReLogin: 'Login expired, please sign in again'
@@ -829,6 +835,7 @@ const en = {
     levelCritical: 'Critical',
     priority: 'Priority',
     conditions: 'Conditions',
+    conditionsPlaceholder: 'JSON, e.g. {"single_amount": 10000, "daily_count": 20}',
     invalidJson: 'Conditions is not valid JSON',
     triggerData: 'Trigger Data',
     markHandled: 'Mark Handled',
@@ -1089,6 +1096,7 @@ const en = {
         tip: 'Models are generated under app/admin/model'
       },
       paginate: 'Paginate',
+      paginateTip: 'Whether the list uses pagination',
       paginate_tip: 'Whether the list uses pagination',
       success: 'Code generated. If a controller was set, add the page via the menu to access it'
     },

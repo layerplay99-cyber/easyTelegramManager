@@ -47,6 +47,12 @@ const vi = {
     pleaseInput: 'Vui lòng nhập',
     fieldRequired: 'Trường này là bắt buộc',
     batchDelete: 'Xóa hàng loạt',
+    envNotConfigured: 'Chưa cấu hình biến môi trường VITE_BASE_URL',
+    tokenNotFound: 'Không tìm thấy token xác thực',
+    httpError: 'Lỗi HTTP: {status}',
+    apiRequestFailed: 'Yêu cầu API thất bại',
+    exportFailed: 'Xuất thất bại: {status}',
+    uploadFailed: 'Tải lên thất bại: {status}',
     create: 'Tạo',
     invalidFileType: 'Không đúng loại file được phép tải lên, chỉ hỗ trợ',
     loginExpiredReLogin: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'
@@ -828,6 +834,7 @@ const vi = {
     levelCritical: 'Nghiêm trọng',
     priority: 'Ưu tiên',
     conditions: 'Điều kiện',
+    conditionsPlaceholder: 'JSON, ví dụ {"single_amount": 10000, "daily_count": 20}',
     invalidJson: 'Điều kiện không phải JSON hợp lệ',
     triggerData: 'Dữ liệu kích hoạt',
     markHandled: 'Đánh dấu đã xử lý',
@@ -1088,6 +1095,7 @@ const vi = {
         tip: 'Mô hình được tạo trong thư mục app/admin/model'
       },
       paginate: 'Phân trang',
+      paginateTip: 'Kiểm soát việc danh sách có dùng phân trang hay không',
       paginate_tip: 'Kiểm soát việc danh sách có dùng phân trang hay không',
       success: 'Tạo code thành công, nếu đã cài đặt controller hãy thêm trang qua menu để truy cập'
     },

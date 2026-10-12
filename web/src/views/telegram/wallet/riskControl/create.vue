@@ -37,7 +37,7 @@
                 v-model="conditionsText"
                 type="textarea"
                 :rows="4"
-                placeholder='JSON，例：{"single_amount": 10000, "daily_count": 20}'
+                :placeholder="$t('wallet.conditionsPlaceholder')"
             />
         </el-form-item>
         <el-form-item :label="$t('system.status')" prop="status">

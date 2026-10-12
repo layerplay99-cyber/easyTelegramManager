@@ -47,6 +47,12 @@ const zh = {
     pleaseInput: '请输入',
     fieldRequired: '该字段是必填字段',
     batchDelete: '批量删除',
+    envNotConfigured: 'VITE_BASE_URL 环境变量未配置',
+    tokenNotFound: '未找到认证令牌',
+    httpError: 'HTTP错误: {status}',
+    apiRequestFailed: 'API请求失败',
+    exportFailed: '导出失败: {status}',
+    uploadFailed: '上传失败: {status}',
     create: '创建',
     invalidFileType: '不符合上传文件类型，仅支持',
     loginExpiredReLogin: '登录已失效，需要重新登陆'
@@ -828,6 +834,7 @@ const zh = {
     levelCritical: '严重',
     priority: '优先级',
     conditions: '触发条件',
+    conditionsPlaceholder: 'JSON，例：{"single_amount": 10000, "daily_count": 20}',
     invalidJson: '触发条件不是合法 JSON',
     triggerData: '触发数据',
     markHandled: '标记处理',
@@ -1087,6 +1094,7 @@ const zh = {
         tip: '模型生成在 app/admin/model 目录下'
       },
       paginate: '分页',
+      paginateTip: '控制列表是否使用分页功能',
       paginate_tip: '控制列表是否使用分页功能',
       success: '代码生成成功，如果设置了控制了，请通过菜单添加页面访问',
       menu: {

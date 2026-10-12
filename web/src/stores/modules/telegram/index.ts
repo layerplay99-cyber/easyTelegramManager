@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { generateApiSignature } from '@/support/signature'
+import { t } from '@/support/helper'
 
 interface TelegramUser {
   id: number
@@ -35,7 +36,7 @@ export const useTelegramStore = defineStore('telegram', () => {
   const getApiUrl = () => {
     const baseUrl = import.meta.env.VITE_BASE_URL
     if (!baseUrl) {
-      throw new Error('VITE_BASE_URL 环境变量未配置')
+      throw new Error(t('system.envNotConfigured'))
     }
     return baseUrl
   }
@@ -44,7 +45,7 @@ export const useTelegramStore = defineStore('telegram', () => {
   const getAuthHeaders = () => {
     const token = localStorage.getItem('catchadmin_auth_token')
     if (!token) {
-      throw new Error('未找到认证令牌')
+      throw new Error(t('system.tokenNotFound'))
     }
 
     return {
@@ -76,7 +77,7 @@ export const useTelegramStore = defineStore('telegram', () => {
         return {
           success: false,
           code: response.status,
-          message: errorData.message || `HTTP错误: ${response.status}`,
+          message: errorData.message || t('system.httpError', { status: response.status }),
           data: errorData
         }
       }
@@ -100,7 +101,7 @@ export const useTelegramStore = defineStore('telegram', () => {
       return {
         success: false,
         code: 500,
-        message: error.message || 'API请求失败',
+        message: error.message || t('system.apiRequestFailed'),
         data: undefined
       }
     } finally {
@@ -181,7 +182,7 @@ export const useTelegramStore = defineStore('telegram', () => {
       })
 
       if (!response.ok) {
-        throw new Error(`导出失败: ${response.status}`)
+        throw new Error(t('system.exportFailed', { status: response.status }))
       }
 
       return await response.blob()
@@ -212,7 +213,7 @@ export const useTelegramStore = defineStore('telegram', () => {
       })
 
       if (!response.ok) {
-        throw new Error(`上传失败: ${response.status}`)
+        throw new Error(t('system.uploadFailed', { status: response.status }))
       }
 
       return await response.json()
@@ -255,7 +256,7 @@ export const useTelegramStore = defineStore('telegram', () => {
       })
 
       if (!response.ok) {
-        throw new Error(`上传失败: ${response.status}`)
+        throw new Error(t('system.uploadFailed', { status: response.status }))
       }
 
       return await response.json()

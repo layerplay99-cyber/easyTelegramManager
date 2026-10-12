@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { t } from '@/support/helper'
 
 interface ApiResponse<T = any> {
   success: boolean
@@ -24,7 +25,7 @@ export const useGroup = defineStore('telegramGroup', () => {
   const getApiUrl = () => {
     const baseUrl = import.meta.env.VITE_BASE_URL
     if (!baseUrl) {
-      throw new Error('VITE_BASE_URL 环境变量未配置')
+      throw new Error(t('system.envNotConfigured'))
     }
     return baseUrl
   }
@@ -33,7 +34,7 @@ export const useGroup = defineStore('telegramGroup', () => {
   const getAuthHeaders = () => {
     const token = localStorage.getItem('catchadmin_auth_token')
     if (!token) {
-      throw new Error('未找到认证令牌')
+      throw new Error(t('system.tokenNotFound'))
     }
 
     return {
@@ -61,7 +62,7 @@ export const useGroup = defineStore('telegramGroup', () => {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP错误: ${response.status}`)
+        throw new Error(t('system.httpError', { status: response.status }))
       }
 
       const result = await response.json()

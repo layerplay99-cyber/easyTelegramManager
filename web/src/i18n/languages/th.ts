@@ -47,6 +47,12 @@ const th = {
     pleaseInput: 'กรุณากรอก',
     fieldRequired: 'ฟิลด์นี้จำเป็นต้องกรอก',
     batchDelete: 'ลบแบบกลุ่ม',
+    envNotConfigured: 'ไม่ได้กำหนด VITE_BASE_URL',
+    tokenNotFound: 'ไม่พบโทเค็นการรับรอง',
+    httpError: 'ข้อผิดพลาด HTTP: {status}',
+    apiRequestFailed: 'คำขอ API ล้มเหลว',
+    exportFailed: 'ส่งออกล้มเหลว: {status}',
+    uploadFailed: 'อัปโหลดล้มเหลว: {status}',
     create: 'สร้าง',
     invalidFileType: 'ประเภทไฟล์ไม่รองรับ รองรับเฉพาะ',
     loginExpiredReLogin: 'การเข้าสู่ระบบหมดอายุ กรุณาเข้าสู่ระบบใหม่'
@@ -828,6 +834,7 @@ const th = {
     levelCritical: 'วิกฤต',
     priority: 'ลำดับความสำคัญ',
     conditions: 'เงื่อนไข',
+    conditionsPlaceholder: 'JSON เช่น {"single_amount": 10000, "daily_count": 20}',
     invalidJson: 'เงื่อนไขไม่ใช่ JSON ที่ถูกต้อง',
     triggerData: 'ข้อมูลที่ถูกเรียก',
     markHandled: 'ทำเครื่องหมายจัดการแล้ว',
@@ -1088,6 +1095,7 @@ const th = {
         tip: 'โมเดลถูกสร้างในไดเรกทอรี app/admin/model'
       },
       paginate: 'แบ่งหน้า',
+      paginateTip: 'ควบคุมว่ารายการจะใช้การแบ่งหน้าหรือไม่',
       paginate_tip: 'ควบคุมว่ารายการจะใช้การแบ่งหน้าหรือไม่',
       success: 'สร้างโค้ดสำเร็จ หากตั้งค่าคอนโทรลเลอร์แล้ว กรุณาเพิ่มหน้าผ่านเมนูเพื่อเข้าถึง'
     },

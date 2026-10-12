@@ -40,7 +40,7 @@
             <el-switch v-model="gen.paginate" inline-prompt :active-text="$t('system.yes')" :inactive-text="$t('system.no')" />
           </el-form-item>
           <el-form-item label-width="15px">
-            <div class="text-sm text-gray-300">控制列表是否使用分页功能</div>
+            <div class="text-sm text-gray-300">{{ $t('generate.code.paginateTip') }}</div>
           </el-form-item>
         </div>
       </el-form>

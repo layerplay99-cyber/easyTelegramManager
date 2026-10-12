@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { generateApiSignature } from '@/support/signature'
+import { t } from '@/support/helper'
 
 interface ApiResponse<T = any> {
   success: boolean
@@ -33,7 +34,7 @@ export const useTelegramStore = defineStore('telegramUserApi', () => {
   const getApiUrl = () => {
     const baseUrl = import.meta.env.VITE_BASE_URL
     if (!baseUrl) {
-      throw new Error('VITE_BASE_URL 环境变量未配置')
+      throw new Error(t('system.envNotConfigured'))
     }
     return baseUrl
   }
@@ -42,7 +43,7 @@ export const useTelegramStore = defineStore('telegramUserApi', () => {
   const getAuthHeaders = () => {
     const token = localStorage.getItem('catchadmin_auth_token')
     if (!token) {
-      throw new Error('未找到认证令牌')
+      throw new Error(t('system.tokenNotFound'))
     }
 
     return {
@@ -74,7 +75,7 @@ export const useTelegramStore = defineStore('telegramUserApi', () => {
         return {
           success: false,
           code: response.status,
-          message: errorData.message || `HTTP错误: ${response.status}`,
+          message: errorData.message || t('system.httpError', { status: response.status }),
           data: errorData
         }
       }
@@ -98,7 +99,7 @@ export const useTelegramStore = defineStore('telegramUserApi', () => {
       return {
         success: false,
         code: 500,
-        message: error.message || 'API请求失败',
+        message: error.message || t('system.apiRequestFailed'),
         data: undefined
       }
     } finally {

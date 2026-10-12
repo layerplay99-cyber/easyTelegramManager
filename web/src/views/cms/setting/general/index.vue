@@ -39,7 +39,7 @@
 
           <el-form-item :label="$t('cms.dateFormat')" prop="site_date_format">
             <el-radio-group v-model="formData.site_date_format">
-              <el-radio-button label="年-月-日">{{ $t('cms.dateFormatCn') }}</el-radio-button>
+              <el-radio-button :label="$t('cms.dateFormatCn')">{{ $t('cms.dateFormatCn') }}</el-radio-button>
               <el-radio-button label="Y-m-d">Y-m-d</el-radio-button>
               <el-radio-button label="m/d/Y">m/d/Y</el-radio-button>
               <el-radio-button label="d/m/Y">d/m/Y</el-radio-button>

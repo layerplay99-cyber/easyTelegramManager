@@ -45,7 +45,8 @@ const en = {
     maxFileSize: 'Max file size is 10MB',
     confirmDelete: 'Are you sure you want to delete?',
     pleaseInput: 'Please enter',
-    fieldRequired: 'This field is required'
+    fieldRequired: 'This field is required',
+    batchDelete: 'Batch Delete'
   },
 
   table: {
@@ -507,6 +508,38 @@ const en = {
     urlSuffixTip: 'For example: html, asp, php and other suffixes, but invalid in dynamic mode'
   },
 
+  dashboard: {
+    welcome: 'Welcome: ',
+    slogan: 'Hard work pays off, keep striving! 😊',
+    tip1: 'Doing simple things perfectly is anything but simple',
+    tip2: 'Details decide success, attitude decides height',
+    tip3: 'A little progress every day adds up to great results',
+    tip4: 'Action is the cure for anxiety; persistence is the best talent',
+    projectInfo: 'Project Info',
+    projectDesc: 'An admin solution based on Vue3.0, Vite, ElementPlus and TypeScript with rich feature components, helping you build enterprise-grade admin prototypes quickly.',
+    more: 'More...',
+    easy: 'Easy to Use',
+    easyDesc: 'catchadmin is a modular framework designed from scratch; its decoupled design makes it easy to master',
+    focused: 'Focused',
+    focusedDesc: 'catchadmin ships with many rapid-development components so you can focus on admin development instead of repetitive work',
+    powerful: 'Powerful',
+    powerfulDesc: 'Built on the huge PHP ecosystem, catchadmin is stable and powerful. You can build any web application with it',
+    dependencies: 'Dependencies',
+    builtOn: 'Built On',
+    vueDesc: 'A progressive JavaScript framework that is easy to learn, performant and versatile',
+    laravelDesc: 'Laravel is a web application framework with expressive, elegant syntax',
+    elementDesc: 'Element Plus is a Vue 3 based component library for designers and developers',
+    tailwindDesc: 'Tailwind CSS is a utility-first CSS framework for rapidly building modern websites without leaving your HTML',
+    composerDesc: 'Composer is a dependency manager for PHP. It lets you declare the libraries your project depends on and manages them for you',
+    viteDesc: 'Vite is the next generation frontend tooling with extremely fast response for development',
+    activity: 'Project Activity',
+    activity1: 'JaguarJack submitted a PR',
+    activity2: 'JaguarJack closed an Issue',
+    activity3: 'JaguarJack pushed a new commit',
+    activity4: 'JaguarJack created a new project',
+    hoursAgo: '{n} hours ago'
+  },
+
   featureConfig: {
     title: 'Feature Config',
     unconfigured: 'Unconfigured Features',
@@ -813,6 +846,7 @@ const en = {
   },
 
   login: {
+    username: 'Username',
     email: 'Email',
     password: 'Password',
     sign_in: 'Sign In',
@@ -839,6 +873,10 @@ const en = {
         required: 'Please input email first',
         invalid: 'Email address is invalid',
         invalidUserOrEmail: 'Please enter a valid username or email'
+      },
+
+      username: {
+        required: 'Please input account first'
       },
 
       password: {

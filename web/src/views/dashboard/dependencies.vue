@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col pl-5 pr-5 bg-white rounded dark:bg-regal-dark">
-    <span class="mt-5 text-lg">项目依赖</span>
+    <span class="mt-5 text-lg">{{ $t('dashboard.dependencies') }}</span>
     <div class="flex mt-3">
       <el-table :data="dependencies" border width="200">
         <el-table-column prop="dependency" label="Dependency" />

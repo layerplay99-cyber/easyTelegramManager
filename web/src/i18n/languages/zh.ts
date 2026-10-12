@@ -45,7 +45,8 @@ const zh = {
     maxFileSize: '最大支持 10MB 文件',
     confirmDelete: '确定删除吗',
     pleaseInput: '请输入',
-    fieldRequired: '该字段是必填字段'
+    fieldRequired: '该字段是必填字段',
+    batchDelete: '批量删除'
   },
 
   table: {
@@ -504,6 +505,38 @@ const zh = {
     yearMonthDayStructure: '年月日结构',
     urlSuffix: 'URL后缀',
     urlSuffixTip: '例如: html, asp, php 等等后缀，但是在动态模式下无效'
+  },
+
+  dashboard: {
+    welcome: '欢迎：',
+    slogan: '努力就有回报，奋斗只争朝夕！😊',
+    tip1: '把简单的事情做到极致，就是不简单',
+    tip2: '细节决定成败，态度决定高度',
+    tip3: '日拱一卒，功不唐捐',
+    tip4: '行动是治愈焦虑的良药，坚持是最好的天赋',
+    projectInfo: '项目信息',
+    projectDesc: '是一个基于Vue3.0、Vite、 ElementPlus 、TypeScript 的后台解决方案，提供了丰富的功能组件，它可以帮助你快速搭建企业级中后台产品原型。',
+    more: '更多...',
+    easy: '易用',
+    easyDesc: 'catchadmin 是从头开始设计的模块化框架，解耦化的设计让你轻松驾驭框架',
+    focused: '专注',
+    focusedDesc: 'catchadmin 加入大量快速开发组件，让你专注于后台管理的开发，而无需重复无意义的工作',
+    powerful: '强大',
+    powerfulDesc: 'catchadmin 基于 PHP 庞大的生态，使其稳定并且强大。使用 catchadmin 可以开发任意 web 应用',
+    dependencies: '项目依赖',
+    builtOn: '项目基于',
+    vueDesc: '渐进式 JavaScript 框架 易学易用，性能出色，适用场景丰富的 Web 前端框架',
+    laravelDesc: 'Laravel 是一个具有表现力、优雅语法的 Web 应用程序框架',
+    elementDesc: 'Element Plus 基于 Vue3，面向设计师和开发者的组件库',
+    tailwindDesc: 'Tailwind CSS 是一个功能类优先的 CSS 框架，无需离开您的HTML，即可快速建立现代网站',
+    composerDesc: 'Composer 是 PHP 中用于依赖管理的工具。它允许您声明项目所依赖的库，并将为您管理（安装/更新）它们。',
+    viteDesc: 'Vite 下一代的前端工具链 为开发提供极速响应',
+    activity: '项目动态',
+    activity1: 'JaguarJack 提交一个 PR',
+    activity2: 'JaguarJack 关闭了一个 Issue',
+    activity3: 'JaguarJack 提交新的 commit',
+    activity4: 'JaguarJack 创建了一个 new project',
+    hoursAgo: '{n} 小时前'
   },
 
   featureConfig: {

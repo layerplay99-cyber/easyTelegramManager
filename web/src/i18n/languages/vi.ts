@@ -45,7 +45,8 @@ const vi = {
     maxFileSize: 'Dung lượng tối đa 10MB',
     confirmDelete: 'Xác nhận xóa?',
     pleaseInput: 'Vui lòng nhập',
-    fieldRequired: 'Trường này là bắt buộc'
+    fieldRequired: 'Trường này là bắt buộc',
+    batchDelete: 'Xóa hàng loạt'
   },
 
   table: {
@@ -504,6 +505,38 @@ const vi = {
     yearMonthDayStructure: 'Cấu trúc năm/tháng/ngày',
     urlSuffix: 'Hậu tố URL',
     urlSuffixTip: 'Ví dụ: html, asp, php... nhưng không có hiệu lực ở chế độ động'
+  },
+
+  dashboard: {
+    welcome: 'Chào mừng: ',
+    slogan: 'Nỗ lực sẽ có đền đáp, hãy phấn đấu từng ngày! 😊',
+    tip1: 'Làm việc đơn giản đến mức hoàn hảo chính là không đơn giản',
+    tip2: 'Chi tiết quyết định thành bại, thái độ quyết định tầm cao',
+    tip3: 'Mỗi ngày một bước nhỏ sẽ tạo nên thành quả lớn',
+    tip4: 'Hành động là liều thuốc chữa lo âu; kiên trì là thiên bẩm tốt nhất',
+    projectInfo: 'Thông tin dự án',
+    more: 'Thêm...',
+    projectDesc: 'Là giải pháp admin dựa trên Vue3.0, Vite, ElementPlus và TypeScript với nhiều component phong phú, giúp bạn nhanh chóng xây dựng bản mẫu admin cấp doanh nghiệp.',
+    easy: 'Dễ dùng',
+    easyDesc: 'catchadmin là framework module được thiết kế từ đầu; thiết kế tách rời giúp bạn dễ làm chủ',
+    focused: 'Tập trung',
+    focusedDesc: 'catchadmin có nhiều component phát triển nhanh, giúp bạn tập trung vào phần admin thay vì công việc lặp lại',
+    powerful: 'Mạnh mẽ',
+    powerfulDesc: 'catchadmin xây dựng trên hệ sinh thái PHP rộng lớn, ổn định và mạnh mẽ, có thể phát triển bất kỳ ứng dụng web nào',
+    dependencies: 'Phụ thuộc dự án',
+    builtOn: 'Dựa trên',
+    vueDesc: 'Framework JavaScript tiệm tiến, dễ học dễ dùng, hiệu năng cao, phù hợp nhiều kịch bản web',
+    laravelDesc: 'Laravel là framework ứng dụng web với cú pháp biểu đạt và thanh lịch',
+    elementDesc: 'Element Plus là thư viện component dựa trên Vue3 dành cho designer và developer',
+    tailwindDesc: 'Tailwind CSS là framework CSS ưu tiên utility class, giúp xây dựng website hiện đại mà không rời khỏi HTML',
+    composerDesc: 'Composer là công cụ quản lý dependency cho PHP, cho phép khai báo thư viện và quản lý (cài đặt/cập nhật) chúng',
+    viteDesc: 'Vite là công cụ frontend thế hệ mới, phản hồi cực nhanh cho phát triển',
+    activity: 'Hoạt động dự án',
+    activity1: 'JaguarJack gửi một PR',
+    activity2: 'JaguarJack đóng một Issue',
+    activity3: 'JaguarJack gửi commit mới',
+    activity4: 'JaguarJack tạo một dự án mới',
+    hoursAgo: '{n} giờ trước'
   },
 
   featureConfig: {

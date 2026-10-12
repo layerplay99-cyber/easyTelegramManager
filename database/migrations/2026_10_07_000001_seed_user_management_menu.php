@@ -16,6 +16,21 @@ return new class () extends Migration {
             return;
         }
 
+        // 动态查找「权限管理」目录的真实 id。
+        // 不能写死 parent_id=1：PermissionsMenusSeeder 经 importTreeData() 会
+        // unset(id) 用自增 id，「权限管理」实际 id 不一定是 1，写死会导致「用户管理」
+        // 成为孤儿节点（侧边栏不显示）。且 importTreeData 对顶层元素不重映射 parent_id。
+        $parentId = DB::table($table)
+            ->where('module', 'permissions')
+            ->where('permission_name', '权限管理')
+            ->value('id');
+
+        // 父级还不在此迁移阶段（本迁移跑在 catch:install 的 migrate 步骤，早于 PermissionsMenusSeeder），
+        // 交给 modules/User/database/seeder/UserMenusSeeder.php 在 seed 阶段补挂，避免产生孤儿节点。
+        if (! $parentId) {
+            return;
+        }
+
         $now = time();
 
         $actions = [];
@@ -49,7 +64,7 @@ return new class () extends Migration {
 
         $menus = [
             [
-                'parent_id'       => 1, // 挂在已存在的「权限管理」(id=1) 下
+                'parent_id'       => $parentId, // 动态：已查到的「权限管理」真实 id
                 'permission_name' => '用户管理',
                 'route'           => 'users',
                 'icon'            => 'users',
@@ -59,7 +74,7 @@ return new class () extends Migration {
                 'redirect'        => null,
                 'keepalive'       => 1,
                 'type'            => 2,
-                'hidden'          => 1,
+                'hidden'          => 0,
                 'sort'            => 1,
                 'active_menu'     => '',
                 'creator_id'      => 0,

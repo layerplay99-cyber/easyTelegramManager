@@ -1,14 +1,14 @@
 <template>
     <div>
         <el-tabs v-model="tab">
-            <el-tab-pane label="风控规则" name="rules">
+            <el-tab-pane :label="$t('wallet.riskRules')" name="rules">
                 <Search :search="searchRules" :reset="resetRules">
                     <template v-slot:body>
-                        <el-form-item label="规则名称" prop="name">
+                        <el-form-item :label="$t('wallet.ruleName')" prop="name">
                             <el-input v-model="ruleQuery.name" name="name" clearable />
                         </el-form-item>
-                        <el-form-item label="动作" prop="action">
-                            <el-select v-model="ruleQuery.action" placeholder="请选择" clearable>
+                        <el-form-item :label="$t('wallet.action')" prop="action">
+                            <el-select v-model="ruleQuery.action" :placeholder="$t('system.pleaseSelect')" clearable>
                                 <el-option v-for="item in actionOptions" :key="item.value" :label="item.label" :value="item.value" />
                             </el-select>
                         </el-form-item>
@@ -18,25 +18,25 @@
                     <Operate :show="open" />
                     <el-table :data="(ruleData as any)?.data || []" class="mt-3" v-loading="ruleLoading">
                         <el-table-column prop="id" label="ID" width="80" />
-                        <el-table-column prop="name" label="规则名称" />
-                        <el-table-column prop="type" label="场景" width="100" />
-                        <el-table-column label="动作" width="120">
+                        <el-table-column prop="name" :label="$t('wallet.ruleName')" />
+                        <el-table-column prop="type" :label="$t('wallet.scene')" width="100" />
+                        <el-table-column :label="$t('wallet.action')" width="120">
                             <template #default="scope">{{ actionText(scope.row.action) }}</template>
                         </el-table-column>
-                        <el-table-column prop="risk_level" label="风险等级" width="100" />
-                        <el-table-column prop="priority" label="优先级" width="90" />
-                        <el-table-column label="状态" width="90">
+                        <el-table-column prop="risk_level" :label="$t('wallet.riskLevel')" width="100" />
+                        <el-table-column prop="priority" :label="$t('wallet.priority')" width="90" />
+                        <el-table-column :label="$t('system.status')" width="90">
                             <template #default="scope">
                                 <el-tag :type="scope.row.status === 1 ? 'success' : 'info'">
-                                    {{ scope.row.status === 1 ? '启用' : '停用' }}
+                                    {{ scope.row.status === 1 ? $t('system.enabled') : $t('system.disabled') }}
                                 </el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column label="操作" width="200">
+                        <el-table-column :label="$t('system.operation')" width="200">
                             <template #default="scope">
                                 <Update @click="open(scope.row.id)" />
                                 <el-button size="small" @click="toggleRule(scope.row)">
-                                    {{ scope.row.status === 1 ? '停用' : '启用' }}
+                                    {{ scope.row.status === 1 ? $t('system.disabled') : $t('system.enabled') }}
                                 </el-button>
                                 <Destroy @click="destroy(rulesApi, scope.row.id)" />
                             </template>
@@ -46,14 +46,14 @@
                 </div>
             </el-tab-pane>
 
-            <el-tab-pane label="风控日志" name="logs">
+            <el-tab-pane :label="$t('wallet.riskLogs')" name="logs">
                 <Search :search="searchLogs" :reset="resetLogs">
                     <template v-slot:body>
-                        <el-form-item label="会员ID" prop="member_id">
+                        <el-form-item :label="$t('wallet.memberId')" prop="member_id">
                             <el-input v-model="logQuery.member_id" name="member_id" clearable />
                         </el-form-item>
-                        <el-form-item label="状态" prop="status">
-                            <el-select v-model="logQuery.status" placeholder="请选择" clearable>
+                        <el-form-item :label="$t('system.status')" prop="status">
+                            <el-select v-model="logQuery.status" :placeholder="$t('system.pleaseSelect')" clearable>
                                 <el-option v-for="item in logStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
                             </el-select>
                         </el-form-item>
@@ -62,28 +62,28 @@
                 <div class="table-default">
                     <el-table :data="(logData as any)?.data || []" class="mt-3" v-loading="logLoading">
                         <el-table-column prop="id" label="ID" width="80" />
-                        <el-table-column prop="member_id" label="会员ID" width="100" />
-                        <el-table-column prop="rule_id" label="规则ID" width="90" />
-                        <el-table-column label="触发数据">
+                        <el-table-column prop="member_id" :label="$t('wallet.memberId')" width="100" />
+                        <el-table-column prop="rule_id" :label="$t('wallet.ruleId')" width="90" />
+                        <el-table-column :label="$t('wallet.triggerData')">
                             <template #default="scope">
                                 <span class="text-xs text-gray-500">{{ jsonText(scope.row.trigger_data) }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column label="动作" width="120">
+                        <el-table-column :label="$t('wallet.action')" width="120">
                             <template #default="scope">{{ actionText(scope.row.action) }}</template>
                         </el-table-column>
-                        <el-table-column label="状态" width="100">
+                        <el-table-column :label="$t('system.status')" width="100">
                             <template #default="scope">
                                 <el-tag :type="scope.row.status === 1 ? 'success' : 'warning'" size="small">
                                     {{ logStatusText(scope.row.status) }}
                                 </el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="created_at" label="时间" />
-                        <el-table-column label="操作" width="120">
+                        <el-table-column prop="created_at" :label="$t('wallet.time')" />
+                        <el-table-column :label="$t('system.operation')" width="120">
                             <template #default="scope">
                                 <el-button v-if="scope.row.status !== 1" size="small" type="success" @click="handleLog(scope.row.id)">
-                                    标记处理
+                                    {{ $t('wallet.markHandled') }}
                                 </el-button>
                             </template>
                         </el-table-column>
@@ -107,6 +107,7 @@ import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
 import http from '@/support/http'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { t } from '@/support/helper'
 
 const rulesApi = 'telegram/risk-control/rules'
 const logsApi = 'telegram/risk-control/logs'
@@ -119,13 +120,13 @@ const { destroy, deleted } = useDestroy()
 const { open, close, title, visible, id } = useOpen()
 
 const actionOptions = [
-    { value: 'reject', label: '拒绝' },
-    { value: 'manual_audit', label: '人工审核' },
-    { value: 'freeze', label: '冻结' },
+    { value: 'reject', label: t('wallet.actionReject') },
+    { value: 'manual_audit', label: t('wallet.actionManualAudit') },
+    { value: 'freeze', label: t('wallet.actionFreeze') },
 ]
 const logStatusOptions = [
-    { value: 0, label: '待处理' },
-    { value: 1, label: '已处理' },
+    { value: 0, label: t('wallet.pending') },
+    { value: 1, label: t('wallet.handled') },
 ]
 
 const actionText = (a: string) => actionOptions.find(i => i.value === a)?.label ?? a
@@ -134,14 +135,14 @@ const jsonText = (v: any) => (typeof v === 'string' ? v : JSON.stringify(v ?? {}
 
 const toggleRule = async (row: any) => {
     await http.post(`telegram/risk-control/rules/${row.id}/toggle-status`)
-    ElMessage.success('操作成功')
+    ElMessage.success(t('wallet.operateSuccess'))
     resetRules()
 }
 
 const handleLog = async (id: number) => {
-    await ElMessageBox.confirm('确认标记为已处理？', '提示', { type: 'warning' })
+    await ElMessageBox.confirm(t('wallet.confirmHandled'), t('system.warning'), { type: 'warning' })
     await http.post(`telegram/risk-control/logs/${id}/handle`)
-    ElMessage.success('操作成功')
+    ElMessage.success(t('wallet.operateSuccess'))
     resetLogs()
 }
 

@@ -2,11 +2,11 @@
     <div>
         <Search :search="search" :reset="reset">
             <template v-slot:body>
-                <el-form-item label="会员ID" prop="member_id">
+                <el-form-item :label="$t('wallet.memberId')" prop="member_id">
                     <el-input v-model="query.member_id" name="member_id" clearable />
                 </el-form-item>
-                <el-form-item label="币种" prop="currency">
-                    <el-select v-model="query.currency" placeholder="请选择" clearable>
+                <el-form-item :label="$t('wallet.currency')" prop="currency">
+                    <el-select v-model="query.currency" :placeholder="$t('system.pleaseSelect')" clearable>
                         <el-option v-for="c in currencies" :key="c" :label="c" :value="c" />
                     </el-select>
                 </el-form-item>
@@ -15,24 +15,26 @@
         <div class="table-default">
             <el-table :data="(data as any)?.data || []" class="mt-3" v-loading="loading">
                 <el-table-column prop="id" label="ID" width="80" />
-                <el-table-column prop="member_id" label="会员ID" />
-                <el-table-column prop="currency" label="币种" width="90" />
-                <el-table-column prop="balance" label="可用余额" />
-                <el-table-column prop="frozen_balance" label="冻结余额" />
-                <el-table-column prop="total_recharge" label="累计充值" />
-                <el-table-column prop="total_withdraw" label="累计提现" />
-                <el-table-column label="状态" width="90">
+                <el-table-column prop="member_id" :label="$t('wallet.memberId')" />
+                <el-table-column prop="currency" :label="$t('wallet.currency')" width="90" />
+                <el-table-column prop="balance" :label="$t('wallet.balance')" />
+                <el-table-column prop="frozen_balance" :label="$t('wallet.frozenBalance')" />
+                <el-table-column prop="total_recharge" :label="$t('wallet.totalRecharge')" />
+                <el-table-column prop="total_withdraw" :label="$t('wallet.totalWithdraw')" />
+                <el-table-column :label="$t('system.status')" width="90">
                     <template #default="scope">
                         <el-tag :type="scope.row.status === 1 ? 'success' : 'info'">
-                            {{ scope.row.status === 1 ? '正常' : '禁用' }}
+                            {{ scope.row.status === 1 ? $t('wallet.normal') : $t('system.disabled') }}
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" width="200">
+                <el-table-column :label="$t('system.operation')" width="200">
                     <template #default="scope">
-                        <el-button type="warning" size="small" @click="openAdjust(scope.row)">调整余额</el-button>
+                        <el-button type="warning" size="small" @click="openAdjust(scope.row)">
+                            {{ $t('wallet.adjustBalance') }}
+                        </el-button>
                         <el-button size="small" @click="toggleStatus(scope.row)">
-                            {{ scope.row.status === 1 ? '禁用' : '启用' }}
+                            {{ scope.row.status === 1 ? $t('system.disabled') : $t('system.enabled') }}
                         </el-button>
                     </template>
                 </el-table-column>
@@ -40,27 +42,27 @@
             <Paginate />
         </div>
 
-        <el-dialog v-model="adjustVisible" :title="`调整余额（钱包 #${current?.id}）`" width="480px">
+        <el-dialog v-model="adjustVisible" :title="$t('wallet.adjustTitle', { id: current?.id })" width="480px">
             <el-form :model="adjustForm" label-width="100px">
-                <el-form-item label="类型">
+                <el-form-item :label="$t('wallet.type')">
                     <el-radio-group v-model="adjustForm.type">
-                        <el-radio-button label="reward">奖励（加钱）</el-radio-button>
-                        <el-radio-button label="deduct">扣款（减钱）</el-radio-button>
+                        <el-radio-button label="reward">{{ $t('wallet.reward') }}</el-radio-button>
+                        <el-radio-button label="deduct">{{ $t('wallet.deduct') }}</el-radio-button>
                     </el-radio-group>
                 </el-form-item>
-                <el-form-item label="金额">
+                <el-form-item :label="$t('wallet.amount')">
                     <el-input-number v-model="adjustForm.amount" :min="0.01" :precision="2" />
                 </el-form-item>
-                <el-form-item label="事由">
-                    <el-input v-model="adjustForm.title" placeholder="必填，会写入操作日志" />
+                <el-form-item :label="$t('wallet.reason')">
+                    <el-input v-model="adjustForm.title" :placeholder="$t('wallet.reasonPlaceholder')" />
                 </el-form-item>
-                <el-form-item label="备注">
+                <el-form-item :label="$t('wallet.remark')">
                     <el-input v-model="adjustForm.description" type="textarea" />
                 </el-form-item>
             </el-form>
             <template #footer>
-                <el-button @click="adjustVisible = false">取消</el-button>
-                <el-button type="primary" :loading="submitting" @click="submitAdjust">确定</el-button>
+                <el-button @click="adjustVisible = false">{{ $t('system.cancel') }}</el-button>
+                <el-button type="primary" :loading="submitting" @click="submitAdjust">{{ $t('system.confirm') }}</el-button>
             </template>
         </el-dialog>
     </div>
@@ -71,6 +73,7 @@ import { onMounted, ref } from 'vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import http from '@/support/http'
 import { ElMessage } from 'element-plus'
+import { t } from '@/support/helper'
 
 const api = 'telegram/wallet'
 
@@ -91,14 +94,14 @@ const openAdjust = (row: any) => {
 
 const submitAdjust = async () => {
     if (!adjustForm.value.title) {
-        ElMessage.warning('请填写调整事由')
+        ElMessage.warning(t('wallet.reasonRequired'))
         return
     }
 
     submitting.value = true
     try {
         await http.post(`telegram/wallet/${current.value.id}/adjust-balance`, adjustForm.value)
-        ElMessage.success('余额调整成功')
+        ElMessage.success(t('wallet.adjustSuccess'))
         adjustVisible.value = false
         reset()
     } finally {
@@ -108,7 +111,7 @@ const submitAdjust = async () => {
 
 const toggleStatus = async (row: any) => {
     await http.post(`telegram/wallet/${row.id}/toggle-status`)
-    ElMessage.success('操作成功')
+    ElMessage.success(t('wallet.operateSuccess'))
     reset()
 }
 

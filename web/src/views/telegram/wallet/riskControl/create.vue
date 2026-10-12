@@ -1,38 +1,38 @@
 <template>
     <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-        <el-form-item label="规则名称" prop="name">
+        <el-form-item :label="$t('wallet.ruleName')" prop="name">
             <el-input v-model="formData.name" name="name" clearable />
         </el-form-item>
-        <el-form-item label="规则编码" prop="code">
-            <el-input v-model="formData.code" name="code" placeholder="字母/数字/下划线，唯一" clearable />
+        <el-form-item :label="$t('wallet.ruleCode')" prop="code">
+            <el-input v-model="formData.code" name="code" :placeholder="$t('wallet.ruleCodePlaceholder')" clearable />
         </el-form-item>
-        <el-form-item label="场景" prop="type">
-            <el-select v-model="formData.type" placeholder="请选择">
-                <el-option label="充值" value="recharge" />
-                <el-option label="提现" value="withdraw" />
-                <el-option label="转账" value="transfer" />
+        <el-form-item :label="$t('wallet.scene')" prop="type">
+            <el-select v-model="formData.type" :placeholder="$t('system.pleaseSelect')">
+                <el-option :label="$t('wallet.recharge')" value="recharge" />
+                <el-option :label="$t('wallet.withdraw')" value="withdraw" />
+                <el-option :label="$t('wallet.transfer')" value="transfer" />
             </el-select>
         </el-form-item>
-        <el-form-item label="触发动作" prop="action">
-            <el-select v-model="formData.action" placeholder="请选择">
-                <el-option label="拒绝" value="reject" />
-                <el-option label="人工审核" value="manual_audit" />
-                <el-option label="冻结" value="freeze" />
-                <el-option label="通知" value="notify" />
+        <el-form-item :label="$t('wallet.triggerAction')" prop="action">
+            <el-select v-model="formData.action" :placeholder="$t('system.pleaseSelect')">
+                <el-option :label="$t('wallet.actionReject')" value="reject" />
+                <el-option :label="$t('wallet.actionManualAudit')" value="manual_audit" />
+                <el-option :label="$t('wallet.actionFreeze')" value="freeze" />
+                <el-option :label="$t('wallet.actionNotify')" value="notify" />
             </el-select>
         </el-form-item>
-        <el-form-item label="风险等级" prop="risk_level">
-            <el-select v-model="formData.risk_level" placeholder="请选择">
-                <el-option label="低" :value="1" />
-                <el-option label="中" :value="2" />
-                <el-option label="高" :value="3" />
-                <el-option label="严重" :value="4" />
+        <el-form-item :label="$t('wallet.riskLevel')" prop="risk_level">
+            <el-select v-model="formData.risk_level" :placeholder="$t('system.pleaseSelect')">
+                <el-option :label="$t('wallet.levelLow')" :value="1" />
+                <el-option :label="$t('wallet.levelMedium')" :value="2" />
+                <el-option :label="$t('wallet.levelHigh')" :value="3" />
+                <el-option :label="$t('wallet.levelCritical')" :value="4" />
             </el-select>
         </el-form-item>
-        <el-form-item label="优先级" prop="priority">
+        <el-form-item :label="$t('wallet.priority')" prop="priority">
             <el-input-number v-model="formData.priority" :min="0" />
         </el-form-item>
-        <el-form-item label="触发条件" prop="conditions">
+        <el-form-item :label="$t('wallet.conditions')" prop="conditions">
             <el-input
                 v-model="conditionsText"
                 type="textarea"
@@ -40,10 +40,10 @@
                 placeholder='JSON，例：{"single_amount": 10000, "daily_count": 20}'
             />
         </el-form-item>
-        <el-form-item label="状态" prop="status">
+        <el-form-item :label="$t('system.status')" prop="status">
             <el-select v-model="formData.status">
-                <el-option label="启用" :value="1" />
-                <el-option label="停用" :value="0" />
+                <el-option :label="$t('system.enabled')" :value="1" />
+                <el-option :label="$t('system.disabled')" :value="0" />
             </el-select>
         </el-form-item>
         <div class="flex justify-end">
@@ -57,6 +57,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
 import { ElMessage } from 'element-plus'
+import { t } from '@/support/helper'
 
 const props = defineProps({
     primary: [String, Number],
@@ -84,7 +85,7 @@ const submit = () => {
             ? JSON.parse(conditionsText.value)
             : {}
     } catch (e) {
-        ElMessage.warning('触发条件不是合法 JSON')
+        ElMessage.warning(t('wallet.invalidJson'))
         return
     }
 

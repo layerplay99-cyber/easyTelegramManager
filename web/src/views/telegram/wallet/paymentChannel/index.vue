@@ -2,16 +2,16 @@
     <div>
         <Search :search="search" :reset="reset">
             <template v-slot:body>
-                <el-form-item label="名称" prop="name">
+                <el-form-item :label="$t('wallet.name')" prop="name">
                     <el-input v-model="query.name" name="name" clearable />
                 </el-form-item>
-                <el-form-item label="类型" prop="type">
-                    <el-select v-model="query.type" placeholder="请选择" clearable>
+                <el-form-item :label="$t('wallet.type')" prop="type">
+                    <el-select v-model="query.type" :placeholder="$t('system.pleaseSelect')" clearable>
                         <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                 </el-form-item>
-                <el-form-item label="状态" prop="status">
-                    <el-select v-model="query.status" placeholder="请选择" clearable>
+                <el-form-item :label="$t('system.status')" prop="status">
+                    <el-select v-model="query.status" :placeholder="$t('system.pleaseSelect')" clearable>
                         <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                 </el-form-item>
@@ -21,27 +21,27 @@
             <Operate :show="open" />
             <el-table :data="(data as any)?.data || []" class="mt-3" v-loading="loading">
                 <el-table-column prop="id" label="ID" width="80" />
-                <el-table-column prop="name" label="通道名称" />
-                <el-table-column prop="code" label="编码" />
-                <el-table-column label="类型" width="100">
+                <el-table-column prop="name" :label="$t('wallet.channelName')" />
+                <el-table-column prop="code" :label="$t('wallet.code')" />
+                <el-table-column :label="$t('wallet.type')" width="100">
                     <template #default="scope">{{ typeText(scope.row.type) }}</template>
                 </el-table-column>
-                <el-table-column prop="currency" label="币种" width="80" />
-                <el-table-column prop="fee_rate" label="费率(%)" width="100" />
-                <el-table-column prop="min_amount" label="单笔最小" />
-                <el-table-column prop="max_amount" label="单笔最大" />
-                <el-table-column label="状态" width="100">
+                <el-table-column prop="currency" :label="$t('wallet.currency')" width="80" />
+                <el-table-column prop="fee_rate" :label="$t('wallet.feeRate')" width="100" />
+                <el-table-column prop="min_amount" :label="$t('wallet.minAmount')" />
+                <el-table-column prop="max_amount" :label="$t('wallet.maxAmount')" />
+                <el-table-column :label="$t('system.status')" width="100">
                     <template #default="scope">
                         <el-tag :type="scope.row.status === 1 ? 'success' : (scope.row.status === 2 ? 'warning' : 'info')">
                             {{ statusText(scope.row.status) }}
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" width="200">
+                <el-table-column :label="$t('system.operation')" width="200">
                     <template #default="scope">
                         <Update @click="open(scope.row.id)" />
                         <el-button size="small" @click="toggleStatus(scope.row)">
-                            {{ scope.row.status === 1 ? '停用' : '启用' }}
+                            {{ scope.row.status === 1 ? $t('system.disabled') : $t('system.enabled') }}
                         </el-button>
                         <Destroy @click="destroy(api, scope.row.id)" />
                     </template>
@@ -63,6 +63,7 @@ import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
 import http from '@/support/http'
 import { ElMessage } from 'element-plus'
+import { t } from '@/support/helper'
 import { onMounted } from 'vue'
 
 const api = 'telegram/payment-channel'
@@ -72,14 +73,14 @@ const { destroy, deleted } = useDestroy()
 const { open, close, title, visible, id } = useOpen()
 
 const typeOptions = [
-    { value: 'recharge', label: '充值' },
-    { value: 'withdraw', label: '提现' },
-    { value: 'both', label: '充值+提现' },
+    { value: 'recharge', label: t('wallet.recharge') },
+    { value: 'withdraw', label: t('wallet.withdraw') },
+    { value: 'both', label: t('wallet.rechargeAndWithdraw') },
 ]
 const statusOptions = [
-    { value: 1, label: '启用' },
-    { value: 0, label: '禁用' },
-    { value: 2, label: '维护' },
+    { value: 1, label: t('system.enabled') },
+    { value: 0, label: t('system.disabled') },
+    { value: 2, label: t('wallet.maintenance') },
 ]
 
 const typeText = (t: string) => typeOptions.find(i => i.value === t)?.label ?? t
@@ -87,7 +88,7 @@ const statusText = (s: number) => statusOptions.find(i => i.value === s)?.label 
 
 const toggleStatus = async (row: any) => {
     await http.post(`telegram/payment-channel/${row.id}/toggle-status`)
-    ElMessage.success('操作成功')
+    ElMessage.success(t('wallet.operateSuccess'))
     reset()
 }
 

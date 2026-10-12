@@ -39,13 +39,21 @@ const zh = {
     submit: '提交',
     save: '保存',
     on: '开启',
-    off: '关闭'
+    off: '关闭',
+    prevPage: '上一页',
+    nextPage: '下一页',
+    maxFileSize: '最大支持 10MB 文件',
+    confirmDelete: '确定删除吗',
+    pleaseInput: '请输入',
+    fieldRequired: '该字段是必填字段'
   },
 
   table: {
     selected: '已选',
     selectedItems: '条数据',
     export: '导出',
+    import: '导入',
+    link: '链接',
     loose: '宽松',
     default: '默认',
     compact: '紧凑',

@@ -32,6 +32,7 @@ import { isRegexString, getDataByPath, setDataByPath } from '@/components/catchF
 import { $global, $schema, $formValues, $initialValues } from '@/components/catchForm/config/symbol'
 import type { formItemType, changeItemType, schemaType, anyObject, $globalType } from '@/components/catchForm/config/commonType'
 import defaultElements from '@/components/catchForm/components'
+import { t } from '@/support/helper'
 
 type FormItemProps = {
   label?: string
@@ -94,7 +95,7 @@ const computeRules = computed(() => {
   const ruleData = []
 
   if (required) {
-    ruleData.push({ required: true, message: '该字段是必填字段', trigger: 'blur' })
+    ruleData.push({ required: true, message: t('system.fieldRequired'), trigger: 'blur' })
   }
 
   if (rules) {

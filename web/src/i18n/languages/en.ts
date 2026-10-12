@@ -39,13 +39,21 @@ const en = {
     submit: 'Submit',
     save: 'Save',
     on: 'On',
-    off: 'Off'
+    off: 'Off',
+    prevPage: 'Prev Page',
+    nextPage: 'Next Page',
+    maxFileSize: 'Max file size is 10MB',
+    confirmDelete: 'Are you sure you want to delete?',
+    pleaseInput: 'Please enter',
+    fieldRequired: 'This field is required'
   },
 
   table: {
     selected: 'Selected',
     selectedItems: 'items',
     export: 'Export',
+    import: 'Import',
+    link: 'Link',
     loose: 'Loose',
     default: 'Default',
     compact: 'Compact',

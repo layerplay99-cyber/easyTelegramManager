@@ -84,7 +84,7 @@ const expand = ref<boolean>(false)
 const _fields = ref<Array<field>>(props.fields)
 _fields.value = _fields.value?.map(field => {
   if (!field.placeholder) {
-    field.placeholder = (field.type === 'select' ? '请选择' : '请输入') + field.label
+    field.placeholder = (field.type === 'select' ? t('system.pleaseSelect') : t('system.pleaseInput')) + field.label
   }
   field.show = isBoolean(field.show) ? field.show : true
   return reactive(field)

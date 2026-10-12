@@ -1,6 +1,6 @@
 <template>
   <el-button type="primary" @click="$emit('click')" plain>
-    <el-icon><Upload /></el-icon>导入
+    <el-icon><Upload /></el-icon>{{ $t('table.import') }}
   </el-button>
 </template>
 

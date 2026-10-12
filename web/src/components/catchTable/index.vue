@@ -173,7 +173,7 @@ import tcolumns from './tcolumns.vue'
 // import ctcolumns from './ctcolumns'
 import { Column, SItem } from './ctable'
 import csearch from './csearch.vue'
-import { isBoolean } from '@/support/helper'
+import { isBoolean, t } from '@/support/helper'
 import useSearch from './useSearch'
 import { useDestroy } from '@/composables/curd/useDestroy'
 import { More, RefreshRight } from '@element-plus/icons-vue'
@@ -211,7 +211,7 @@ const props = defineProps({
   emptyText: {
     type: String,
     default: () => {
-      return '暂无数据'
+      return t('system.noData')
     }
   },
   // 自定义的合计计算方法 function({ columns, data })
@@ -309,7 +309,7 @@ const props = defineProps({
   // 删除确认提示语
   destroyConfirm: {
     type: String,
-    default: '确定删除吗'
+    default: t('system.confirmDelete')
   },
   // 权限标识
   permissionMark: {

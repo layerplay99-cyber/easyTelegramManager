@@ -39,13 +39,21 @@ const th = {
     submit: 'ส่ง',
     save: 'บันทึก',
     on: 'เปิด',
-    off: 'ปิด'
+    off: 'ปิด',
+    prevPage: 'หน้าก่อนหน้า',
+    nextPage: 'หน้าถัดไป',
+    maxFileSize: 'รองรับไฟล์สูงสุด 10MB',
+    confirmDelete: 'ยืนยันการลบหรือไม่',
+    pleaseInput: 'กรุณากรอก',
+    fieldRequired: 'ฟิลด์นี้จำเป็นต้องกรอก'
   },
 
   table: {
     selected: 'เลือกแล้ว',
     selectedItems: 'รายการ',
     export: 'ส่งออก',
+    import: 'นำเข้า',
+    link: 'ลิงก์',
     loose: 'กว้าง',
     default: 'ค่าเริ่มต้น',
     compact: 'กระชับ',

@@ -39,13 +39,21 @@ const vi = {
     submit: 'Gửi',
     save: 'Lưu',
     on: 'Bật',
-    off: 'Tắt'
+    off: 'Tắt',
+    prevPage: 'Trang trước',
+    nextPage: 'Trang sau',
+    maxFileSize: 'Dung lượng tối đa 10MB',
+    confirmDelete: 'Xác nhận xóa?',
+    pleaseInput: 'Vui lòng nhập',
+    fieldRequired: 'Trường này là bắt buộc'
   },
 
   table: {
     selected: 'Đã chọn',
     selectedItems: 'mục',
     export: 'Xuất',
+    import: 'Nhập',
+    link: 'Liên kết',
     loose: 'Rộng',
     default: 'Mặc định',
     compact: 'Gọn',

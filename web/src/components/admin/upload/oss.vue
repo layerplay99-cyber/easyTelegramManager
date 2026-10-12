@@ -10,6 +10,7 @@
 import http from '@/support/http'
 import { ref } from 'vue'
 import Message from '@/support/message'
+import { t } from '@/support/helper'
 defineProps({
   auto: {
     type: Boolean,
@@ -36,7 +37,7 @@ const data = ref({
 const emits = defineEmits(['update:modelValue'])
 const initOss = async (file: { size: number; name: any }) => {
   if (file.size > 10 * 1024 * 1024) {
-    Message.error('最大支持 10MB 文件')
+    Message.error(t('system.maxFileSize'))
     return
   }
 

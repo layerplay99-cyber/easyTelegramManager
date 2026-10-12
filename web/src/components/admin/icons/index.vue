@@ -15,7 +15,7 @@
     </div>
 
     <div class="flex justify-center mt-6">
-      <el-pagination layout="prev,next" :page-size="limit" :total="total" prev-text="上一页" next-text="下一页" @next-click="handleNext" @prev-click="handlePrev" />
+      <el-pagination layout="prev,next" :page-size="limit" :total="total" :prev-text="$t('system.prevPage')" :next-text="$t('system.nextPage')" @next-click="handleNext" @prev-click="handlePrev" />
     </div>
   </div>
 </template>

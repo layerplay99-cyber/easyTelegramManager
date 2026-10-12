@@ -75,7 +75,7 @@
         <!-- 链接 -->
         <span v-else-if="column.link && column.prop">
           <a :href="column.filter ? column.filter(scope.row[column.prop]) : scope.row[column.prop]" target="_blank">
-            <el-tag>{{ column.link_text ? column.link_text : '链接' }}</el-tag>
+            <el-tag>{{ column.link_text ? column.link_text : $t('table.link') }}</el-tag>
           </a>
         </span>
         <!-- 标签 -->

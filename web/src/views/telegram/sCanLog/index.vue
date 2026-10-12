@@ -2,10 +2,10 @@
     <div>
         <Search :search="search" :reset="reset">
             <template v-slot:body>
-                <el-form-item label="被扫电话" prop="phone">
+                <el-form-item :label="$t('scanLog.scannedPhone')" prop="phone">
                     <el-input v-model="query.phone" name="phone" clearable />
                 </el-form-item>
-                <el-form-item label="N天内活跃" prop="days">
+                <el-form-item :label="$t('scanLog.activeDays')" prop="days">
                     <el-input-number v-model="query.days" name="days" :min="1" />
                 </el-form-item>
             </template>
@@ -13,13 +13,13 @@
         <div class="table-default">
             <Operate :show="open" />
             <el-table :data="tableData" class="mt-3" v-loading="loading">
-                <el-table-column prop="phone" label="被扫电话" />
-                <el-table-column prop="days" label="N天内活跃" />
-                <el-table-column prop="username" label="用户名" />
-                <el-table-column prop="bio" label="简介" />
-                <el-table-column prop="avatar_path" label="用户头像" />
-                <el-table-column prop="created_at" label="创建时间" />
-                <el-table-column label="操作" width="200">
+                <el-table-column prop="phone" :label="$t('scanLog.scannedPhone')" />
+                <el-table-column prop="days" :label="$t('scanLog.activeDays')" />
+                <el-table-column prop="username" :label="$t('scanLog.username')" />
+                <el-table-column prop="bio" :label="$t('scanLog.bio')" />
+                <el-table-column prop="avatar_path" :label="$t('scanLog.avatar')" />
+                <el-table-column prop="created_at" :label="$t('system.createTime')" />
+                <el-table-column :label="$t('system.operation')" width="200">
                     <template #default="scope">
                         <Update @click="open(scope.row.id)" />
                         <Destroy @click="destroy(api, scope.row.id)" />

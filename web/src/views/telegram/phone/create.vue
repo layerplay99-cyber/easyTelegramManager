@@ -1,6 +1,6 @@
 <template>
     <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-        <el-form-item label="手机号" prop="phone">
+        <el-form-item :label="$t('phone.phone')" prop="phone">
             <el-input v-model="formData.phone" name="phone" clearable/>
         </el-form-item>
         <div class="flex justify-end">

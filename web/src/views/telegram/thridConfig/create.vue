@@ -1,18 +1,18 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-    <el-form-item label="名称" prop="name">
+    <el-form-item :label="$t('third.name')" prop="name">
   <el-input v-model="formData.name" name="name" clearable />
 </el-form-item>
-<el-form-item label="api" prop="api_url">
+<el-form-item :label="$t('third.apiUrl')" prop="api_url">
   <el-input v-model="formData.api_url" name="api_url" clearable />
 </el-form-item>
-<el-form-item label="token" prop="token">
+<el-form-item :label="$t('third.token')" prop="token">
   <el-input v-model="formData.token" name="token" clearable />
 </el-form-item>
-<el-form-item label="公钥" prop="public_key">
+<el-form-item :label="$t('third.publicKey')" prop="public_key">
   <el-input v-model="formData.public_key" name="public_key" clearable />
 </el-form-item>
-<el-form-item label="密钥" prop="secrept_key">
+<el-form-item :label="$t('third.secretKey')" prop="secrept_key">
   <el-input v-model="formData.secrept_key" name="secrept_key" clearable />
 </el-form-item>
     <div class="flex justify-end">

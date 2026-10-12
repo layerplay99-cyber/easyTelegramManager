@@ -2,7 +2,7 @@
     <div>
         <Search :search="search" :reset="reset">
             <template v-slot:body>
-                <el-form-item label="手机号" prop="phone">
+                <el-form-item :label="$t('phone.phone')" prop="phone">
                     <el-input v-model="(query as any).phone" name="phone" clearable />
                 </el-form-item>
             </template>
@@ -15,7 +15,7 @@
                         <el-button type="primary" plain @click="handleExport">
                             <el-icon>
                                 <Download />
-                            </el-icon>导出
+                            </el-icon>{{ $t('table.export') }}
                         </el-button>
                         <div class="inline-block">
                             <el-upload :http-request="customUploadFile" :before-upload="beforeUpload" :limit="1"
@@ -24,7 +24,7 @@
                                 <el-button type="primary" plain :disabled="uploadProgress.visible">
                                     <el-icon>
                                         <Upload />
-                                    </el-icon>导入
+                                    </el-icon>{{ $t('phone.import') }}
                                 </el-button>
                             </el-upload>
                         </div>
@@ -32,15 +32,15 @@
                         <el-button type="primary" plain @click="handleExportTemplate">
                             <el-icon>
                                 <Download />
-                            </el-icon>下载模板
+                            </el-icon>{{ $t('phone.downloadTemplate') }}
                         </el-button>
                     </div>
                 </div>
             </div>
             <el-table :data="tableData" class="mt-3" v-loading="loading">
-                <el-table-column prop="phone" label="手机号" />
-                <el-table-column prop="created_at" label="创建时间" />
-                <el-table-column label="操作" width="200">
+                <el-table-column prop="phone" :label="$t('phone.phone')" />
+                <el-table-column prop="created_at" :label="$t('system.createTime')" />
+                <el-table-column :label="$t('system.operation')" width="200">
                     <template #default="scope">
                         <Update @click="open(scope.row.id)" />
                         <Destroy @click="destroy(api, scope.row.id)" />
@@ -55,17 +55,18 @@
         </Dialog>
 
         <!-- 上传进度弹窗 -->
-        <el-dialog v-model="uploadProgress.visible" title="导入进度" width="500px" :close-on-click-modal="false"
+        <el-dialog v-model="uploadProgress.visible" :title="$t('phone.importProgress')" width="500px"
+            :close-on-click-modal="false"
             :close-on-press-escape="false" :show-close="false">
             <div class="space-y-4">
                 <!-- 进度条 -->
                 <div>
                     <div class="flex justify-between mb-2">
-                        <span>导入进度</span>
+                        <span>{{ $t('phone.importProgress') }}</span>
                         <span v-if="uploadProgress.total > 0">
-                            {{ uploadProgress.current }}/{{ uploadProgress.total }} 条
+                            {{ uploadProgress.current }}/{{ uploadProgress.total }} {{ $t('phone.items') }}
                         </span>
-                        <span v-else>准备中...</span>
+                        <span v-else>{{ $t('phone.preparing') }}</span>
                     </div>
                     <el-progress :percentage="uploadProgress.percentage"
                         :status="uploadProgress.status === 'done' ? 'success' : uploadProgress.status === 'error' ? 'exception' : undefined" />
@@ -73,35 +74,37 @@
 
                 <!-- 状态信息 -->
                 <div class="text-sm text-gray-600">
-                    <div v-if="uploadProgress.status === 'pending'">准备上传...</div>
-                    <div v-else-if="uploadProgress.status === 'uploading'">正在上传文件...</div>
+                    <div v-if="uploadProgress.status === 'pending'">{{ $t('phone.prepareUpload') }}</div>
+                    <div v-else-if="uploadProgress.status === 'uploading'">{{ $t('phone.uploading') }}</div>
                     <div v-else-if="uploadProgress.status === 'processing'">
-                        <span v-if="uploadProgress.total > 0">正在导入数据... ({{ uploadProgress.current }}/{{
+                        <span v-if="uploadProgress.total > 0">{{ $t('phone.importing') }} ({{ uploadProgress.current
+                        }}/{{
                             uploadProgress.total
                         }})</span>
-                        <span v-else>正在分析文件...</span>
+                        <span v-else>{{ $t('phone.analyzing') }}</span>
                     </div>
                     <div v-else-if="uploadProgress.status === 'done'">
-                        <div class="text-green-600">导入完成！</div>
+                        <div class="text-green-600">{{ $t('phone.importComplete') }}</div>
                         <div class="mt-2">
-                            <span class="text-green-600">成功：{{ uploadProgress.success }} 条</span>
+                            <span class="text-green-600">{{ $t('phone.success') }}：{{ uploadProgress.success }} {{
+                                $t('phone.items') }}</span>
                             <span v-if="uploadProgress.failed > 0" class="ml-4 text-red-600">
-                                失败：{{ uploadProgress.failed }} 条
+                                {{ $t('phone.failed') }}：{{ uploadProgress.failed }} {{ $t('phone.items') }}
                             </span>
                         </div>
                     </div>
                     <div v-else-if="uploadProgress.status === 'error'">
-                        <div class="text-red-600">操作失败</div>
+                        <div class="text-red-600">{{ $t('system.operateFailed') }}</div>
                     </div>
                 </div>
 
                 <!-- 失败详情 -->
                 <div v-if="uploadProgress.failedRows.length > 0" class="max-h-40 overflow-y-auto">
-                    <el-divider content-position="left">失败详情</el-divider>
+                    <el-divider content-position="left">{{ $t('phone.failedDetails') }}</el-divider>
                     <div class="space-y-1">
                         <div v-for="(error, index) in uploadProgress.failedRows" :key="index"
                             class="text-sm text-red-600">
-                            第 {{ error.row }} 行：{{ error.error }}
+                            {{ $t('phone.rowError', { row: error.row }) }}{{ error.error }}
                         </div>
                     </div>
                 </div>
@@ -110,10 +113,10 @@
             <template #footer>
                 <div class="text-center">
                     <el-button v-if="uploadProgress.status === 'done'" type="primary" @click="closeProgressDialog">
-                        确定
+                        {{ $t('system.confirm') }}
                     </el-button>
                     <el-button v-else type="info" @click="cancelUpload">
-                        取消
+                        {{ $t('system.cancel') }}
                     </el-button>
                 </div>
             </template>
@@ -131,6 +134,7 @@ import { Upload, Download } from '@element-plus/icons-vue'
 import { useExcelDownload } from '@/composables/curd/useExcelDownload'
 import { ElMessage } from 'element-plus'
 import { useTelegramStore } from '@/stores/modules/telegram'
+import { t } from '@/support/helper'
 
 const api = 'telegram/phone'
 const telegramStore = useTelegramStore()
@@ -162,14 +166,14 @@ const beforeUpload = (file: any) => {
         file.name.endsWith('.xlsx') ||
         file.name.endsWith('.xls')
     if (!isExcel) {
-        ElMessage.error('只支持 Excel 文件格式')
+        ElMessage.error(t('phone.onlyExcel'))
         return false
     }
 
     // 上传开始时显示进度条
     showProgressDialog()
     uploadProgress.value.status = 'uploading'
-    ElMessage.info('开始上传文件...')
+    ElMessage.info(t('phone.startUpload'))
 
     return true
 }
@@ -206,19 +210,19 @@ const handleUploadSuccess = (response: any) => {
         uploadProgress.value.current = 0
         uploadProgress.value.total = 0
         startProgressPolling()
-        ElMessage.success('文件上传成功，开始导入数据...')
+        ElMessage.success(t('phone.uploadSuccessImporting'))
     } else if (response.success) {
         // 同步上传完成
         uploadProgress.value.status = 'done'
         uploadProgress.value.percentage = 100
-        ElMessage.success(response.message || '导入成功')
+        ElMessage.success(response.message || t('phone.importSuccess'))
         setTimeout(() => {
             closeProgressDialog()
             search()
         }, 2000)
     } else {
         uploadProgress.value.status = 'error'
-        ElMessage.error(response.message || '上传失败')
+        ElMessage.error(response.message || t('phone.uploadFailed'))
         setTimeout(() => {
             closeProgressDialog()
         }, 2000)
@@ -229,7 +233,7 @@ const handleUploadSuccess = (response: any) => {
 const handleUploadError = (error: any) => {
     console.error('上传失败:', error)
     uploadProgress.value.status = 'error'
-    ElMessage.error('文件上传失败')
+    ElMessage.error(t('phone.uploadFileFailed'))
     setTimeout(() => {
         closeProgressDialog()
     }, 2000)
@@ -284,7 +288,7 @@ const checkProgress = async () => {
         const data = result.data || result // 兼容两种格式
 
         if (data.status === 'not_found') {
-            ElMessage.error('任务不存在')
+            ElMessage.error(t('phone.taskNotFound'))
             stopProgressPolling()
             closeProgressDialog()
             return
@@ -321,7 +325,7 @@ const checkProgress = async () => {
         // 如果完成，停止轮询
         if (data.status === 'done') {
             stopProgressPolling()
-            ElMessage.success('导入完成！')
+            ElMessage.success(t('phone.importComplete'))
             // 延迟刷新列表
             setTimeout(() => {
                 search()
@@ -330,7 +334,7 @@ const checkProgress = async () => {
 
     } catch (error) {
         console.error('查询进度失败:', error)
-        ElMessage.error('查询进度失败')
+        ElMessage.error(t('phone.queryProgressFailed'))
         stopProgressPolling()
     }
 }
@@ -354,7 +358,7 @@ const closeProgressDialog = () => {
 const cancelUpload = () => {
     stopProgressPolling()
     closeProgressDialog()
-    ElMessage.info('已取消导入')
+    ElMessage.info(t('phone.importCanceled'))
 }
 
 const tableData = computed(() => {

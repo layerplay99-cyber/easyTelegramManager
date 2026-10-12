@@ -1,35 +1,34 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
     <el-alert type="info" :closable="false" class="mb-4">
-      平台接口规范由后端代码统一定义（接入标准），供各上游厂商按此实现。
-      新增接口请在 PlatformEndpointRegistry 中添加定义后执行 telegram:sync-features。
+      {{ $t('third.specTip') }}
     </el-alert>
 
-    <el-form-item label="接口标识 code" prop="code" required>
-      <el-input v-model="(formData as any).code" placeholder="如 merchant.balance" clearable />
-      <div class="text-xs text-gray-500 mt-1">平台唯一标识，功能按它引用</div>
+    <el-form-item :label="$t('third.code')" prop="code" required>
+      <el-input v-model="(formData as any).code" :placeholder="$t('third.codePlaceholder')" clearable />
+      <div class="text-xs text-gray-500 mt-1">{{ $t('third.codeTip') }}</div>
     </el-form-item>
 
-    <el-form-item label="接口名称" prop="name" required>
+    <el-form-item :label="$t('third.name')" prop="name" required>
       <el-input v-model="(formData as any).name" clearable />
     </el-form-item>
 
-    <el-form-item label="请求方法" prop="method">
+    <el-form-item :label="$t('third.requestMethod')" prop="method">
       <el-select v-model="(formData as any).method" class="w-full">
         <el-option v-for="m in methods" :key="m" :label="m" :value="m" />
       </el-select>
     </el-form-item>
 
-    <el-form-item label="路径模板" prop="path_template" required>
+    <el-form-item :label="$t('third.pathTemplate')" prop="path_template" required>
       <el-input v-model="(formData as any).path_template" placeholder="api/merchant/balance" clearable />
-      <div class="text-xs text-gray-500 mt-1">各上游路径可不同，这里填平台约定的相对路径</div>
+      <div class="text-xs text-gray-500 mt-1">{{ $t('third.pathTemplateTip') }}</div>
     </el-form-item>
 
-    <el-form-item label="超时(秒)" prop="timeout">
+    <el-form-item :label="$t('third.timeout')" prop="timeout">
       <el-input-number v-model="(formData as any).timeout" :min="1" :max="300" class="w-full" />
     </el-form-item>
 
-    <el-form-item label="备注" prop="remark">
+    <el-form-item :label="$t('third.remark')" prop="remark">
       <el-input v-model="(formData as any).remark" clearable />
     </el-form-item>
 

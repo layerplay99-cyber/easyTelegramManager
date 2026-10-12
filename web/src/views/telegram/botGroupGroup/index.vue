@@ -2,7 +2,7 @@
     <div>
         <Search :search="search" :reset="reset">
             <template v-slot:body>
-                <el-form-item label="分组名称" prop="name">
+                <el-form-item :label="$t('group.groupName')" prop="name">
                     <el-input v-model="query.name" name="name" clearable />
                 </el-form-item>
             </template>
@@ -10,11 +10,11 @@
         <div class="table-default">
             <Operate :show="open" />
             <el-table :data="tableData" class="mt-3" v-loading="loading">
-                <el-table-column prop="name" label="分组名称" />
-                <el-table-column prop="description" label="分组描述" />
-                <el-table-column prop="created_at" label="创建时间" />
-                <el-table-column prop="updated_at" label="更新时间" />
-                <el-table-column label="操作" width="200">
+                <el-table-column prop="name" :label="$t('group.groupName')" />
+                <el-table-column prop="description" :label="$t('group.groupDesc')" />
+                <el-table-column prop="created_at" :label="$t('system.createTime')" />
+                <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
+                <el-table-column :label="$t('system.operation')" width="200">
                     <template #default="scope">
                         <Update @click="open(scope.row.id)" />
                         <Destroy @click="destroy(api, scope.row.id)" />

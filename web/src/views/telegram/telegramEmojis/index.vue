@@ -8,10 +8,10 @@
     <div class="table-default">
       <Operate :show="open" />
       <el-table :data="tableData" class="mt-3" v-loading="loading" >
-        <el-table-column prop="image_path" label="表情路径" />
-<el-table-column prop="created_at" label="创建时间" />
-<el-table-column prop="updated_at" label="更新时间" />
-        <el-table-column label="操作" width="200">
+        <el-table-column prop="image_path" :label="$t('emoji.path')" />
+<el-table-column prop="created_at" :label="$t('system.createTime')" />
+<el-table-column prop="updated_at" :label="$t('system.updateTime')" />
+        <el-table-column :label="$t('system.operation')" width="200">
           <template #default="scope">
             <Update @click="open(scope.row.id)" />
             <Destroy @click="destroy(api, scope.row.id)" />

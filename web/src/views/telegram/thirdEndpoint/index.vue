@@ -2,11 +2,11 @@
   <div>
     <Search :search="search" :reset="reset">
       <template v-slot:body>
-        <el-form-item label="接口名称" prop="name">
+        <el-form-item :label="$t('third.name')" prop="name">
           <el-input v-model="query.name" name="name" clearable />
         </el-form-item>
-        <el-form-item label="上游配置" prop="third_config_id">
-          <el-select v-model="query.third_config_id" placeholder="请选择" clearable filterable>
+        <el-form-item :label="$t('third.upstreamConfig')" prop="third_config_id">
+          <el-select v-model="query.third_config_id" :placeholder="$t('system.pleaseSelect')" clearable filterable>
             <el-option v-for="c in configs" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
@@ -17,23 +17,24 @@
       <Operate :show="open" />
       <el-table :data="tableData" class="mt-3" v-loading="loading">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column label="上游配置" width="150">
+        <el-table-column :label="$t('third.upstreamConfig')" width="150">
           <template #default="scope">
             {{ configName(scope.row.third_config_id) }}
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="接口名称" />
-        <el-table-column prop="method" label="方法" width="90" />
-        <el-table-column prop="path_template" label="路径模板" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="timeout" label="超时(秒)" width="100" />
-        <el-table-column label="状态" width="90">
+        <el-table-column prop="name" :label="$t('third.name')" />
+        <el-table-column prop="method" :label="$t('third.method')" width="90" />
+        <el-table-column prop="path_template" :label="$t('third.pathTemplate')" min-width="220"
+          show-overflow-tooltip />
+        <el-table-column prop="timeout" :label="$t('third.timeout')" width="100" />
+        <el-table-column :label="$t('system.status')" width="90">
           <template #default="scope">
             <label :class="scope.row.enabled === 1 ? 'text-green-600' : 'text-gray-400'">
-              {{ scope.row.enabled === 1 ? '启用' : '停用' }}
+              {{ scope.row.enabled === 1 ? $t('system.enabled') : $t('system.disabled') }}
             </label>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200">
+        <el-table-column :label="$t('system.operation')" width="200">
           <template #default="scope">
             <Update @click="open(scope.row.id)" />
             <Destroy @click="destroy(api, scope.row.id)" />

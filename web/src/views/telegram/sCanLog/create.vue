@@ -1,18 +1,18 @@
 <template>
     <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-        <el-form-item label="被扫电话" prop="phone">
+        <el-form-item :label="$t('scanLog.scannedPhone')" prop="phone">
             <el-input v-model="formData.phone" name="phone" clearable />
         </el-form-item>
-        <el-form-item label="N天内活跃" prop="days">
+        <el-form-item :label="$t('scanLog.activeDays')" prop="days">
             <el-input-number v-model="formData.days" name="days" :min="1" />
         </el-form-item>
-        <el-form-item label="昵称" prop="username">
+        <el-form-item :label="$t('scanLog.username')" prop="username">
             <el-input v-model="formData.username" name="username" clearable />
         </el-form-item>
-        <el-form-item label="简介" prop="bio">
+        <el-form-item :label="$t('scanLog.bio')" prop="bio">
             <el-input v-model="formData.bio" name="bio" clearable />
         </el-form-item>
-        <el-form-item label="用户头像" prop="avatar_path">
+        <el-form-item :label="$t('scanLog.avatar')" prop="avatar_path">
             <el-input v-model="formData.avatar_path" name="avatar_path" clearable />
         </el-form-item>
         <div class="flex justify-end">

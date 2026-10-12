@@ -5,24 +5,23 @@
       <el-card shadow="never">
         <template #header>
           <div class="flex items-center justify-between">
-            <span class="font-medium">上游接口路径配置</span>
+            <span class="font-medium">{{ $t('third.upstreamPathConfig') }}</span>
             <el-button type="primary" :loading="saving" :disabled="!configId" @click="handleSave">
-              保存
+              {{ $t('system.save') }}
             </el-button>
           </div>
         </template>
 
         <el-alert type="info" show-icon :closable="false" class="mb-4">
           <template #title>
-            同一个功能在不同上游的路径可能不同。这里为每个「上游 + 接口」单独配置路径；
-            <b>留空表示跟随平台默认路径</b>。若路径以 http(s):// 开头则视为绝对地址，忽略上游 base_url。
+            {{ $t('third.upstreamPathTip') }}
           </template>
         </el-alert>
 
-        <el-form-item label="上游配置">
+        <el-form-item :label="$t('third.upstreamConfig')">
           <el-select
             v-model="configId"
-            placeholder="请选择上游"
+            :placeholder="$t('third.selectUpstream')"
             filterable
             class="w-80"
             @change="loadEndpoints"
@@ -39,25 +38,25 @@
     <!-- 接口映射表 -->
     <div class="table-default mt-3">
       <el-table :data="endpoints" v-loading="loading" border>
-        <el-table-column prop="name" label="接口名称" min-width="140" />
-        <el-table-column prop="code" label="平台标识" min-width="150" />
-        <el-table-column label="平台默认路径" min-width="200">
+        <el-table-column prop="name" :label="$t('third.name')" min-width="140" />
+        <el-table-column prop="code" :label="$t('third.platformCode')" min-width="150" />
+        <el-table-column :label="$t('third.platformDefaultPath')" min-width="200">
           <template #default="scope">
             <span class="text-gray-500">{{ scope.row.platform_path }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="该上游路径" min-width="260">
+        <el-table-column :label="$t('third.upstreamPath')" min-width="260">
           <template #default="scope">
             <el-input
               v-model="scope.row.path"
-              :placeholder="`默认：${scope.row.platform_path}`"
+              :placeholder="`${$t('third.defaultPrefix')}${scope.row.platform_path}`"
               clearable
             />
           </template>
         </el-table-column>
-        <el-table-column label="方法" width="130">
+        <el-table-column :label="$t('third.method')" width="130">
           <template #default="scope">
-            <el-select v-model="scope.row.method" placeholder="跟随平台" clearable class="w-full">
+            <el-select v-model="scope.row.method" :placeholder="$t('third.followPlatform')" clearable class="w-full">
               <el-option label="GET" value="GET" />
               <el-option label="POST" value="POST" />
               <el-option label="PUT" value="PUT" />
@@ -65,27 +64,27 @@
             </el-select>
           </template>
         </el-table-column>
-        <el-table-column label="实际请求地址" min-width="280">
+        <el-table-column :label="$t('third.actualUrl')" min-width="280">
           <template #default="scope">
             <span class="text-blue-600 text-sm">{{ previewUrl(scope.row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="启用" width="90" align="center">
+        <el-table-column :label="$t('system.enabled')" width="90" align="center">
           <template #default="scope">
             <el-switch v-model="scope.row.enabled" />
           </template>
         </el-table-column>
-        <el-table-column label="配置状态" width="100" align="center">
+        <el-table-column :label="$t('third.configStatus')" width="100" align="center">
           <template #default="scope">
             <el-tag v-if="scope.row.path || scope.row.method" type="success" size="small">
-              已定制
+              {{ $t('third.customized') }}
             </el-tag>
-            <el-tag v-else type="info" size="small">默认</el-tag>
+            <el-tag v-else type="info" size="small">{{ $t('third.defaultValue') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="备注" min-width="140">
+        <el-table-column :label="$t('third.remark')" min-width="140">
           <template #default="scope">
-            <el-input v-model="scope.row.remark" placeholder="可选" />
+            <el-input v-model="scope.row.remark" :placeholder="$t('third.optional')" />
           </template>
         </el-table-column>
       </el-table>
@@ -98,6 +97,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import http from '@/support/http'
+import { t } from '@/support/helper'
 
 const route = useRoute()
 
@@ -144,7 +144,7 @@ const loadEndpoints = async () => {
     currentConfig.value = payload.third_config ?? null
     endpoints.value = Array.isArray(payload.endpoints) ? payload.endpoints : []
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '加载失败')
+    ElMessage.error(e?.response?.data?.message || t('third.loadFailed'))
     endpoints.value = []
   } finally {
     loading.value = false
@@ -173,10 +173,10 @@ const handleSave = async () => {
         remark: e.remark || '',
       })),
     })
-    ElMessage.success('保存成功')
+    ElMessage.success(t('third.saveSuccess'))
     await loadEndpoints()
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '保存失败')
+    ElMessage.error(e?.response?.data?.message || t('third.saveFailed'))
   } finally {
     saving.value = false
   }

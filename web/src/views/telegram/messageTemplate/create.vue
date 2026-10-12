@@ -1,28 +1,28 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-    <el-form-item label="模板名称" prop="title">
+    <el-form-item :label="$t('template.name')" prop="title">
       <el-input v-model="formData.title" name="title" clearable />
     </el-form-item>
 
-    <el-form-item label="发送通道" prop="channel">
+    <el-form-item :label="$t('template.sendChannel')" prop="channel">
       <el-select v-model="formData.channel" name="channel">
-        <el-option label="Telegram 客服账号（可发自定义/动态表情）" value="user" />
-        <el-option label="Bot（只能发纯文本 / 图文）" value="bot" />
+        <el-option :label="$t('template.channelUserOption')" value="user" />
+        <el-option :label="$t('template.channelBotOption')" value="bot" />
       </el-select>
       <div class="text-xs text-gray-500 mt-1">
-        内容里含自定义表情 / 贴纸 / 特效时，必须用客服账号通道。
+        {{ $t('template.channelTip') }}
       </div>
     </el-form-item>
 
-    <el-form-item label="消息内容">
+    <el-form-item :label="$t('template.content')">
       <BlocksEditor v-model="formData.blocks" />
     </el-form-item>
 
-    <el-form-item label="预览">
-      <el-button size="small" @click="preview">渲染预览</el-button>
+    <el-form-item :label="$t('template.preview')">
+      <el-button size="small" @click="preview">{{ $t('template.renderPreview') }}</el-button>
       <pre v-if="previewText" class="mt-2 p-2 bg-gray-50 rounded text-xs whitespace-pre-wrap">{{ previewText }}</pre>
       <div v-if="previewEntities.length" class="text-xs text-gray-500 mt-1">
-        实体：{{ JSON.stringify(previewEntities) }}
+        {{ $t('template.entities') }}{{ JSON.stringify(previewEntities) }}
       </div>
     </el-form-item>
 

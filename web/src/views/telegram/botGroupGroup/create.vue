@@ -1,9 +1,9 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-    <el-form-item label="分组名称" prop="name">
+    <el-form-item :label="$t('group.groupName')" prop="name">
   <el-input v-model="formData.name" name="name" clearable />
 </el-form-item>
-<el-form-item label="分组描述" prop="description">
+<el-form-item :label="$t('group.groupDesc')" prop="description">
   <el-input v-model="formData.description" name="description" clearable />
 </el-form-item>
     <div class="flex justify-end">

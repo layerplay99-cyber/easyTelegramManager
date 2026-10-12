@@ -2,8 +2,8 @@
   <div>
     <Search :search="search" :reset="reset">
       <template v-slot:body>
-        <el-form-item label="名称">
-          <el-input v-model="query.title" clearable placeholder="模板名称" />
+        <el-form-item :label="$t('template.name')">
+          <el-input v-model="query.title" clearable :placeholder="$t('template.name')" />
         </el-form-item>
       </template>
     </Search>
@@ -11,16 +11,16 @@
     <div class="table-default">
       <Operate :show="open" />
       <el-table :data="tableData" class="mt-3" v-loading="loading">
-        <el-table-column prop="title" label="模板名称" />
-        <el-table-column prop="channel" label="通道" width="120">
+        <el-table-column prop="title" :label="$t('template.name')" />
+        <el-table-column prop="channel" :label="$t('template.channel')" width="120">
           <template #default="scope">
             <el-tag size="small" :type="scope.row.channel === 'user' ? 'success' : 'info'">
-              {{ scope.row.channel === 'user' ? '客服账号' : 'Bot' }}
+              {{ scope.row.channel === 'user' ? $t('template.channelUser') : $t('template.channelBot') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" />
-        <el-table-column label="操作" width="200">
+        <el-table-column prop="created_at" :label="$t('system.createTime')" />
+        <el-table-column :label="$t('system.operation')" width="200">
           <template #default="scope">
             <Update @click="open(scope.row.id)" />
             <Destroy @click="destroy(api, scope.row.id)" />

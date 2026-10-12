@@ -2,7 +2,7 @@
     <div>
         <Search :search="search" :reset="reset">
             <template v-slot:body>
-                <el-form-item label="名称" prop="name">
+                <el-form-item :label="$t('third.name')" prop="name">
                     <el-input v-model="query.name" name="name" clearable />
                 </el-form-item>
             </template>
@@ -10,17 +10,17 @@
         <div class="table-default">
             <Operate :show="open" />
             <el-table :data="tableData" class="mt-3" v-loading="loading">
-                <el-table-column prop="name" label="名称" />
-                <el-table-column prop="api_url" label="api" />
-                <el-table-column prop="token" label="token" />
-                <el-table-column prop="public_key" label="公钥" />
-                <el-table-column prop="secrept_key" label="密钥" />
-                <el-table-column prop="created_at" label="创建时间" />
-                <el-table-column prop="updated_at" label="更新时间" />
-                <el-table-column label="操作" width="280">
+                <el-table-column prop="name" :label="$t('third.name')" />
+                <el-table-column prop="api_url" :label="$t('third.apiUrl')" />
+                <el-table-column prop="token" :label="$t('third.token')" />
+                <el-table-column prop="public_key" :label="$t('third.publicKey')" />
+                <el-table-column prop="secrept_key" :label="$t('third.secretKey')" />
+                <el-table-column prop="created_at" :label="$t('system.createTime')" />
+                <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
+                <el-table-column :label="$t('system.operation')" width="280">
                     <template #default="scope">
                         <el-button type="warning" size="small" @click="goEndpoints(scope.row.id)">
-                            接口配置
+                            {{ $t('third.endpointConfig') }}
                         </el-button>
                         <Update @click="open(scope.row.id)" />
                         <Destroy @click="destroy(api, scope.row.id)" />

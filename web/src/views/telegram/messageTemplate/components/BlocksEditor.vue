@@ -1,14 +1,14 @@
 <template>
   <div class="blocks-editor">
     <div class="mb-2 flex flex-wrap gap-2">
-      <el-button size="small" @click="addText">+ 文本</el-button>
-      <el-button size="small" @click="addVar">+ 变量</el-button>
-      <el-button size="small" type="warning" @click="emojiVisible = true">+ 表情</el-button>
-      <el-button size="small" type="success" @click="addEffect">+ 消息特效</el-button>
+      <el-button size="small" @click="addText">{{ $t('template.addText') }}</el-button>
+      <el-button size="small" @click="addVar">{{ $t('template.addVar') }}</el-button>
+      <el-button size="small" type="warning" @click="emojiVisible = true">{{ $t('template.addEmoji') }}</el-button>
+      <el-button size="small" type="success" @click="addEffect">{{ $t('template.addEffect') }}</el-button>
     </div>
 
     <div v-if="!blocks.length" class="text-gray-400 text-sm py-4">
-      还没有内容，先点上面的按钮添加。
+      {{ $t('template.emptyTip') }}
     </div>
 
     <el-card v-for="(block, index) in blocks" :key="index" class="mb-2" shadow="never">
@@ -22,38 +22,39 @@
             v-model="block.v"
             type="textarea"
             :rows="2"
-            placeholder="输入文本"
+            :placeholder="$t('template.inputText')"
           />
 
           <!-- 变量 -->
-          <el-input v-else-if="block.t === 'var'" v-model="block.k" placeholder="变量名，如 nickname" />
+          <el-input v-else-if="block.t === 'var'" v-model="block.k" :placeholder="$t('template.varNamePlaceholder')" />
 
           <!-- 自定义 / 动态 emoji -->
           <div v-else-if="block.t === 'emoji'" class="flex items-center gap-2">
             <span class="text-2xl">{{ block.alt || '⭐' }}</span>
             <el-input v-model="block.id" placeholder="emoji_id" class="flex-1" />
-            <el-input v-model="block.alt" placeholder="回退字符" style="width: 120px" />
+            <el-input v-model="block.alt" :placeholder="$t('template.fallbackChar')" style="width: 120px" />
           </div>
 
           <!-- 消息特效 -->
           <el-input v-else-if="block.t === 'effect'" v-model="block.id" placeholder="effect_id" />
 
           <!-- 贴纸 -->
-          <el-input v-else-if="block.t === 'sticker'" v-model="block.file_id" placeholder="file_id（须属于发送账号）" />
+          <el-input v-else-if="block.t === 'sticker'" v-model="block.file_id"
+            :placeholder="$t('template.fileIdPlaceholder')" />
         </div>
 
-        <el-button size="small" type="danger" plain @click="remove(index)">删除</el-button>
+        <el-button size="small" type="danger" plain @click="remove(index)">{{ $t('system.delete') }}</el-button>
         <el-button size="small" plain @click="moveUp(index)" :disabled="index === 0">↑</el-button>
       </div>
     </el-card>
 
     <!-- 表情素材库 -->
-    <el-dialog v-model="emojiVisible" title="选择表情" width="720px">
+    <el-dialog v-model="emojiVisible" :title="$t('template.selectEmoji')" width="720px">
       <div class="mb-2 flex gap-2">
-        <el-select v-model="emojiType" placeholder="类型" clearable style="width: 180px">
+        <el-select v-model="emojiType" :placeholder="$t('system.status')" clearable style="width: 180px">
           <el-option v-for="t in types" :key="t.value" :label="t.label" :value="t.value" />
         </el-select>
-        <el-button @click="loadEmojis">搜索</el-button>
+        <el-button @click="loadEmojis">{{ $t('system.search') }}</el-button>
       </div>
 
       <div class="grid grid-cols-6 gap-2" style="max-height: 380px; overflow: auto">
@@ -69,15 +70,16 @@
       </div>
 
       <div v-if="!emojis.length" class="text-gray-400 text-sm py-4">
-        暂无素材。可先在群里发自定义表情让系统采集，或在「表情素材」里手动添加。
+        {{ $t('template.noAssets') }}
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import http from '@/support/http'
+import { t } from '@/support/helper'
 
 const props = defineProps({
   modelValue: {
@@ -108,12 +110,12 @@ watch(
   { deep: true }
 )
 
-const types = [
-  { label: '官方 emoji', value: 'unicode' },
-  { label: '自定义/动态 emoji', value: 'custom_emoji' },
-  { label: '贴纸', value: 'sticker' },
-  { label: '消息特效', value: 'message_effect' },
-]
+const types = computed(() => [
+  { label: t('template.typeUnicode'), value: 'unicode' },
+  { label: t('template.typeCustomEmoji'), value: 'custom_emoji' },
+  { label: t('template.typeSticker'), value: 'sticker' },
+  { label: t('template.typeMessageEffect'), value: 'message_effect' },
+])
 
 const emojiVisible = ref(false)
 const emojiType = ref('custom_emoji')
@@ -160,7 +162,13 @@ const moveUp = (index: number) => {
 }
 
 const blockLabel = (t: string) =>
-  ({ text: '文本', var: '变量', emoji: '表情', sticker: '贴纸', effect: '特效' } as any)[t] || t
+  ({
+    text: t('template.blockText'),
+    var: t('template.blockVar'),
+    emoji: t('template.blockEmoji'),
+    sticker: t('template.blockSticker'),
+    effect: t('template.blockEffect'),
+  } as any)[t] || t
 
 const tagType = (t: string) =>
   ({ text: 'info', var: '', emoji: 'warning', sticker: 'success', effect: 'danger' } as any)[t] || 'info'

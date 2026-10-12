@@ -1,5 +1,5 @@
 import { useUserStore } from '@/stores/modules/user'
-import { getAuthToken, removeAuthToken, setPageTitle } from '@/support/helper'
+import { getAuthToken, removeAuthToken, setPageTitle, t } from '@/support/helper'
 import progress from '@/support/progress'
 import { WhiteListPage } from '@/enum/app'
 import { Router, RouteRecordRaw } from 'vue-router'
@@ -12,7 +12,7 @@ const guard = (router: Router) => {
 
   router.beforeEach(async (to, from, next) => {
     // set page title
-    setPageTitle(to.meta.title as unknown as string)
+    setPageTitle(to.meta.title ? t(to.meta.title as string) : '')
     // page start
     progress.start()
     // 获取用户的 token

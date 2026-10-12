@@ -14,13 +14,13 @@ const notInProdRoute = () => {
       {
         path: '/develop',
         component: () => import('@/layout/index.vue'),
-        meta: { title: '开发工具', icon: 'wrench-screwdriver', hidden: !isGenerate() },
+        meta: { title: 'menu./develop', icon: 'wrench-screwdriver', hidden: !isGenerate() },
         children: [
           {
             path: 'modules',
             name: 'modules',
             meta: {
-              title: '模块管理',
+              title: 'menu./develop/modules',
               keepalive: 1
             },
             component: () => import('@/views/develop/module/index.vue')
@@ -29,7 +29,7 @@ const notInProdRoute = () => {
             path: 'schemas',
             name: 'schemas',
             meta: {
-              title: 'Schema',
+              title: 'menu./develop/schemas',
               keepalive: 1
             },
             component: () => import('@/views/develop/schema/index.vue')
@@ -37,7 +37,7 @@ const notInProdRoute = () => {
           {
             path: 'generate/:schema',
             name: 'generate',
-            meta: { title: '代码生成', hidden: true, active_menu: '/develop/schemas', keepalive: 1 },
+            meta: { title: 'menu./develop/generate', hidden: true, active_menu: '/develop/schemas', keepalive: 1 },
             component: () => import('@/views/develop/generate/index.vue')
           }
         ]
@@ -45,13 +45,13 @@ const notInProdRoute = () => {
       {
         path: '/develop',
         component: () => import('@/layout/index.vue'),
-        meta: { title: '开发工具', icon: 'wrench-screwdriver', hidden: isGenerate(), keepalive: 1 },
+        meta: { title: 'menu./develop', icon: 'wrench-screwdriver', hidden: isGenerate(), keepalive: 1 },
         children: [
           {
             path: 'generates',
             name: 'generates',
             meta: {
-              title: '生成代码',
+              title: 'menu./develop/generates',
               keepalive: 1
             },
             component: () => import('@/views/develop/generator/index.vue')
@@ -66,13 +66,13 @@ const notInProdRoute = () => {
 export const constantRoutes: RouteRecordRaw[] = [
   {
     path: '/dashboard',
-    meta: { title: 'Dashboard', icon: 'home' },
+    meta: { title: 'menu./dashboard', icon: 'home' },
     component: () => import('@/layout/index.vue'),
     children: [
       {
         path: '',
         name: 'Dashboard',
-        meta: { title: 'Dashboard', icon: 'home', hidden: false, keepalive: 1 },
+        meta: { title: 'menu./dashboard', icon: 'home', hidden: false, keepalive: 1 },
         component: () => import('@/views/dashboard/index.vue')
       }
     ]
@@ -89,7 +89,7 @@ const defaultRoutes: RouteRecordRaw[] = [
       {
         path: '/404',
         name: '404',
-        meta: { title: '404', keepalive: 1 },
+        meta: { title: 'menu./404', keepalive: 1 },
         component: () => import('@/components/404/index.vue')
       }
     ]
@@ -101,7 +101,7 @@ const defaultRoutes: RouteRecordRaw[] = [
       {
         path: 'center',
         name: 'users-center',
-        meta: { title: '个人中心', keepalive: 1 },
+        meta: { title: 'menu./users/center', keepalive: 1 },
         component: () => import('@/views/user/center.vue')
       }
     ]
@@ -109,7 +109,7 @@ const defaultRoutes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'login',
-    meta: { title: '登录' },
+    meta: { title: 'menu./login' },
     component: () => import('@/views/login/index.vue')
   }
 ]

@@ -1,63 +1,63 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
     <el-form-item
-      label="名称"
+      :label="$t('cms.name')"
       prop="name"
       :rules="[
         {
           required: true,
-          message: '名称必须填写'
+          message: $t('cms.nameRequired')
         }
       ]"
     >
       <el-input v-model="formData.name" name="name" clearable />
     </el-form-item>
-    <el-form-item label="类型" prop="type">
+    <el-form-item :label="$t('cms.type')" prop="type">
       <el-radio-group v-model="formData.type">
-        <el-radio-button :label="1">轮播图</el-radio-button>
-        <el-radio-button :label="2">友情链接</el-radio-button>
-        <el-radio-button :label="3">广告</el-radio-button>
+        <el-radio-button :label="1">{{ $t('cms.carousel') }}</el-radio-button>
+        <el-radio-button :label="2">{{ $t('cms.friendLink') }}</el-radio-button>
+        <el-radio-button :label="3">{{ $t('cms.advertisement') }}</el-radio-button>
       </el-radio-group>
     </el-form-item>
     <el-form-item
-      label="内容"
+      :label="$t('cms.content')"
       v-if="formData.type !== 2"
       prop="content"
       :rules="[
         {
           required: true,
-          message: '内容必须填写'
+          message: $t('cms.contentRequired')
         }
       ]"
     >
       <Upload class="w-28" action="/upload/image" :show-file-list="false" name="image" :onSuccess="uploadSuccess">
         <div class="flex flex-col">
           <img :src="formData.content" v-if="formData.content" />
-          <el-button type="success" v-else size="small">选择</el-button>
+          <el-button type="success" v-else size="small">{{ $t('system.pleaseSelect') }}</el-button>
         </div>
       </Upload>
     </el-form-item>
-    <el-form-item label="链接" prop="url" :rules="[{ type: 'url', required: false, message: '请填写正确的链接格式' }]" v-if="formData.type !== 2">
+    <el-form-item :label="$t('table.link')" prop="url" :rules="[{ type: 'url', required: false, message: $t('cms.urlInvalid') }]" v-if="formData.type !== 2">
       <el-input v-model="formData.url" name="url" clearable />
     </el-form-item>
-    <el-form-item label="链接" prop="url" :rules="[{ type: 'url', required: true, message: '请填写正确的链接格式' }]" v-else>
+    <el-form-item :label="$t('table.link')" prop="url" :rules="[{ type: 'url', required: true, message: $t('cms.urlInvalid') }]" v-else>
       <el-input v-model="formData.url" name="url" clearable />
     </el-form-item>
-    <el-form-item label="描述" prop="description">
+    <el-form-item :label="$t('cms.description')" prop="description">
       <el-input v-model="formData.description" name="description" clearable type="textarea" />
     </el-form-item>
 
-    <el-form-item label="可见" prop="is_visible">
+    <el-form-item :label="$t('cms.visible')" prop="is_visible">
       <el-radio-group v-model="formData.is_visible">
-        <el-radio :label="1">可见</el-radio>
-        <el-radio :label="2">隐藏</el-radio>
+        <el-radio :label="1">{{ $t('cms.visible') }}</el-radio>
+        <el-radio :label="2">{{ $t('cms.hide') }}</el-radio>
       </el-radio-group>
     </el-form-item>
 
-    <el-form-item label="打开方式" prop="is_target">
+    <el-form-item :label="$t('cms.openTarget')" prop="is_target">
       <el-radio-group v-model="formData.is_target">
-        <el-radio :label="1">本窗口</el-radio>
-        <el-radio :label="2">新窗口</el-radio>
+        <el-radio :label="1">{{ $t('cms.sameWindow') }}</el-radio>
+        <el-radio :label="2">{{ $t('cms.newWindow') }}</el-radio>
       </el-radio-group>
     </el-form-item>
     <div class="flex justify-end">

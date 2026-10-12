@@ -2,13 +2,13 @@
   <div>
     <Search :search="search" :reset="reset">
       <template v-slot:body>
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="$t('cms.name')" prop="name">
           <el-input v-model="query.name" name="name" clearable />
         </el-form-item>
-        <el-form-item label="类型" prop="type">
-          <el-select v-model="query.type" placeholder="请选择">
-            <el-option :value="1" label="轮播图" />
-            <el-option :value="2" label="友情链接" />
+        <el-form-item :label="$t('cms.type')" prop="type">
+          <el-select v-model="query.type" :placeholder="$t('system.pleaseSelect')">
+            <el-option :value="1" :label="$t('cms.carousel')" />
+            <el-option :value="2" :label="$t('cms.friendLink')" />
           </el-select>
         </el-form-item>
       </template>
@@ -16,31 +16,31 @@
     <div class="table-default">
       <Operate :show="open" />
       <el-table :data="tableData" class="mt-3" v-loading="loading">
-        <el-table-column prop="name" label="名称" />
-        <el-table-column prop="content" label="内容">
+        <el-table-column prop="name" :label="$t('cms.name')" />
+        <el-table-column prop="content" :label="$t('cms.content')">
           <template #default="scope">
             <el-image :src="scope.row.content" v-if="scope.row.type === 1" width="100" />
             <div v-else>{{ scope.row.content }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="url" label="链接">
+        <el-table-column prop="url" :label="$t('table.link')">
           <template #default="scope">
             <el-link :href="scope.row.url" target="_blank">{{ scope.row.url }}</el-link>
-            <el-tag type="warning">{{ scope.row.is_target ? '新窗口打开' : '本窗口打开' }}</el-tag>
+            <el-tag type="warning">{{ scope.row.is_target ? $t('cms.openNewWindow') : $t('cms.openSameWindow') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="type" label="类型">
+        <el-table-column prop="type" :label="$t('cms.type')">
           <template #default="scope">
-            <el-tag v-if="scope.row.type === 1">轮播图</el-tag>
-            <el-tag v-else type="success">友情链接</el-tag>
+            <el-tag v-if="scope.row.type === 1">{{ $t('cms.carousel') }}</el-tag>
+            <el-tag v-else type="success">{{ $t('cms.friendLink') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_visible" label="可见">
+        <el-table-column prop="is_visible" :label="$t('cms.visible')">
           <template #default="scope">
             <Status :api="api" v-model="scope.row.is_visible" :id="scope.row.id" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200">
+        <el-table-column :label="$t('system.operation')" width="200">
           <template #default="scope">
             <Update @click="open(scope.row.id)" />
             <Destroy @click="destroy(api, scope.row.id)" />

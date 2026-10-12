@@ -1,134 +1,134 @@
 <template>
-  <layout title="个人设置">
+  <layout :title="$t('cms.personalSettings')">
     <template v-slot:body>
       <el-form :model="formData" label-width="120px" ref="form" class="pt-5 pr-4 w-full bg-white dark:bg-regal-dark">
         <div class="flex flex-col mx-auto w-2/3">
           <el-form-item
-            label="昵称"
+            :label="$t('cms.nickname')"
             prop="personal_nickname"
             :rules="[
               {
                 required: true,
-                message: '昵称名称必须填写'
+                message: $t('cms.nicknameRequired')
               }
             ]"
           >
-            <el-input v-model="formData.personal_nickname" clearable placeholder="昵称" />
+            <el-input v-model="formData.personal_nickname" clearable :placeholder="$t('cms.nickname')" />
           </el-form-item>
-          <el-form-item label="英文昵称" prop="personal_en_nickname">
-            <el-input v-model="formData.personal_en_nickname" clearable placeholder="英文昵称" />
+          <el-form-item :label="$t('cms.enNickname')" prop="personal_en_nickname">
+            <el-input v-model="formData.personal_en_nickname" clearable :placeholder="$t('cms.enNickname')" />
           </el-form-item>
-          <el-form-item label="🤳 个人头像" prop="personal_avatar">
+          <el-form-item :label="$t('cms.avatar')" prop="personal_avatar">
             <Upload class="w-28" action="upload/image" :show-file-list="false" name="image" :onSuccess="uploadSuccess">
               <div class="flex flex-col">
                 <img :src="formData.personal_avatar" v-if="formData.personal_avatar" />
-                <el-button type="primary" v-else>选择头像</el-button>
+                <el-button type="primary" v-else>{{ $t('cms.selectAvatar') }}</el-button>
               </div>
             </Upload>
           </el-form-item>
 
           <el-form-item
-            label="🏠 个人主页"
+            :label="$t('cms.homepage')"
             prop="personal_homepage"
             :rules="[
               {
                 type: 'url',
-                message: '个人主页链接不符合规则'
+                message: $t('cms.homepageInvalid')
               }
             ]"
           >
-            <el-input v-model="formData.person_homepage" clearable placeholder="个人主页" />
+            <el-input v-model="formData.person_homepage" clearable :placeholder="$t('cms.homepage')" />
           </el-form-item>
 
           <el-form-item label="📮 " prop="personal_email">
-            <el-input v-model="formData.personal_email" clearable placeholder="邮箱" />
+            <el-input v-model="formData.personal_email" clearable :placeholder="$t('user.email')" />
           </el-form-item>
 
-          <el-form-item label="个人简介" prop="personal_description">
-            <el-input v-model="formData.personal_description" clearable type="textarea" placeholder="个人简介" />
+          <el-form-item :label="$t('cms.bio')" prop="personal_description">
+            <el-input v-model="formData.personal_description" clearable type="textarea" :placeholder="$t('cms.bio')" />
           </el-form-item>
 
-          <el-form-item label="社交">
+          <el-form-item :label="$t('cms.social')">
             <div class="flex flex-col gap-y-2 w-full">
               <el-input
                 v-model="formData.personal_github"
                 clearable
-                placeholder="GitHub主页"
+                :placeholder="$t('cms.githubHomepage')"
                 :rules="[
                   {
                     type: 'url',
-                    message: 'GitHub主页链接不符合规则'
+                    message: $t('cms.githubInvalid')
                   }
                 ]"
               />
               <el-input
                 v-model="formData.personal_twitter"
                 clearable
-                placeholder="推特主页"
+                :placeholder="$t('cms.twitterHomepage')"
                 :rules="[
                   {
                     type: 'url',
-                    message: '推特主页链接不符合规则'
+                    message: $t('cms.twitterInvalid')
                   }
                 ]"
               />
               <el-input
                 v-model="formData.personal_linkedin"
                 clearable
-                placeholder="linkedin 主页"
+                :placeholder="$t('cms.linkedinHomepage')"
                 :rules="[
                   {
                     type: 'url',
-                    message: 'linkedin 主页链接不符合规则'
+                    message: $t('cms.linkedinInvalid')
                   }
                 ]"
               />
               <el-input
                 v-model="formData.personal_weibo"
                 clearable
-                placeholder="微博主页"
+                :placeholder="$t('cms.weiboHomepage')"
                 :rules="[
                   {
                     type: 'url',
-                    message: '微博主页链接不符合规则'
+                    message: $t('cms.weiboInvalid')
                   }
                 ]"
               />
               <el-input
                 v-model="formData.personal_google"
                 clearable
-                placeholder="G+主页"
+                :placeholder="$t('cms.googleHomepage')"
                 :rules="[
                   {
                     type: 'url',
-                    message: 'G+主页链接不符合规则'
+                    message: $t('cms.googleInvalid')
                   }
                 ]"
               />
               <el-input
                 v-model="formData.personal_reddit"
                 clearable
-                placeholder="reddit主页"
+                :placeholder="$t('cms.redditHomepage')"
                 :rules="[
                   {
                     type: 'url',
-                    message: 'reddit主页链接不符合规则'
+                    message: $t('cms.redditInvalid')
                   }
                 ]"
               />
             </div>
           </el-form-item>
 
-          <el-form-item label="所在城市" prop="personal_city">
-            <el-input v-model="formData.personal_city" clearable placeholder="所在城市" />
+          <el-form-item :label="$t('cms.city')" prop="personal_city">
+            <el-input v-model="formData.personal_city" clearable :placeholder="$t('cms.city')" />
           </el-form-item>
 
-          <el-form-item label="状态" prop="personal_status">
-            <el-input v-model="formData.personal_status" clearable placeholder="一句话描述当前状态" />
+          <el-form-item :label="$t('system.status')" prop="personal_status">
+            <el-input v-model="formData.personal_status" clearable :placeholder="$t('cms.statusPlaceholder')" />
           </el-form-item>
         </div>
         <div class="flex justify-center mb-3 bg-white dark:bg-regal-dark">
-          <el-button type="primary" @click="submitForm(form)" class="ml-5 w-[10rem]">保 存</el-button>
+          <el-button type="primary" @click="submitForm(form)" class="ml-5 w-[10rem]">{{ $t('system.save') }}</el-button>
         </div>
       </el-form>
     </template>

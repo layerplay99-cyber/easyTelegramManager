@@ -6,12 +6,12 @@
           <div class="flex flex-row justify-between">
             <div class="w-3/4">
               <el-form-item
-                label="标题"
+                :label="$t('cms.title')"
                 prop="title"
                 :rules="[
                   {
                     required: true,
-                    message: '文章标题必须填写'
+                    message: $t('cms.postTitleRequired')
                   }
                 ]"
               >
@@ -20,30 +20,30 @@
             </div>
             <div class="w-1/4">
               <el-form-item
-                label="选择分类"
+                :label="$t('cms.selectCategory')"
                 prop="category_id"
                 :rules="[
                   {
                     required: true,
-                    message: '请先选择分类'
+                    message: $t('cms.selectCategoryFirst')
                   }
                 ]"
               >
-                <el-tree-select v-model="formData.category_id" value-key="id" placeholder="选择分类" clearable class="w-full" :data="category" check-strictly :props="{ value: 'id', label: 'name' }" />
+                <el-tree-select v-model="formData.category_id" value-key="id" :placeholder="$t('cms.selectCategory')" clearable class="w-full" :data="category" check-strictly :props="{ value: 'id', label: 'name' }" />
               </el-form-item>
             </div>
           </div>
-          <el-form-item label="摘录" prop="excerpt" v-if="formData.type === 1">
+          <el-form-item :label="$t('cms.excerpt')" prop="excerpt" v-if="formData.type === 1">
             <el-input v-model="formData.excerpt" name="excerpt" clearable type="textarea" />
           </el-form-item>
 
           <el-form-item
-            label="内容"
+            :label="$t('cms.content')"
             prop="content"
             :rules="[
               {
                 required: true,
-                message: '文章内容必须填写'
+                message: $t('cms.postContentRequired')
               }
             ]"
           >
@@ -54,86 +54,86 @@
         <div class="w-1/3">
           <el-form-item
             class="mt-6"
-            label="作者"
+            :label="$t('cms.author')"
             prop="author"
             :rules="[
               {
                 required: true,
-                message: '请选择作者'
+                message: $t('cms.selectAuthor')
               }
             ]"
           >
-            <el-select v-model="formData.author" placeholder="选择作者">
+            <el-select v-model="formData.author" :placeholder="$t('cms.selectAuthorPlaceholder')">
               <el-option v-for="user in users" :key="user.id" :label="user.username" :value="user.id" />
             </el-select>
           </el-form-item>
-          <el-form-item label="封面" prop="cover">
+          <el-form-item :label="$t('cms.cover')" prop="cover">
             <Upload class="w-28" action="/upload/image" :show-file-list="false" name="image" :onSuccess="uploadSuccess">
               <div class="flex flex-col">
                 <img :src="formData.cover" v-if="formData.cover" />
-                <div v-else class="text-sm text-indigo-500">选择封面</div>
+                <div v-else class="text-sm text-indigo-500">{{ $t('cms.selectCover') }}</div>
               </div>
             </Upload>
           </el-form-item>
-          <el-form-item label="可见性" prop="status" class="mt-6" v-if="formData.type === 1">
-            <el-select v-model="formData.visible" placeholder="选择可见性">
-              <el-option label="公开" :value="1" />
-              <el-option label="私密" :value="2" />
-              <el-option label="密码查看" :value="3" />
+          <el-form-item :label="$t('cms.visibility')" prop="status" class="mt-6" v-if="formData.type === 1">
+            <el-select v-model="formData.visible" :placeholder="$t('cms.selectVisibility')">
+              <el-option :label="$t('cms.public')" :value="1" />
+              <el-option :label="$t('cms.private')" :value="2" />
+              <el-option :label="$t('cms.passwordProtected')" :value="3" />
             </el-select>
           </el-form-item>
-          <el-form-item label="查看密码" prop="password" v-if="formData.visible === 3 && formData.type === 1" class="mt-6">
-            <el-input v-model="formData.password" name="password" clearable placeholder="输入查看密码" />
+          <el-form-item :label="$t('cms.viewPassword')" prop="password" v-if="formData.visible === 3 && formData.type === 1" class="mt-6">
+            <el-input v-model="formData.password" name="password" clearable :placeholder="$t('cms.viewPasswordPlaceholder')" />
           </el-form-item>
           <el-form-item
-            label="标签"
+            :label="$t('cms.tags')"
             prop="tags"
             class="mt-6"
             v-if="formData.type === 1"
             :rules="[
               {
                 required: true,
-                message: '至少填写一个标签'
+                message: $t('cms.atLeastOneTag')
               }
             ]"
           >
-            <el-select v-model="formData.tags" multiple filterable allow-create placeholder="输入标签" />
+            <el-select v-model="formData.tags" multiple filterable allow-create :placeholder="$t('cms.inputTags')" />
           </el-form-item>
-          <el-form-item label="可评论" prop="is_can_comment" class="mt-6">
+          <el-form-item :label="$t('cms.canComment')" prop="is_can_comment" class="mt-6">
             <el-radio-group v-model="formData.is_can_comment">
-              <el-radio-button :label="1">是</el-radio-button>
-              <el-radio-button :label="2">否</el-radio-button>
+              <el-radio-button :label="1">{{ $t('system.yes') }}</el-radio-button>
+              <el-radio-button :label="2">{{ $t('system.no') }}</el-radio-button>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="类型" prop="type" class="mt-6">
+          <el-form-item :label="$t('cms.type')" prop="type" class="mt-6">
             <el-radio-group v-model="formData.type">
-              <el-radio-button :label="1">文章</el-radio-button>
-              <el-radio-button :label="2">页面</el-radio-button>
+              <el-radio-button :label="1">{{ $t('cms.post') }}</el-radio-button>
+              <el-radio-button :label="2">{{ $t('cms.page') }}</el-radio-button>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="状态" prop="status" class="mt-6">
+          <el-form-item :label="$t('system.status')" prop="status" class="mt-6">
             <el-radio-group v-model="formData.status">
-              <el-radio-button label="1">发布</el-radio-button>
-              <el-radio-button label="2">草稿</el-radio-button>
+              <el-radio-button label="1">{{ $t('cms.publish') }}</el-radio-button>
+              <el-radio-button label="2">{{ $t('cms.draft') }}</el-radio-button>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="置顶" prop="top" class="mt-6" v-if="formData.type === 1">
+          <el-form-item :label="$t('cms.pinned')" prop="top" class="mt-6" v-if="formData.type === 1">
             <el-radio-group v-model="formData.top">
-              <el-radio-button label="1">分类</el-radio-button>
-              <el-radio-button label="2">首页</el-radio-button>
-              <el-radio-button label="3">全局</el-radio-button>
+              <el-radio-button label="1">{{ $t('cms.category') }}</el-radio-button>
+              <el-radio-button label="2">{{ $t('cms.homepage') }}</el-radio-button>
+              <el-radio-button label="3">{{ $t('system.all') }}</el-radio-button>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="排序" prop="order" class="mt-6">
+          <el-form-item :label="$t('cms.sort')" prop="order" class="mt-6">
             <el-input-number v-model="formData.order" name="order" clearable :min="1" />
           </el-form-item>
 
           <div class="bg-white dark:bg-regal-dark">
             <div class="flex justify-center p-3">
               <router-link to="/cms/articles/post">
-                <el-button>取消</el-button>
+                <el-button>{{ $t('system.cancel') }}</el-button>
               </router-link>
-              <el-button type="primary" @click="submitForm(form)" class="ml-5">保存</el-button>
+              <el-button type="primary" @click="submitForm(form)" class="ml-5">{{ $t('system.save') }}</el-button>
             </div>
           </div>
         </div>

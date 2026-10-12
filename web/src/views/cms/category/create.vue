@@ -1,54 +1,54 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-    <el-form-item label="父级分类" prop="parent_id">
-      <el-tree-select v-model="formData.parent_id" value-key="id" placeholder="请选择" clearable class="w-full" :data="category" check-strictly :props="{ value: 'id', label: 'name' }" />
+    <el-form-item :label="$t('cms.parentCategory')" prop="parent_id">
+      <el-tree-select v-model="formData.parent_id" value-key="id" :placeholder="$t('system.pleaseSelect')" clearable class="w-full" :data="category" check-strictly :props="{ value: 'id', label: 'name' }" />
     </el-form-item>
     <el-form-item
-      label="分类名称"
+      :label="$t('cms.categoryName')"
       prop="name"
       :rules="[
         {
           required: true,
-          message: '分类名称必须填写'
+          message: $t('cms.categoryNameRequired')
         }
       ]"
     >
       <el-input v-model="formData.name" name="name" clearable />
     </el-form-item>
     <el-form-item
-      label="别名"
+      :label="$t('cms.slug')"
       prop="slug"
       :rules="[
         {
           required: true,
-          message: '分类别名必须填写'
+          message: $t('cms.slugRequired')
         }
       ]"
     >
       <el-input v-model="formData.slug" name="slug" clearable />
-      <div class="text-sm text-gray-300">别名可以自定义分类名称, 通常只包含字母、数字和"_,-"连字符</div>
-      <div class="text-sm text-gray-300">别名可以自定义作 url 短链接使用，所以分类是可以自定义链接的</div>
+      <div class="text-sm text-gray-300">{{ $t('cms.slugTip1') }}</div>
+      <div class="text-sm text-gray-300">{{ $t('cms.slugTip2') }}</div>
     </el-form-item>
-    <el-form-item label="类型" prop="type">
-      <el-select v-model="formData.type" placeholder="选择类型">
+    <el-form-item :label="$t('cms.type')" prop="type">
+      <el-select v-model="formData.type" :placeholder="$t('cms.selectType')">
         <el-option v-for="item in cateTypes" :key="item.value" :label="item.name" :value="item.value" />
       </el-select>
     </el-form-item>
     <el-form-item
-      label="链接地址"
+      :label="$t('cms.linkAddress')"
       prop="href"
       v-if="formData.type === 2"
       :rules="[
         {
           type: 'url',
           required: true,
-          message: '链接地址格式不正确'
+          message: $t('cms.linkAddressInvalid')
         }
       ]"
     >
-      <el-input v-model="formData.href" name="href" placeholder="请输入链接地址" />
+      <el-input v-model="formData.href" name="href" :placeholder="$t('cms.linkAddressPlaceholder')" />
     </el-form-item>
-    <el-form-item label="排序" prop="order">
+    <el-form-item :label="$t('cms.sort')" prop="order">
       <el-input-number v-model="formData.order" name="order" :min="1" />
     </el-form-item>
     <div class="flex justify-end">

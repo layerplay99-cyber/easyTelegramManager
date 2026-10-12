@@ -1,12 +1,12 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
     <el-form-item
-      label="名称"
+      :label="$t('cms.name')"
       prop="name"
       :rules="[
         {
           required: true,
-          message: '标签名称必须填写'
+          message: $t('cms.tagNameRequired')
         }
       ]"
     >

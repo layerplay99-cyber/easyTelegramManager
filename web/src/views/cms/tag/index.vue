@@ -2,7 +2,7 @@
   <div>
     <Search :search="search" :reset="reset">
       <template v-slot:body>
-        <el-form-item label="名称">
+        <el-form-item :label="$t('cms.name')">
           <el-input v-model="query.name" clearable />
         </el-form-item>
       </template>
@@ -12,9 +12,9 @@
       <el-table :data="tableData" class="mt-3" v-loading="loading" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="ID" />
-        <el-table-column prop="name" label="名称" />
-        <el-table-column prop="created_at" label="创建时间" />
-        <el-table-column label="操作">
+        <el-table-column prop="name" :label="$t('cms.name')" />
+        <el-table-column prop="created_at" :label="$t('system.createTime')" />
+        <el-table-column :label="$t('system.operation')">
           <template #default="scope">
             <Update @click="open(scope.row.id)" />
             <Destroy @click="destroy(api, scope.row.id)" />
@@ -23,7 +23,7 @@
       </el-table>
       <div class="flex justify-between">
         <div class="pt-4">
-          <Destroy text="批量删除" @click="multiDel" />
+          <Destroy :text="$t('system.batchDelete')" @click="multiDel" />
         </div>
         <Paginate />
       </div>
@@ -43,6 +43,7 @@ import { useGetList } from '@/composables/curd/useGetList'
 import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
 import Message from '@/support/message'
+import { t } from '@/support/helper'
 
 const api = 'cms/tag'
 
@@ -69,7 +70,7 @@ const multiDel = () => {
     ids += item.id + ','
   })
   if (ids.length === 0) {
-    Message.error('请选择删除的标签')
+    Message.error(t('cms.selectTagsToDelete'))
   } else {
     destroy('/cms/tag', ids.substring(0, ids.length - 1))
   }

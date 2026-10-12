@@ -48,7 +48,6 @@ const th = {
     fieldRequired: 'ฟิลด์นี้จำเป็นต้องกรอก',
     batchDelete: 'ลบแบบกลุ่ม',
     create: 'สร้าง',
-    update: 'อัปเดต',
     invalidFileType: 'ประเภทไฟล์ไม่รองรับ รองรับเฉพาะ',
     loginExpiredReLogin: 'การเข้าสู่ระบบหมดอายุ กรุณาเข้าสู่ระบบใหม่'
   },

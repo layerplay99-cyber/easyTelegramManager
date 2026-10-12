@@ -628,10 +628,26 @@ const th = {
     welcome: '👏ยินดีต้อนรับกลับ',
     lost_password: 'ลืมรหัสผ่าน?',
     remember: 'จดจำฉัน',
+    verifyLogin: 'ยืนยันและเข้าสู่ระบบ',
+    codePlaceholder: 'กรุณากรอกรหัส 6 หลัก',
+    codeTip: 'เปิด Google Authenticator แล้วกรอกรหัส 6 หลัก',
+    codeRequired: 'กรุณากรอกรหัสยืนยัน',
+    codeMustBeSixDigits: 'รหัสยืนยันต้องเป็นตัวเลข 6 หลัก',
+    enterTwoFactorCode: 'กรุณากรอกรหัสยืนยันสองขั้น',
+    setup2FA: 'ตั้งค่าการยืนยันสองขั้น',
+    scanQrTip: 'กรุณาใช้ Google Authenticator สแกน QR ด้านล่าง',
+    scanQrToSetup: 'กรุณาสแกน QR เพื่อตั้งค่าการยืนยันสองขั้น',
+    finishSetup: 'ตั้งค่าเสร็จสิ้น',
+    step1: '1. ดาวน์โหลดแอป Google Authenticator',
+    step2: '2. สแกน QR โค้ดด้านบน',
+    step3: '3. กรอกตัวเลข 6 หลักที่แสดงในแอป',
+    bind2FASuccess: 'ผูก 2FA สำเร็จ',
+    verifyFailed: 'การยืนยันล้มเหลว',
     verify: {
       email: {
         required: 'กรุณาใส่อีเมลก่อน',
-        invalid: 'ที่อยู่อีเมลไม่ถูกต้อง'
+        invalid: 'ที่อยู่อีเมลไม่ถูกต้อง',
+        invalidUserOrEmail: 'กรุณากรอกชื่อผู้ใช้หรืออีเมลที่ถูกต้อง'
       },
 
       username: {

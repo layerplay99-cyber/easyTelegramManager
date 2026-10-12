@@ -52,7 +52,7 @@
                                 type="text"
                                 autocomplete="off"
                                 size="large"
-                                placeholder="请输入6位验证码"
+                                :placeholder="$t('login.codePlaceholder')"
                                 maxlength="6"
                                 class="h-12 text-base"
                             >
@@ -61,7 +61,7 @@
                                 </template>
                             </el-input>
                             <div class="text-sm text-gray-500 mt-1">
-                                请打开Google Authenticator输入6位验证码
+                                {{ $t('login.codeTip') }}
                             </div>
                         </el-form-item>
                     </el-form>
@@ -77,7 +77,7 @@
 
                     <div class="w-11/12 sm:w-4/5 mx-auto mt-5">
                         <el-button type="primary" @click="submit(form)" size="large" class="w-full text-xl">
-                            {{ showCodeInput ? '验证登录' : $t('login.sign_in') }}
+                            {{ showCodeInput ? $t('login.verifyLogin') : $t('login.sign_in') }}
                         </el-button>
 
                         <!-- 调试用：手动触发2FA设置 -->
@@ -96,8 +96,8 @@
                 <!-- 2FA设置对话框内容 -->
                 <div v-else class="w-11/12 sm:w-4/5 mx-auto">
                     <div class="text-center mb-6">
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">设置二次验证</h3>
-                        <p class="text-sm text-gray-600">请使用Google Authenticator扫描下方二维码</p>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">{{ $t('login.setup2FA') }}</h3>
+                        <p class="text-sm text-gray-600">{{ $t('login.scanQrTip') }}</p>
                     </div>
 
                     <!-- 二维码 -->
@@ -109,7 +109,7 @@
                     <div class="space-y-4">
                         <el-input
                             v-model="twoFactorSetup.verificationCode"
-                            placeholder="请输入6位验证码"
+                            :placeholder="$t('login.codePlaceholder')"
                             maxlength="6"
                             size="large"
                             class="text-center"
@@ -120,16 +120,16 @@
                         </el-input>
 
                         <div class="text-xs text-gray-500 text-center">
-                            1. 下载Google Authenticator应用<br/>
-                            2. 扫描上方二维码<br/>
-                            3. 输入应用中显示的6位数字
+                            {{ $t('login.step1') }}<br/>
+                            {{ $t('login.step2') }}<br/>
+                            {{ $t('login.step3') }}
                         </div>
                     </div>
 
                     <!-- 操作按钮 -->
                     <div class="flex space-x-3 mt-6">
                         <el-button @click="cancelTwoFactor" size="large" class="flex-1">
-                            取消
+                            {{ $t('system.cancel') }}
                         </el-button>
                         <el-button
                             type="primary"
@@ -138,7 +138,7 @@
                             class="flex-1"
                             :loading="loading"
                         >
-                            完成设置
+                            {{ $t('login.finishSetup') }}
                         </el-button>
                     </div>
                 </div>

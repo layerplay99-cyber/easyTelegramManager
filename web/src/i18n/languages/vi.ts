@@ -628,10 +628,26 @@ const vi = {
     welcome: '👏Chào mừng trở lại',
     lost_password: 'Quên mật khẩu?',
     remember: 'Ghi nhớ đăng nhập',
+    verifyLogin: 'Xác minh & Đăng nhập',
+    codePlaceholder: 'Vui lòng nhập mã 6 số',
+    codeTip: 'Hãy mở Google Authenticator và nhập mã 6 số',
+    codeRequired: 'Vui lòng nhập mã xác minh',
+    codeMustBeSixDigits: 'Mã xác minh phải gồm 6 chữ số',
+    enterTwoFactorCode: 'Vui lòng nhập mã xác thực 2 bước',
+    setup2FA: 'Cài đặt xác thực 2 bước',
+    scanQrTip: 'Vui lòng dùng Google Authenticator quét mã QR bên dưới',
+    scanQrToSetup: 'Vui lòng quét mã QR để cài đặt xác thực 2 bước',
+    finishSetup: 'Hoàn tất cài đặt',
+    step1: '1. Tải ứng dụng Google Authenticator',
+    step2: '2. Quét mã QR ở trên',
+    step3: '3. Nhập 6 chữ số hiển thị trong ứng dụng',
+    bind2FASuccess: 'Liên kết 2FA thành công',
+    verifyFailed: 'Xác minh thất bại',
     verify: {
       email: {
         required: 'Vui lòng nhập email trước',
-        invalid: 'Địa chỉ email không hợp lệ'
+        invalid: 'Địa chỉ email không hợp lệ',
+        invalidUserOrEmail: 'Vui lòng nhập tên người dùng hoặc email hợp lệ'
       },
 
       username: {

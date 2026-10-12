@@ -628,10 +628,26 @@ const en = {
     welcome: 'Welcome Back👏',
     lost_password: 'lost password?',
     remember: 'Remember me',
+    verifyLogin: 'Verify & Sign In',
+    codePlaceholder: 'Enter the 6-digit code',
+    codeTip: 'Open Google Authenticator and enter the 6-digit code',
+    codeRequired: 'Please enter the code',
+    codeMustBeSixDigits: 'The code must be 6 digits',
+    enterTwoFactorCode: 'Please enter the two-factor code',
+    setup2FA: 'Set Up Two-Factor Authentication',
+    scanQrTip: 'Scan the QR code below with Google Authenticator',
+    scanQrToSetup: 'Scan the QR code to set up two-factor authentication',
+    finishSetup: 'Finish Setup',
+    step1: '1. Install the Google Authenticator app',
+    step2: '2. Scan the QR code above',
+    step3: '3. Enter the 6-digit number shown in the app',
+    bind2FASuccess: '2FA bound successfully',
+    verifyFailed: 'Verification failed',
     verify: {
       email: {
         required: 'Please input email first',
-        invalid: 'Email address is invalid'
+        invalid: 'Email address is invalid',
+        invalidUserOrEmail: 'Please enter a valid username or email'
       },
 
       password: {

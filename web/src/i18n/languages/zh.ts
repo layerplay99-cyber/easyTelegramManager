@@ -628,10 +628,26 @@ const zh = {
     welcome: '👏欢迎回来',
     lost_password: '忘记密码?',
     remember: '记住我',
+    verifyLogin: '验证登录',
+    codePlaceholder: '请输入6位验证码',
+    codeTip: '请打开Google Authenticator输入6位验证码',
+    codeRequired: '请输入验证码',
+    codeMustBeSixDigits: '验证码必须是6位数字',
+    enterTwoFactorCode: '请输入二次验证码',
+    setup2FA: '设置二次验证',
+    scanQrTip: '请使用Google Authenticator扫描下方二维码',
+    scanQrToSetup: '请扫描二维码设置二次验证',
+    finishSetup: '完成设置',
+    step1: '1. 下载Google Authenticator应用',
+    step2: '2. 扫描上方二维码',
+    step3: '3. 输入应用中显示的6位数字',
+    bind2FASuccess: '2FA绑定成功',
+    verifyFailed: '验证失败',
     verify: {
       email: {
         required: '请先输入账号',
-        invalid: '邮箱地址无效'
+        invalid: '邮箱地址无效',
+        invalidUserOrEmail: '请输入正确的用户名或邮箱'
       },
 
       username: {

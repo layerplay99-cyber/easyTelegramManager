@@ -6,7 +6,7 @@
     </el-badge>
     <el-popover ref="popoverRef" :virtual-ref="messageRef" trigger="hover" virtual-triggering :width="300">
       <el-tabs model-value="message">
-        <el-tab-pane label="消息(8)" name="message">
+        <el-tab-pane :label="$t('nav.messages')" name="message">
           <div>
             <div class="flex flex-row w-full border-b border-b-slate-300 dark:border-b-slate-500 mt-2" v-for="(message, key) in messages" :key="key">
               <div>
@@ -18,7 +18,7 @@
             </div>
           </div>
         </el-tab-pane>
-        <el-tab-pane label="通知(1)" name="notice">
+        <el-tab-pane :label="$t('nav.notices')" name="notice">
           <div>
             <div class="flex flex-row w-full border-b border-b-slate-300 dark:border-b-slate-500 mt-2" v-for="(message, key) in messages" :key="key">
               <div>
@@ -37,6 +37,7 @@
 <script setup lang="ts">
 import { ref, unref } from 'vue'
 import { ClickOutside as vClickOutside } from 'element-plus'
+import { t } from '@/support/helper'
 const messageRef = ref()
 const popoverRef = ref()
 const onClickOutside = () => {
@@ -45,5 +46,5 @@ const onClickOutside = () => {
 
 const messages = ref()
 
-messages.value = ['你收到 botAdmin 的好友申请', '你收到 botAdmin pro 的 license 授权', '你收到 botAdmin 通知']
+messages.value = [t('nav.friendRequest'), t('nav.licenseGrant'), t('nav.botAdminNotice')]
 </script>

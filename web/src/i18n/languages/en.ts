@@ -61,7 +61,16 @@ const en = {
   },
 
   nav: {
-    searchMenu: 'Search menu'
+    searchMenu: 'Search menu',
+    messages: 'Messages(8)',
+    notices: 'Notices(1)',
+    friendRequest: 'You received a friend request from botAdmin',
+    licenseGrant: 'You received a botAdmin pro license grant',
+    botAdminNotice: 'You received a botAdmin notice',
+    refresh: 'Refresh',
+    close: 'Close',
+    closeOthers: 'Close others',
+    closeAll: 'Close all'
   },
 
   menu: {
@@ -496,6 +505,27 @@ const en = {
     yearMonthDayStructure: 'Year/Month/Day structure',
     urlSuffix: 'URL Suffix',
     urlSuffixTip: 'For example: html, asp, php and other suffixes, but invalid in dynamic mode'
+  },
+
+  featureConfig: {
+    title: 'Feature Config',
+    unconfigured: 'Unconfigured Features',
+    configured: 'Configured Features',
+    noAvailable: 'No available features',
+    noConfigured: 'No configured features',
+    defaultUpstream: 'Default upstream',
+    remove: 'Remove',
+    saveConfig: 'Save Config'
+  },
+
+  error: {
+    notFound: 'Sorry, the page you visited does not exist',
+    backHome: 'Back to Home'
+  },
+
+  editor: {
+    placeholder: 'Enter content here',
+    uploadSizeError: 'Upload failed, please keep the image size under 10M'
   },
 
   dict: {

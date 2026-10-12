@@ -61,7 +61,16 @@ const zh = {
   },
 
   nav: {
-    searchMenu: '请输入菜单名称'
+    searchMenu: '请输入菜单名称',
+    messages: '消息(8)',
+    notices: '通知(1)',
+    friendRequest: '你收到 botAdmin 的好友申请',
+    licenseGrant: '你收到 botAdmin pro 的 license 授权',
+    botAdminNotice: '你收到 botAdmin 通知',
+    refresh: '刷新',
+    close: '关闭',
+    closeOthers: '关闭其他',
+    closeAll: '关闭所有'
   },
 
   menu: {
@@ -495,6 +504,27 @@ const zh = {
     yearMonthDayStructure: '年月日结构',
     urlSuffix: 'URL后缀',
     urlSuffixTip: '例如: html, asp, php 等等后缀，但是在动态模式下无效'
+  },
+
+  featureConfig: {
+    title: '功能配置',
+    unconfigured: '未配置功能',
+    configured: '已配置功能',
+    noAvailable: '暂无可用功能',
+    noConfigured: '暂无已配置功能',
+    defaultUpstream: '默认上游',
+    remove: '移除',
+    saveConfig: '保存配置'
+  },
+
+  error: {
+    notFound: '抱歉，您访问的页面不存在',
+    backHome: '回到首页'
+  },
+
+  editor: {
+    placeholder: '在这里输入内容',
+    uploadSizeError: '上传失败，图片大小请控制在 10M 以内'
   },
 
   dict: {

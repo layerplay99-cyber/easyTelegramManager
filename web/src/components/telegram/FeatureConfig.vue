@@ -1,11 +1,11 @@
 <template>
     <!-- 功能配置对话框 -->
-    <el-dialog v-model="visible" title="功能配置" width="900px" destroy-on-close @close="handleClose">
+    <el-dialog v-model="visible" :title="$t('featureConfig.title')" width="900px" destroy-on-close @close="handleClose">
         <div v-loading="loading">
             <div class="flex gap-4">
                 <!-- 左侧：未配置功能 -->
                 <div class="flex-1 border rounded p-4 flex flex-col" style="height: 450px;">
-                    <div class="text-lg font-semibold mb-4">未配置功能</div>
+                    <div class="text-lg font-semibold mb-4">{{ $t('featureConfig.unconfigured') }}</div>
                     <div class="flex-1 overflow-y-auto space-y-2">
                         <div
                             v-for="feature in availableFeatures"
@@ -21,11 +21,11 @@
                                 size="small"
                                 @click="handleAddFeature(feature)"
                             >
-                                添加
+                                {{ $t('system.add') }}
                             </el-button>
                         </div>
                         <div v-if="availableFeatures.length === 0" class="text-center text-gray-400 py-8">
-                            暂无可用功能
+                            {{ $t('featureConfig.noAvailable') }}
                         </div>
                     </div>
                     <el-pagination
@@ -41,7 +41,7 @@
 
                 <!-- 右侧：已配置功能 -->
                 <div class="flex-1 border rounded p-4 flex flex-col" style="height: 450px;">
-                    <div class="text-lg font-semibold mb-4">已配置功能</div>
+                    <div class="text-lg font-semibold mb-4">{{ $t('featureConfig.configured') }}</div>
                     <div class="flex-1 overflow-y-auto space-y-2">
                         <div
                             v-for="feature in selectedFeatures"
@@ -55,7 +55,7 @@
                             <div class="flex items-center gap-2">
                                 <el-select
                                     v-model="feature.third_config_id"
-                                    placeholder="默认上游"
+                                    :placeholder="$t('featureConfig.defaultUpstream')"
                                     clearable
                                     filterable
                                     class="w-40"
@@ -72,8 +72,8 @@
                                     v-model="feature.enable"
                                     :active-value="1"
                                     :inactive-value="0"
-                                    active-text="开启"
-                                    inactive-text="关闭"
+                                    :active-text="$t('system.on')"
+                                    :inactive-text="$t('system.off')"
                                 />
                                 <el-button
                                     type="danger"
@@ -81,12 +81,12 @@
                                     link
                                     @click="handleRemoveFeature(feature)"
                                 >
-                                    移除
+                                    {{ $t('featureConfig.remove') }}
                                 </el-button>
                             </div>
                         </div>
                         <div v-if="selectedFeatures.length === 0" class="text-center text-gray-400 py-8">
-                            暂无已配置功能
+                            {{ $t('featureConfig.noConfigured') }}
                         </div>
                     </div>
                     <el-pagination
@@ -104,9 +104,9 @@
 
         <template #footer>
             <div class="dialog-footer">
-                <el-button @click="handleClose">取消</el-button>
+                <el-button @click="handleClose">{{ $t('system.cancel') }}</el-button>
                 <el-button type="primary" @click="handleSave" :loading="saving">
-                    保存配置
+                    {{ $t('featureConfig.saveConfig') }}
                 </el-button>
             </div>
         </template>
@@ -117,6 +117,7 @@
 import { ref, watch } from 'vue'
 import { useGroup } from '@/stores/modules/telegram/group'
 import http from '@/support/http'
+import { t } from '@/support/helper'
 
 interface Props {
     modelValue: boolean
@@ -138,10 +139,10 @@ const emit = defineEmits<{
 
 // 类型映射
 const categoryMap: Record<string, string> = {
-    'system': '系统',
-    'custom': '客户端',
-    'bot': '机器人',
-    'realMan': '真人'
+    'system': t('feature.categories.system'),
+    'custom': t('feature.categories.custom'),
+    'bot': t('feature.categories.bot'),
+    'realMan': t('feature.categories.realMan')
 }
 
 const visible = ref(false)

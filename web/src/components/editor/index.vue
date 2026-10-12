@@ -42,7 +42,7 @@ import '@/public/tinymce/plugins/emoticons/plugin.min'
 import '@/public/tinymce/langs/zh-CN'
 
 import Editor from '@tinymce/tinymce-vue'
-import { env, warpHost } from '@/support/helper'
+import { env, warpHost, t } from '@/support/helper'
 import Http from '@/support/http'
 import Message from '@/support/message'
 import { ref, watch } from 'vue'
@@ -70,7 +70,7 @@ const props = defineProps({
 
   placeholder: {
     type: String,
-    default: '在这里输入内容'
+    default: t('editor.placeholder')
   },
 
   plugins: {
@@ -93,7 +93,7 @@ const aipKey: string = 's1ntkmnev0ggx0hhaqnubrdxhv0ly99uyrdbckeaycx7iz6v'
 const uploaded = (blobInfo: any, progress: any) =>
   new Promise((resolve, reject) => {
     if (blobInfo.blob().size / 1024 / 1024 > 10) {
-      Message.error('上传失败，图片大小请控制在 10M 以内')
+      Message.error(t('editor.uploadSizeError'))
     } else {
       const params = new FormData()
       params.append('image', blobInfo.blob())

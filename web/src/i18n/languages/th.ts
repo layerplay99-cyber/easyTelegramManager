@@ -61,7 +61,16 @@ const th = {
   },
 
   nav: {
-    searchMenu: 'ค้นหาเมนู'
+    searchMenu: 'ค้นหาเมนู',
+    messages: 'ข้อความ(8)',
+    notices: 'การแจ้งเตือน(1)',
+    friendRequest: 'คุณได้รับคำขอเป็นเพื่อนจาก botAdmin',
+    licenseGrant: 'คุณได้รับการอนุญาต license botAdmin pro',
+    botAdminNotice: 'คุณได้รับการแจ้งเตือนจาก botAdmin',
+    refresh: 'รีเฟรช',
+    close: 'ปิด',
+    closeOthers: 'ปิดอื่นๆ',
+    closeAll: 'ปิดทั้งหมด'
   },
 
   menu: {
@@ -495,6 +504,27 @@ const th = {
     yearMonthDayStructure: 'โครงสร้างปี/เดือน/วัน',
     urlSuffix: 'ส่วนท้าย URL',
     urlSuffixTip: 'เช่น html, asp, php เป็นต้น แต่ไม่มีผลในโหมดไดนามิก'
+  },
+
+  featureConfig: {
+    title: 'ตั้งค่าฟีเจอร์',
+    unconfigured: 'ฟีเจอร์ที่ยังไม่ได้ตั้งค่า',
+    configured: 'ฟีเจอร์ที่ตั้งค่าแล้ว',
+    noAvailable: 'ไม่มีฟีเจอร์ที่ใช้ได้',
+    noConfigured: 'ไม่มีฟีเจอร์ที่ตั้งค่าแล้ว',
+    defaultUpstream: 'ต้นทางเริ่มต้น',
+    remove: 'ลบออก',
+    saveConfig: 'บันทึกการตั้งค่า'
+  },
+
+  error: {
+    notFound: 'ขออภัย หน้าที่คุณเข้าชมไม่มีอยู่',
+    backHome: 'กลับหน้าแรก'
+  },
+
+  editor: {
+    placeholder: 'ป้อนเนื้อหาที่นี่',
+    uploadSizeError: 'อัปโหลดล้มเหลว กรุณาควบคุมขนาดรูปภาพไม่เกิน 10M'
   },
 
   dict: {

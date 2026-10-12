@@ -1,7 +1,7 @@
 <template>
   <div class="h-16 flex items-center justify-center logo-bg">
     <img :src="logo" class="h-9 w-9" />
-    <div class="text-md logo-text pl-3" v-if="store.isExpand">机器人管理系统</div>
+    <div class="text-md logo-text pl-3" v-if="store.isExpand">{{ $t('system.name') }}</div>
   </div>
 </template>
 

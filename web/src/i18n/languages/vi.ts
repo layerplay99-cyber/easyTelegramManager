@@ -61,7 +61,16 @@ const vi = {
   },
 
   nav: {
-    searchMenu: 'Tìm kiếm menu'
+    searchMenu: 'Tìm kiếm menu',
+    messages: 'Tin nhắn(8)',
+    notices: 'Thông báo(1)',
+    friendRequest: 'Bạn nhận được lời mời kết bạn từ botAdmin',
+    licenseGrant: 'Bạn nhận được cấp license botAdmin pro',
+    botAdminNotice: 'Bạn nhận được thông báo từ botAdmin',
+    refresh: 'Làm mới',
+    close: 'Đóng',
+    closeOthers: 'Đóng các tab khác',
+    closeAll: 'Đóng tất cả'
   },
 
   menu: {
@@ -495,6 +504,27 @@ const vi = {
     yearMonthDayStructure: 'Cấu trúc năm/tháng/ngày',
     urlSuffix: 'Hậu tố URL',
     urlSuffixTip: 'Ví dụ: html, asp, php... nhưng không có hiệu lực ở chế độ động'
+  },
+
+  featureConfig: {
+    title: 'Cấu hình tính năng',
+    unconfigured: 'Tính năng chưa cấu hình',
+    configured: 'Tính năng đã cấu hình',
+    noAvailable: 'Không có tính năng khả dụng',
+    noConfigured: 'Chưa có tính năng được cấu hình',
+    defaultUpstream: 'Upstream mặc định',
+    remove: 'Gỡ bỏ',
+    saveConfig: 'Lưu cấu hình'
+  },
+
+  error: {
+    notFound: 'Xin lỗi, trang bạn truy cập không tồn tại',
+    backHome: 'Về trang chủ'
+  },
+
+  editor: {
+    placeholder: 'Nhập nội dung tại đây',
+    uploadSizeError: 'Tải lên thất bại, vui lòng giữ dung lượng ảnh dưới 10M'
   },
 
   dict: {

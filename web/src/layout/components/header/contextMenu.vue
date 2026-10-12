@@ -15,6 +15,7 @@
 <script lang="ts" setup>
 import { ref, reactive, onUnmounted } from 'vue'
 import { useNavTabStore } from '@/stores/modules/tabs'
+import { t } from '@/support/helper'
 
 const navTabStore = useNavTabStore()
 interface MenuItem {
@@ -26,25 +27,25 @@ const position = reactive({ x: 0, y: 0 })
 const showMenu = ref(false)
 const menuItems = ref<Array<MenuItem>>([
   {
-    label: '刷新',
+    label: t('nav.refresh'),
     action: () => {
       navTabStore.refreshCurrentTab()
     }
   },
   {
-    label: '关闭',
+    label: t('nav.close'),
     action: () => {
       navTabStore.removeCurrentTab()
     }
   },
   {
-    label: '关闭其他',
+    label: t('nav.closeOthers'),
     action: () => {
       navTabStore.removeOtherTabs()
     }
   },
   {
-    label: '关闭所有',
+    label: t('nav.closeAll'),
     action: () => {
       navTabStore.removeAllTabs()
     }

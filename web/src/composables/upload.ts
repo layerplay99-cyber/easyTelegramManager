@@ -4,6 +4,7 @@ import { Code } from '@/enum/app'
 import Message from '@/support/message'
 import { genFileId } from 'element-plus'
 import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
+import { t } from '@/support/helper'
 
 // 上传文件
 export function uploadFile(action: string, ext: Array<String>, isValidate: boolean = true) {
@@ -18,7 +19,7 @@ export function uploadFile(action: string, ext: Array<String>, isValidate: boole
     if (isValidate) {
       const isCanUpload = ext.indexOf(getFileExt(file.name).substring(1)) > -1
       if (!isCanUpload) {
-        Message.error('不符合上传文件类型，仅支持' + fileExtensions)
+        Message.error(t('system.invalidFileType') + fileExtensions)
       }
       return isCanUpload
     } else {
@@ -60,7 +61,7 @@ export function uploadImage(action: string, extensions: Array<String>) {
   const beforeUpload = (file: UploadRawFile) => {
     const isCanUpload = fileExtensions.indexOf(getFileExt(file.name).substring(1)) > -1
     if (!isCanUpload) {
-      Message.error('不符合上传文件类型，仅支持' + fileExtensions)
+      Message.error(t('system.invalidFileType') + fileExtensions)
     }
     return isCanUpload
   }

@@ -46,7 +46,9 @@ const th = {
     confirmDelete: 'ยืนยันการลบหรือไม่',
     pleaseInput: 'กรุณากรอก',
     fieldRequired: 'ฟิลด์นี้จำเป็นต้องกรอก',
-    batchDelete: 'ลบแบบกลุ่ม'
+    batchDelete: 'ลบแบบกลุ่ม',
+    invalidFileType: 'ประเภทไฟล์ไม่รองรับ รองรับเฉพาะ',
+    loginExpiredReLogin: 'การเข้าสู่ระบบหมดอายุ กรุณาเข้าสู่ระบบใหม่'
   },
 
   table: {

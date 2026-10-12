@@ -46,7 +46,9 @@ const zh = {
     confirmDelete: '确定删除吗',
     pleaseInput: '请输入',
     fieldRequired: '该字段是必填字段',
-    batchDelete: '批量删除'
+    batchDelete: '批量删除',
+    invalidFileType: '不符合上传文件类型，仅支持',
+    loginExpiredReLogin: '登录已失效，需要重新登陆'
   },
 
   table: {

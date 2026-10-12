@@ -2,9 +2,9 @@ import http from '@/support/http'
 import { Code } from '@/enum/app'
 import Message from '@/support/message'
 import { ref, watch } from 'vue'
-import { isFunction } from '@/support/helper'
+import { isFunction, t } from '@/support/helper'
 
-export function useDestroy(confirm: string = '确认删除吗') {
+export function useDestroy(confirm: string = t('system.confirmDelete')) {
   const isDeleted = ref(false)
 
   const beforeDestroy = ref()

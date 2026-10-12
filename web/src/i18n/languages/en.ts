@@ -46,7 +46,9 @@ const en = {
     confirmDelete: 'Are you sure you want to delete?',
     pleaseInput: 'Please enter',
     fieldRequired: 'This field is required',
-    batchDelete: 'Batch Delete'
+    batchDelete: 'Batch Delete',
+    invalidFileType: 'Unsupported file type, only ',
+    loginExpiredReLogin: 'Login expired, please sign in again'
   },
 
   table: {

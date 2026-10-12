@@ -6,6 +6,8 @@ import router from '@/router'
 import ResponseData from '@/types/responseData'
 import i18n from '@/i18n'
 
+const t = (key: string) => i18n.global.t(key)
+
 type responseType = 'arraybuffer' | 'document' | 'json' | 'text' | 'stream' | 'blob'
 
 /**
@@ -215,7 +217,7 @@ class Request {
           Message.error(message || 'Error')
         } else if (code === Code.LOST_LOGIN || code === Code.LOGIN_EXPIRED) {
           // to re-login
-          Message.confirm('登录已失效，需要重新登陆', function () {
+          Message.confirm(t('system.loginExpiredReLogin'), function () {
             removeAuthToken()
             router.push('/login')
           })

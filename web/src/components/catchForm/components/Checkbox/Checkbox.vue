@@ -1,5 +1,5 @@
 <template>
-  <div v-if="!options.length" style="font-size: 12px">暂无选项</div>
+  <div v-if="!options.length" style="font-size: 12px">{{ $t('catchForm.noOptions') }}</div>
 
   <el-checkbox-group v-bind="$attrs" v-model="modelValue" @change="selectChange">
     <template v-if="optionType === 'circle' || optionType === 'border'">

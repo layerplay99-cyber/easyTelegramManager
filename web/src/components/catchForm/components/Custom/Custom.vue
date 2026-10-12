@@ -1,5 +1,5 @@
 <template>
-  <span class="empty" v-if="!componentName">请输入全局注册得组件名</span>
+  <span class="empty" v-if="!componentName">{{ $t('catchForm.inputComponentName') }}</span>
   <component v-else :is="componentName" v-model="value" v-bind="$attrs" />
 </template>
 

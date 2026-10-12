@@ -27,6 +27,7 @@ import FormItem from './FormItem.vue'
 import { cloneDeep, merge } from 'lodash'
 import type { anyObject, schemaType } from '@/components/catchForm/config/commonType'
 import { $schema, $formValues, $selectData, $formEvents, $initialValues } from '@/components/catchForm/config/symbol'
+import { t } from '@/support/helper'
 
 const props = defineProps<
   Readonly<{
@@ -79,7 +80,7 @@ const defaultFooter = {
     {
       name: 'divider_xAlcpi',
       props: {
-        name: '提交',
+        name: t('catchForm.submit'),
         clickEvent: 'submitForm'
       },
       component: 'button',
@@ -88,7 +89,7 @@ const defaultFooter = {
     {
       name: 'divider_UktsYm',
       props: {
-        name: '重置',
+        name: t('catchForm.reset'),
         clickEvent: 'resetForm',
         type: 'default'
       },

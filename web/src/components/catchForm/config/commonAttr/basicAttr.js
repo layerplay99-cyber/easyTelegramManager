@@ -1,30 +1,31 @@
 import { recursionDelete } from '@/components/catchForm/support'
+import { t } from '@/support/helper'
 
 const basicAttr = (omit = [], moreAttrs = []) => {
   const attr = [
-    { label: '标签', component: 'Input', name: 'label' },
+    { label: t('catchForm.designer.label'), component: 'Input', name: 'label' },
     {
-      label: '唯一标识',
+      label: t('catchForm.designer.uniqueKey'),
       component: 'Input',
       name: 'name',
-      help: "既是唯一标识，也是数据路径。比如输入【props.name】，数据就会保存为 { props: { name:'xxx' } }"
+      help: t('catchForm.designer.uniqueKeyHelp')
     },
-    { label: '字段说明', component: 'Textarea', name: 'help' },
+    { label: t('catchForm.designer.fieldHelp'), component: 'Textarea', name: 'help' },
     {
-      label: '占位提示',
+      label: t('catchForm.designer.placeholder'),
       component: 'Input',
       name: 'props.placeholder',
       designKey: 'form-ekRL'
     },
-    { label: '初始值', component: 'Input', name: 'initialValue' },
+    { label: t('catchForm.designer.initialValue'), component: 'Input', name: 'initialValue' },
     {
       component: 'Grid',
       children: [
-        { label: '是否必填', component: 'Switch', name: 'required' },
-        { label: '是否只读', component: 'Switch', name: 'props.readonly' },
-        { label: '是否禁用', component: 'Switch', name: 'props.disabled' },
-        { label: '隐藏字段', component: 'Switch', name: 'hidden' },
-        { label: '隐藏标签', component: 'Switch', name: 'hideLabel' }
+        { label: t('catchForm.designer.required'), component: 'Switch', name: 'required' },
+        { label: t('catchForm.designer.readonly'), component: 'Switch', name: 'props.readonly' },
+        { label: t('catchForm.designer.disabled'), component: 'Switch', name: 'props.disabled' },
+        { label: t('catchForm.designer.hidden'), component: 'Switch', name: 'hidden' },
+        { label: t('catchForm.designer.hideLabel'), component: 'Switch', name: 'hideLabel' }
       ],
       props: {
         columns: 3,

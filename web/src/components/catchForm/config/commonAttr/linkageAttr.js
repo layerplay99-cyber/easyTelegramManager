@@ -1,9 +1,11 @@
+import { t } from '@/support/helper'
+
 export default [
   {
     component: 'Alert',
     props: {
       type: 'success',
-      description: '对于配置级的联动，请直接点击下方按钮【编辑配置文本】，通过插值表达式实现',
+      description: t('catchForm.designer.linkageAlert'),
       closable: true,
       'show-icon': true
     },
@@ -11,19 +13,19 @@ export default [
     name: 'form-Oqi5'
   },
   {
-    label: '值联动',
-    help: '本字段值改变时，修改其他字段的值',
+    label: t('catchForm.designer.valueLinkage'),
+    help: t('catchForm.designer.valueLinkageHelp'),
     name: 'change',
     component: 'FormList',
     children: [
       {
-        label: '目标字段',
+        label: t('catchForm.designer.targetField'),
         name: 'target',
         component: 'Input',
         props: {}
       },
       {
-        label: '值',
+        label: t('catchForm.designer.value'),
         name: 'value',
         component: 'Input',
         props: {}

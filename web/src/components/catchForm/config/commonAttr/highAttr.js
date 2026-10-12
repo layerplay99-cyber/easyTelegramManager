@@ -1,11 +1,13 @@
+import { t } from '@/support/helper'
+
 const basicAttr = (omit = []) => {
   const attr = [
-    { label: '自定义class', component: 'Input', name: 'props.class' },
+    { label: t('catchForm.designer.customClass'), component: 'Input', name: 'props.class' },
     {
-      label: '自定义style',
+      label: t('catchForm.designer.customStyle'),
       component: 'JsonEdit',
       name: 'props.style',
-      help: '与vue的style对象格式一样',
+      help: t('catchForm.designer.customStyleHelp'),
       props: {
         mode: 'dialog'
       }

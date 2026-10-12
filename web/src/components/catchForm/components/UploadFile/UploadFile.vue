@@ -68,7 +68,7 @@ watch(
     </div>
     <div v-else>
       <div class="flex items-center justify-center w-24 h-12 text-[14px] border border-blue-100 border-dashed rounded">
-        <div>点击上传文件</div>
+        <div>{{ $t('catchForm.clickUploadFile') }}</div>
       </div>
     </div>
   </el-upload>

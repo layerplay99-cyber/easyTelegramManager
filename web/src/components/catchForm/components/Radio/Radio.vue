@@ -1,6 +1,6 @@
 <!-- eslint-disable vue/no-multiple-template-root -->
 <template>
-  <div v-if="!options.length" style="font-size: 12px">暂无选项</div>
+  <div v-if="!options.length" style="font-size: 12px">{{ $t('catchForm.noOptions') }}</div>
   <el-radio-group v-model="modelValue" @change="clickRadio" v-bind="$attrs">
     <el-space wrap :direction="direction" :size="[space, space]" alignment="normal" v-if="space > 0">
       <template v-if="optionType === 'circle' || optionType === 'border'">

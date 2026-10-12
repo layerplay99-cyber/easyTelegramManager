@@ -1,10 +1,11 @@
 import apiAttr from './apiAttr'
+import { t } from '@/support/helper'
 
 export default [
   {
     component: 'Divider',
     props: {
-      title: '选项设置',
+      title: t('catchForm.designer.optionSettings'),
       contentPosition: 'center'
     },
     designKey: 'design-gSnX',
@@ -14,30 +15,30 @@ export default [
     }
   },
   {
-    label: '标签key',
+    label: t('catchForm.designer.labelKey'),
     component: 'Input',
     name: 'props.labelKey',
     designKey: 'form-X6hs'
   },
   {
-    label: '值Key',
+    label: t('catchForm.designer.valueKey'),
     component: 'Input',
     name: 'props.valueKey',
     designKey: 'form-STkl'
   },
   {
-    label: '数据模式',
+    label: t('catchForm.designer.dataMode'),
     component: 'Radio',
     name: 'props.mode',
     props: {
       mode: 'static',
       options: [
         {
-          label: '静态',
+          label: t('catchForm.designer.staticMode'),
           value: 'static'
         },
         {
-          label: '远程',
+          label: t('catchForm.designer.remoteMode'),
           value: 'remote'
         }
       ],
@@ -47,23 +48,23 @@ export default [
     designKey: 'form-PLpj'
   },
   {
-    label: '静态选项',
+    label: t('catchForm.designer.staticOptions'),
     name: 'props.options',
     component: 'FormList',
     hidden: '{{$values.props.mode!=="static"}}',
     children: [
       {
-        label: '选项名',
+        label: t('catchForm.designer.optionName'),
         name: '{{$values.props.labelKey}}',
         component: 'Input',
         props: {
-          placeholder: '请输入...'
+          placeholder: t('catchForm.designer.pleaseInput')
         },
         designKey: 'form-LnGh'
         // initialValue: "{{ '选项' + ($index+1) }}"
       },
       {
-        label: '选项值',
+        label: t('catchForm.designer.optionValue'),
         name: '{{$values.props.valueKey}}',
         component: 'Input',
         props: {},
@@ -74,8 +75,7 @@ export default [
     designKey: 'form-Iwpd',
     props: {
       mode: 'table',
-      newItemDefaults:
-        '{{ (index) => ({ [$values.props.labelKey]: `选项${index + 1}`, [$values.props.valueKey]: `value${index + 1}` }) }}'
+      newItemDefaults: `{{ (index) => ({ [$values.props.labelKey]: \`${t('catchForm.designer.optionPrefix')}\${index + 1}\`, [$values.props.valueKey]: \`value\${index + 1}\` }) }}`
     }
   },
   {

@@ -1,10 +1,11 @@
 import Custom from './Custom.vue'
+import { t } from '@/support/helper'
 
 export default {
   name: 'custom',
   component: Custom,
   initialValues: {
-    label: '自定义组件',
+    label: t('catchForm.designer.customComponent'),
     component: 'Custom',
     props: {}
   }

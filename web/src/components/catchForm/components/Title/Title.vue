@@ -5,10 +5,12 @@
 </template>
 
 <script setup>
+import { t } from '@/support/helper'
+
 defineProps({
   title: {
     type: String,
-    default: '这是一个标题'
+    default: t('catchForm.defaultTitle')
   },
   type: {
     type: String,

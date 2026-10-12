@@ -1,3 +1,5 @@
+import { t } from '@/support/helper'
+
 export default [
   {
     label: 'url',
@@ -7,7 +9,7 @@ export default [
     designKey: 'form-UrE8'
   },
   {
-    label: '请求方式',
+    label: t('catchForm.designer.requestMethod'),
     component: 'Radio',
     name: 'props.api.method',
     props: {
@@ -35,7 +37,7 @@ export default [
     designKey: 'form-nOpD'
   },
   {
-    label: '请求参数',
+    label: t('catchForm.designer.requestParams'),
     component: 'JsonEdit',
     name: 'props.api.params',
     hidden: '{{ ["POST","PUT"].includes($values.props.api.method) }}',
@@ -45,7 +47,7 @@ export default [
     }
   },
   {
-    label: '请求参数',
+    label: t('catchForm.designer.requestParams'),
     component: 'JsonEdit',
     name: 'props.api.data',
     hidden: '{{ ["GET","DELETE"].includes($values.props.api.method) }}',
@@ -55,7 +57,7 @@ export default [
     }
   },
   {
-    label: '数据路径',
+    label: t('catchForm.designer.dataPath'),
     component: 'Input',
     name: 'props.api.dataPath',
     initialValue: 'data',

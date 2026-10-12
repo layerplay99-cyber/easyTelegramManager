@@ -53,6 +53,7 @@
 import { computed, h } from 'vue'
 import FormItem from '@/components/catchForm/FormItem.vue'
 import { deepParse } from '@/components/catchForm/support'
+import { t } from '@/support/helper'
 
 const props = defineProps({
   modelValue: Array,
@@ -78,7 +79,7 @@ const props = defineProps({
     type: String
   },
   title: {
-    default: '卡片',
+    default: t('catchForm.card'),
     type: String
   },
   newItemDefaults: {

@@ -1,3 +1,5 @@
+import { t } from '@/support/helper'
+
 const mergeAttr = (attrConfig) => {
   const { basic = [], high = [], linkage = [] } = attrConfig
 
@@ -7,18 +9,18 @@ const mergeAttr = (attrConfig) => {
       name: 'mergeAttr',
       children: [
         {
-          title: '常用属性',
+          title: t('catchForm.designer.commonAttr'),
           name: 'basic',
           checked: true,
           children: basic
         },
         {
-          title: '高级属性',
+          title: t('catchForm.designer.advancedAttr'),
           name: 'high',
           children: high
         },
         {
-          title: '联动规则',
+          title: t('catchForm.designer.linkageRule'),
           name: 'linkage',
           children: linkage
         }

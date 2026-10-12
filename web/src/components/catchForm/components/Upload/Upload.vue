@@ -10,6 +10,7 @@
 <script setup>
 import { onBeforeMount, computed } from 'vue'
 import { ElUpload, ElButton, ElMessage } from 'element-plus'
+import { t } from '@/support/helper'
 
 const props = defineProps({
   action: String,
@@ -27,7 +28,7 @@ const props = defineProps({
   },
   buttonText: {
     type: String,
-    default: '点击上传'
+    default: t('catchForm.clickUpload')
   },
   limit: {
     type: Number,
@@ -58,7 +59,7 @@ const beforeAvatarUpload = rawFile => {
   // }
 
   if (rawFile.size / 1024 / 1024 > props.size) {
-    ElMessage.error(`图片文件大小不能超过${props.size}MB！`)
+    ElMessage.error(t('catchForm.imageSizeLimit', { size: props.size }))
     return false
   }
 
@@ -66,7 +67,7 @@ const beforeAvatarUpload = rawFile => {
 }
 
 const handleExceed = () => {
-  ElMessage.warning(`上传数量限制为 ${props.limit} 个！`)
+  ElMessage.warning(t('catchForm.uploadCountLimit', { limit: props.limit }))
 }
 
 onBeforeMount(() => {

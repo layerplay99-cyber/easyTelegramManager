@@ -17,7 +17,7 @@ import { usePermissionsStore } from '@/stores/modules/user/permissions'
 import { Menu } from '@/types/Menu'
 import router from '@/router'
 import { ref, computed } from 'vue'
-import { translateTitle } from '@/support/helper'
+import { t } from '@/support/helper'
 
 const searchMenuVisiable = ref(false)
 
@@ -44,9 +44,9 @@ function filterMenus(menus: Menu[] | undefined): Object[] {
   menus?.forEach(menu => {
     if (menu.meta === undefined) {
       const child = menu.children?.pop()
-      cascaderMenus.push(Object.assign({ label: translateTitle(child?.meta?.title), value: child?.path }))
+      cascaderMenus.push(Object.assign({ label: t(`menu.${child?.path}`), value: child?.path }))
     } else {
-      const cascaderMenu = Object.assign({ label: translateTitle(menu.meta?.title), value: menu.path, children: [] })
+      const cascaderMenu = Object.assign({ label: t(`menu.${menu.path}`), value: menu.path, children: [] })
 
       cascaderMenu.children = filterMenus(menu.children)
 

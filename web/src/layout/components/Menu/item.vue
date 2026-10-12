@@ -4,7 +4,7 @@
       <el-icon>
         <Icon :name="menu?.meta?.icon" v-if="menu?.meta?.icon" class="text-sm" />
       </el-icon>
-      <span>{{ translateTitle(menu?.meta?.title) }}</span>
+      <span>{{ $t(`menu.${menu?.path}`) }}</span>
     </template>
     <slot />
   </el-sub-menu>
@@ -14,9 +14,9 @@
       <Icon :name="menu?.meta?.icon" v-if="menu?.meta?.icon" class="text-sm" />
     </el-icon>
     <span v-if="menu?.path.indexOf('https://') !== -1 || menu?.path.indexOf('http://') !== -1">
-      <span @click="openUrl(menu?.path as string)">{{ translateTitle(menu?.meta?.title) }}</span>
+      <span @click="openUrl(menu?.path as string)">{{ $t(`menu.${menu?.path}`) }}</span>
     </span>
-    <span v-else>{{ translateTitle(menu?.meta?.title) }}</span>
+    <span v-else>{{ $t(`menu.${menu?.path}`) }}</span>
   </el-menu-item>
 </template>
 
@@ -24,7 +24,7 @@
 import { Menu } from '@/types/Menu'
 import { PropType } from 'vue'
 import { useAppStore } from '@/stores/modules/app'
-import { isMiniScreen, translateTitle } from '@/support/helper'
+import { isMiniScreen } from '@/support/helper'
 
 const store = useAppStore()
 

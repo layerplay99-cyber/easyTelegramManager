@@ -11,7 +11,7 @@
         @click.prevent="navTabStore.selectTab(tag)"
         @close="navTabStore.removeTab(index)"
       >
-        {{ translateTitle(tag.meta.title) }}
+        {{ $t(`menu.${tag.path}`) }}
       </el-tag>
     </ContextMenu>
     <!--
@@ -33,7 +33,6 @@ import { useNavTabStore } from '@/stores/modules/tabs'
 import ContextMenu from './contextMenu.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAppStore } from '@/stores/modules/app'
-import { translateTitle } from '@/support/helper'
 
 const navTabStore = useNavTabStore()
 const tabs = computed(() => navTabStore.getNavTabs)

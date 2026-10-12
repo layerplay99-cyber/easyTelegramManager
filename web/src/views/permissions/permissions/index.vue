@@ -2,7 +2,7 @@
   <div>
     <Search :search="search" :reset="reset">
       <template v-slot:body>
-        <el-form-item label="菜单名称" prop="permission_name">
+        <el-form-item :label="$t('permission.menuName')" prop="permission_name">
           <el-input v-model="query.permission_name" name="permission_name" clearable />
         </el-form-item>
       </template>
@@ -10,9 +10,9 @@
     <div class="table-default">
       <Operate :show="open" />
       <el-table :data="tableData" class="mt-3" v-loading="loading" row-key="id" default-expand-all :tree-props="{ children: 'children' }">
-        <el-table-column prop="permission_name" label="菜单名称" />
-        <el-table-column prop="route" label="菜单路由" />
-        <el-table-column prop="permission_mark" label="权限标识" width="330">
+        <el-table-column prop="permission_name" :label="$t('permission.menuName')" />
+        <el-table-column prop="route" :label="$t('permission.menuRoute')" />
+        <el-table-column prop="permission_mark" :label="$t('permission.permissionMark')" width="330">
           <template #default="scope">
             <div v-if="scope.row.actions.length" class="grid grid-cols-4 gap-1">
               <el-tag v-for="action in scope.row.actions" :key="action" class="cursor-pointer min-w-fit" @click="open(action.id)" closable @close="destroy(api, action.id)">{{
@@ -20,7 +20,7 @@
               }}</el-tag>
             </div>
             <div v-else>
-              <el-popconfirm v-if="scope.row.type === MenuType.PAGE_TYPE" confirm-button-text="确认" title="添加基础actions" @confirm="actionGenerate(scope.row.id)" placement="top">
+              <el-popconfirm v-if="scope.row.type === MenuType.PAGE_TYPE" :confirm-button-text="$t('system.confirm')" :title="$t('permission.addBaseActions')" @confirm="actionGenerate(scope.row.id)" placement="top">
                 <template #reference>
                   <el-tag class="w-8 cursor-pointer">
                     <Icon name="cog-6-tooth" class="w-5 h-5 animate-spin" v-if="generateId === scope.row.id" />
@@ -31,7 +31,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="hidden" label="显示" width="120">
+        <el-table-column prop="hidden" :label="$t('permission.display')" width="120">
           <template #default="scope">
             <!-- hidden: 0=显示 / 1=隐藏（与 InstallApp::ensureMenusVisible 一致）。
                  这里不能用通用 Status 组件：它的值是 Status.ENABLE(1)/DISABLE(2)，
@@ -41,15 +41,15 @@
               :model-value="scope.row.hidden"
               :active-value="0"
               :inactive-value="1"
-              active-text="显示"
-              inactive-text="隐藏"
+              :active-text="$t('permission.show')"
+              :inactive-text="$t('permission.hide')"
               :loading="scope.row.hiddenLoading"
               @change="toggleHidden(scope.row)"
             />
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" />
-        <el-table-column label="操作" width="200">
+        <el-table-column prop="created_at" :label="$t('system.createTime')" />
+        <el-table-column :label="$t('system.operation')" width="200">
           <template #default="scope">
             <Update @click="open(scope.row.id)" />
             <Destroy @click="destroy(api, scope.row.id)" />

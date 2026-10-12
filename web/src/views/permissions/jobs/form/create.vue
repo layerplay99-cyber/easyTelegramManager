@@ -1,20 +1,20 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-    <el-form-item label="岗位名称" prop="job_name" :rules="[{ required: true, message: '岗位名称必须填写' }]">
+    <el-form-item :label="$t('permission.jobName')" prop="job_name" :rules="[{ required: true, message: $t('permission.jobNameRequired') }]">
       <el-input v-model="formData.job_name" name="job_name" clearable />
     </el-form-item>
-    <el-form-item label="岗位编码" prop="coding">
+    <el-form-item :label="$t('permission.jobCoding')" prop="coding">
       <el-input v-model="formData.coding" name="coding" clearable />
     </el-form-item>
-    <el-form-item label="状态" prop="status">
+    <el-form-item :label="$t('system.status')" prop="status">
       <el-radio-group v-model="formData.status">
         <el-radio v-for="item in options" :key="item.value" :value="item.value" name="status">{{ item.label }}</el-radio>
       </el-radio-group>
     </el-form-item>
-    <el-form-item label="排序" prop="sort">
+    <el-form-item :label="$t('permission.sort')" prop="sort">
       <el-input-number v-model="formData.sort" name="sort" :min="1" />
     </el-form-item>
-    <el-form-item label="岗位描述" prop="description">
+    <el-form-item :label="$t('permission.jobDescription')" prop="description">
       <el-input v-model="formData.description" name="description" clearable type="textarea" />
     </el-form-item>
     <div class="flex justify-end">
@@ -29,6 +29,7 @@ import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
 
 import { onMounted } from 'vue'
+import { t } from '@/support/helper'
 
 const props = defineProps({
   primary: [Number, String],
@@ -50,7 +51,7 @@ onMounted(() => {
 })
 
 const options = [
-  { label: '正常', value: 1 },
-  { label: '禁用', value: 2 }
+  { label: t('permission.normal'), value: 1 },
+  { label: t('system.disabled'), value: 2 }
 ]
 </script>

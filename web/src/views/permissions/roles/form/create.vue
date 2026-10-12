@@ -1,6 +1,6 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-6">
-    <el-form-item label="上级角色" prop="parent_id" v-if="!primary">
+    <el-form-item :label="$t('permission.parentRole')" prop="parent_id" v-if="!primary">
       <el-cascader
         :options="roles"
         name="parent_id"
@@ -13,44 +13,44 @@
       />
     </el-form-item>
     <el-form-item
-      label="角色名称"
+      :label="$t('permission.roleName')"
       prop="role_name"
       :rules="[
         {
           required: true,
-          message: '角色名称必须填写'
+          message: $t('permission.roleNameRequired')
         }
       ]"
     >
       <el-input v-model="formData.role_name" name="role_name" clearable />
     </el-form-item>
     <el-form-item
-      label="角色标识"
+      :label="$t('permission.roleIdentify')"
       prop="identify"
       :rules="[
         {
           required: true,
-          message: '角色标识必须填写'
+          message: $t('permission.roleIdentifyRequired')
         }
       ]"
     >
       <el-input v-model="formData.identify" name="identify" clearable />
     </el-form-item>
 
-    <el-form-item label="角色描述" prop="description">
+    <el-form-item :label="$t('permission.roleDescription')" prop="description">
       <el-input v-model="formData.description" name="description" clearable type="textarea" />
     </el-form-item>
-    <el-form-item label="数据权限" prop="data_range">
+    <el-form-item :label="$t('permission.dataRange')" prop="data_range">
       <Select v-model="formData.data_range" name="data_range" clearable api="dataRange" class="w-full" />
     </el-form-item>
     <el-form-item
-      label="自定义权限"
+      :label="$t('permission.customPermission')"
       prop="departments"
       v-if="showDepartments"
       :rules="[
         {
           required: true,
-          message: '自定义权限必须选择'
+          message: $t('permission.customPermissionRequired')
         }
       ]"
     >
@@ -65,7 +65,7 @@
         :props="{ value: 'id', label: 'department_name' }"
       />
     </el-form-item>
-    <el-form-item label="角色权限" prop="permissions">
+    <el-form-item :label="$t('permission.rolePermissions')" prop="permissions">
       <div class="w-full h-40 pt-2 pl-2 overflow-auto border border-gray-300 rounded">
         <el-tree
           ref="permissionTree"
@@ -93,6 +93,7 @@ import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
 import { nextTick, onMounted, ref, unref, watch } from 'vue'
 import http from '@/support/http'
+import { t } from '@/support/helper'
 
 const props = defineProps({
   primary: [String, Number],
@@ -129,7 +130,7 @@ const permissionTree = ref()
 const departments = ref()
 const showDepartments = ref<boolean>(false)
 
-const permissionLoadingText = ref<string>('加载中...')
+const permissionLoadingText = ref<string>(t('permission.loading'))
 
 // 获取权限
 const getPermissions = async (value: number = 0) => {
@@ -156,7 +157,7 @@ const setCheckedPermissions = () => {
   })
 
   if (!permissions.value.length) {
-    permissionLoadingText.value = '暂无数据'
+    permissionLoadingText.value = t('system.noData')
   }
 }
 

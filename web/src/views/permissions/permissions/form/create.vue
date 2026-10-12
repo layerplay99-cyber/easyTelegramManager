@@ -2,13 +2,13 @@
   <el-form :model="formData" label-width="85px" ref="form" v-loading="loading" class="pr-4">
     <div class="flex flex-row justify-between">
       <div>
-        <el-form-item label="菜单类型" prop="type">
+        <el-form-item :label="$t('permission.menuType')" prop="type">
           <el-radio-group v-model="formData.type">
             <el-radio-button
               v-for="item in [
-                { label: '目录', value: 1 },
-                { label: '菜单', value: 2 },
-                { label: '按钮', value: 3 }
+                { label: $t('permission.typeDirectory'), value: 1 },
+                { label: $t('permission.typeMenu'), value: 2 },
+                { label: $t('permission.typeButton'), value: 3 }
               ]"
               :key="item.value"
               :value="item.value"
@@ -17,31 +17,31 @@
             </el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="菜单名称" prop="permission_name" :rules="[{ required: true, message: '菜单名称必须填写' }]">
+        <el-form-item :label="$t('permission.menuName')" prop="permission_name" :rules="[{ required: true, message: $t('permission.menuNameRequired') }]">
           <el-input v-model="formData.permission_name" name="permission_name" clearable />
         </el-form-item>
-        <el-form-item label="所属模块" prop="module" :rules="[{ required: true, message: '所属模块必须填写' }]" v-if="!isAction">
+        <el-form-item :label="$t('permission.module')" prop="module" :rules="[{ required: true, message: $t('permission.moduleRequired') }]" v-if="!isAction">
           <Select v-model="formData.module" api="modules" allow-create @clear="clearModule" />
         </el-form-item>
-        <el-form-item label="路由Path" prop="route" :rules="[{ required: true, message: '路由Path必须填写' }]" v-if="!isAction">
+        <el-form-item :label="$t('permission.routePath')" prop="route" :rules="[{ required: true, message: $t('permission.routePathRequired') }]" v-if="!isAction">
           <el-input v-model="formData.route" name="route" clearable />
         </el-form-item>
         <el-form-item label="Redirect" prop="redirect" v-if="!isAction">
           <el-input v-model="formData.redirect" name="redirect" clearable />
         </el-form-item>
-        <el-form-item label="排序" prop="sort">
+        <el-form-item :label="$t('permission.sort')" prop="sort">
           <el-input-number v-model="formData.sort" name="sort" :min="1" />
         </el-form-item>
       </div>
       <div>
-        <el-form-item label="父级菜单" prop="parent_id">
+        <el-form-item :label="$t('permission.parentMenu')" prop="parent_id">
           <el-cascader :options="permissions" name="parent_id" v-model="formData.parent_id" clearable :props="{ value: 'id', label: 'permission_name', checkStrictly: true }" class="w-full" />
         </el-form-item>
-        <el-form-item label="权限标识" prop="permission_mark" :rules="[{ required: true, message: '权限标识必须填写' }]" v-if="!isTop">
+        <el-form-item :label="$t('permission.permissionMark')" prop="permission_mark" :rules="[{ required: true, message: $t('permission.permissionMarkRequired') }]" v-if="!isTop">
           <el-input v-model="formData.permission_mark" name="permission_mark" clearable v-if="isAction" />
-          <Select v-model="formData.permission_mark" allow-create placeholder="请选择" api="controllers" :query="{ module: formData.module }" v-else />
+          <Select v-model="formData.permission_mark" allow-create :placeholder="$t('system.pleaseSelect')" api="controllers" :query="{ module: formData.module }" v-else />
         </el-form-item>
-        <el-form-item label="菜单Icon" prop="icon" v-if="!isAction">
+        <el-form-item :label="$t('permission.menuIcon')" prop="icon" v-if="!isAction">
           <el-popover placement="right" :width="400" trigger="click">
             <template #reference>
               <el-input v-model="formData.icon" name="icon" clearable />
@@ -51,16 +51,16 @@
             </div>
           </el-popover>
         </el-form-item>
-        <el-form-item label="所属组件" prop="component" v-if="!isAction">
-          <Select v-model="formData.component" placeholder="请选择" allow-create api="components" :query="{ module: formData.module, controller: formData.permission_mark }" />
+        <el-form-item :label="$t('permission.component')" prop="component" v-if="!isAction">
+          <Select v-model="formData.component" :placeholder="$t('system.pleaseSelect')" allow-create api="components" :query="{ module: formData.module, controller: formData.permission_mark }" />
         </el-form-item>
 
         <el-form-item label="Hidden" prop="hidden" v-if="!isAction">
           <el-radio-group v-model="formData.hidden">
             <el-radio
               v-for="item in [
-                { label: '显示', value: 1 },
-                { label: '隐藏', value: 2 }
+                { label: $t('permission.show'), value: 1 },
+                { label: $t('permission.hide'), value: 2 }
               ]"
               :key="item.value"
               :value="item.value"
@@ -73,8 +73,8 @@
           <el-radio-group v-model="formData.keepalive">
             <el-radio
               v-for="item in [
-                { label: '启用', value: 1 },
-                { label: '禁用', value: 2 }
+                { label: $t('system.enabled'), value: 1 },
+                { label: $t('system.disabled'), value: 2 }
               ]"
               :key="item.value"
               :value="item.value"
@@ -86,11 +86,11 @@
       </div>
     </div>
     <div>
-      <el-form-item label="激活菜单" prop="active_menu" v-if="isMenu">
+      <el-form-item :label="$t('permission.activeMenu')" prop="active_menu" v-if="isMenu">
         <div class="flex flex-row w-full">
           <el-input v-model="formData.active_menu" name="active_menu" clearable class="w-3/4" />
           <el-tooltip effect="dark" :content="activeMenuIntro" raw-content placement="top">
-            <div class="flex justify-center w-1/4 ml-2 text-red-500 cursor-pointer">说明</div>
+            <div class="flex justify-center w-1/4 ml-2 text-red-500 cursor-pointer">{{ $t('permission.intro') }}</div>
           </el-tooltip>
         </div>
       </el-form-item>
@@ -109,14 +109,14 @@ import { useOpen } from '@/composables/curd/useOpen'
 import { onMounted, ref, watch } from 'vue'
 import http from '@/support/http'
 import { MenuType } from '@/enum/app'
+import { t } from '@/support/helper'
 
 const props = defineProps({
   primary: [String, Number],
   api: String
 })
 
-const activeMenuIntro =
-  '<div>如果是访问内页的菜单路由，例如创建文章 create/post, 虽然它隶属于文章列表，但实际上并不会嵌套在文章列表路由里</div><div>而是单独的一个路由，并且是不显示在左侧菜单的。所以在访问它的时候，需要左侧菜单高亮，则需要设置该参数</div>'
+const activeMenuIntro = t('permission.activeMenuIntro')
 
 const { formData, form, loading, submitForm, close, beforeCreate, beforeUpdate } = useCreate(props.api, props.primary)
 

@@ -1,21 +1,21 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-    <el-form-item label="父级部门" prop="parent_id">
+    <el-form-item :label="$t('permission.parentDepartment')" prop="parent_id">
       <el-cascader :options="departments" name="parent_id" v-model="formData.parent_id" clearable :props="{ value: 'id', label: 'department_name', checkStrictly: true }" class="w-full" />
     </el-form-item>
-    <el-form-item label="部门名称" prop="department_name" :rules="[{ required: true, message: '部门名称必须填写' }]">
+    <el-form-item :label="$t('permission.departmentName')" prop="department_name" :rules="[{ required: true, message: $t('permission.departmentNameRequired') }]">
       <el-input v-model="formData.department_name" name="department_name" clearable />
     </el-form-item>
-    <el-form-item label="部门联系人" prop="principal">
+    <el-form-item :label="$t('permission.principal')" prop="principal">
       <el-input v-model="formData.principal" name="principal" clearable />
     </el-form-item>
-    <el-form-item label="手机号" prop="mobile">
+    <el-form-item :label="$t('permission.mobile')" prop="mobile">
       <el-input v-model="formData.mobile" name="mobile" clearable />
     </el-form-item>
-    <el-form-item label="邮箱" prop="email">
+    <el-form-item :label="$t('user.email')" prop="email">
       <el-input v-model="formData.email" name="email" clearable />
     </el-form-item>
-    <el-form-item label="排序" prop="sort">
+    <el-form-item :label="$t('permission.sort')" prop="sort">
       <el-input-number v-model="formData.sort" name="sort" :min="1" />
     </el-form-item>
     <div class="flex justify-end">

@@ -2,7 +2,7 @@
   <div>
     <Search :search="search" :reset="reset">
       <template v-slot:body>
-        <el-form-item label="角色名称" prop="role_name">
+        <el-form-item :label="$t('permission.roleName')" prop="role_name">
           <el-input v-model="query.role_name" name="role_name" clearable />
         </el-form-item>
       </template>
@@ -12,11 +12,11 @@
         <Add @click="openRoleForm(null, [])" />
       </div>
       <el-table :data="tableData" class="mt-3" v-loading="loading" row-key="id" default-expand-all :tree-props="{ children: 'children' }">
-        <el-table-column prop="role_name" label="角色名称" />
-        <el-table-column prop="identify" label="角色标识" />
-        <el-table-column prop="description" label="角色描述" />
-        <el-table-column prop="created_at" label="创建时间" />
-        <el-table-column label="操作" width="200">
+        <el-table-column prop="role_name" :label="$t('permission.roleName')" />
+        <el-table-column prop="identify" :label="$t('permission.roleIdentify')" />
+        <el-table-column prop="description" :label="$t('permission.roleDescription')" />
+        <el-table-column prop="created_at" :label="$t('system.createTime')" />
+        <el-table-column :label="$t('system.operation')" width="200">
           <template #default="scope">
             <Update @click="openRoleForm(scope.row.id, scope.row.permissions)" />
             <Destroy @click="destroy(api, scope.row.id)" />

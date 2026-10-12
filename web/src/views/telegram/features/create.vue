@@ -1,14 +1,14 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-    <el-form-item label="功能名称" prop="name">
+    <el-form-item :label="$t('feature.field.name')" prop="name">
       <el-input v-model="(formData as any).name" name="name" clearable />
     </el-form-item>
 
     <!-- 执行器：决定这个功能是干什么的，选中后自动带出配置项 -->
-    <el-form-item label="执行器" prop="driver">
+    <el-form-item :label="$t('feature.driverLabel')" prop="driver">
       <el-select
         v-model="(formData as any).driver"
-        placeholder="请选择执行器"
+        :placeholder="$t('feature.selectDriver')"
         filterable
         clearable
         class="w-full"
@@ -28,12 +28,12 @@
         </el-option-group>
       </el-select>
       <div v-if="currentDriver" class="text-xs text-gray-500 mt-1">
-        {{ currentDriver.label }} · 支持触发：{{ currentDriver.triggers.join(' / ') }}
+        {{ currentDriver.label }} · {{ $t('feature.supportedTriggers') }}{{ currentDriver.triggers.join(' / ') }}
       </div>
     </el-form-item>
 
-    <el-form-item label="触发方式" prop="trigger">
-      <el-select v-model="(formData as any).trigger" placeholder="请选择" clearable class="w-full">
+    <el-form-item :label="$t('feature.triggerLabel')" prop="trigger">
+      <el-select v-model="(formData as any).trigger" :placeholder="$t('system.pleaseSelect')" clearable class="w-full">
         <el-option
           v-for="item in triggerOptions"
           :key="item.value"
@@ -43,29 +43,29 @@
       </el-select>
     </el-form-item>
 
-    <el-form-item label="功能分类" prop="category">
-      <el-select v-model="(formData as any).category" placeholder="请选择" clearable class="w-full">
+    <el-form-item :label="$t('feature.field.category')" prop="category">
+      <el-select v-model="(formData as any).category" :placeholder="$t('system.pleaseSelect')" clearable class="w-full">
         <el-option v-for="item in category" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </el-form-item>
 
-    <el-form-item label="功能描述" prop="description">
+    <el-form-item :label="$t('feature.field.description')" prop="description">
       <el-input v-model="(formData as any).description" type="textarea" :rows="2" clearable />
     </el-form-item>
 
-    <el-form-item label="是否启用" prop="enabled">
-      <el-select v-model="(formData as any).enabled" placeholder="请选择" clearable class="w-full">
+    <el-form-item :label="$t('feature.field.enabled')" prop="enabled">
+      <el-select v-model="(formData as any).enabled" :placeholder="$t('system.pleaseSelect')" clearable class="w-full">
         <el-option v-for="item in enabled" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </el-form-item>
 
     <!-- ============ 执行器配置：按 driver 的 schema 自动渲染，不再手写 JSON ============ -->
     <el-divider content-position="left">
-      <span class="text-sm font-medium">执行器配置</span>
+      <span class="text-sm font-medium">{{ $t('feature.driverConfig') }}</span>
     </el-divider>
 
     <div v-if="!currentDriver" class="text-sm text-gray-400 mb-4">
-      请先选择执行器，配置表单会自动出现
+      {{ $t('feature.selectDriverFirst') }}
     </div>
 
     <template v-else-if="schema.length">
@@ -120,29 +120,29 @@
         <div v-else-if="f.type === 'keyvalue'" class="w-full border border-gray-200 rounded p-3">
           <div class="text-xs text-gray-500 mb-2">{{ f.hint }}</div>
           <div v-for="(row, i) in kvRows(f.key)" :key="i" class="flex items-center space-x-2 mb-2">
-            <el-input v-model="row.key" placeholder="字段名" class="flex-1" />
-            <el-input v-model="row.value" placeholder="来源（可留空）" class="flex-1" />
-            <el-button type="danger" plain size="small" @click="removeKvRow(f.key, i)">删除</el-button>
+            <el-input v-model="row.key" :placeholder="$t('feature.fieldName')" class="flex-1" />
+            <el-input v-model="row.value" :placeholder="$t('feature.sourceOptional')" class="flex-1" />
+            <el-button type="danger" plain size="small" @click="removeKvRow(f.key, i)">{{ $t('system.delete') }}</el-button>
           </div>
-          <el-button size="small" plain @click="addKvRow(f.key)">+ 添加一项</el-button>
+          <el-button size="small" plain @click="addKvRow(f.key)">{{ $t('feature.addItem') }}</el-button>
         </div>
 
         <!-- 兜底 -->
         <el-input v-else v-model="config[f.key]" :placeholder="f.hint" clearable class="w-full" />
 
-        <div v-if="f.required && !config[f.key]" class="text-xs text-red-400 mt-1">必填</div>
+        <div v-if="f.required && !config[f.key]" class="text-xs text-red-400 mt-1">{{ $t('feature.required') }}</div>
       </el-form-item>
     </template>
 
-    <div v-else class="text-sm text-gray-400 mb-4">该执行器无需额外配置</div>
+    <div v-else class="text-sm text-gray-400 mb-4">{{ $t('feature.noExtraConfig') }}</div>
 
     <!-- ============ 命令配置：一个功能可挂多个命令，每个命令可声明多个参数 ============ -->
     <el-divider content-position="left">
-      <span class="text-sm font-medium">命令配置</span>
+      <span class="text-sm font-medium">{{ $t('feature.commandConfig') }}</span>
     </el-divider>
 
     <div class="w-full border border-gray-200 rounded p-3 mb-2">
-      <div v-if="!commands.length" class="text-sm text-gray-400 mb-2">暂无命令，点击下面按钮添加</div>
+      <div v-if="!commands.length" class="text-sm text-gray-400 mb-2">{{ $t('feature.noCommands') }}</div>
 
       <div
         v-for="(cmd, index) in commands"
@@ -150,39 +150,39 @@
         class="border border-gray-100 rounded p-3 mb-3 bg-gray-50"
       >
         <div class="flex items-center space-x-2 mb-2">
-          <el-input v-model="cmd.command" placeholder="命令名（不含斜杠）" class="flex-1">
+          <el-input v-model="cmd.command" :placeholder="$t('feature.commandNamePlaceholder')" class="flex-1">
             <template #prepend>/</template>
           </el-input>
-          <el-button type="danger" plain size="small" @click="removeCommand(index)">删除命令</el-button>
+          <el-button type="danger" plain size="small" @click="removeCommand(index)">{{ $t('feature.deleteCommand') }}</el-button>
         </div>
 
-        <el-input v-model="cmd.description" placeholder="命令描述" class="mb-2" />
-        <el-input v-model="cmd.usage" placeholder="用法示例，如 /ye" class="mb-2" />
+        <el-input v-model="cmd.description" :placeholder="$t('feature.commandDescription')" class="mb-2" />
+        <el-input v-model="cmd.usage" :placeholder="$t('feature.commandUsage')" class="mb-2" />
         <el-input
           v-model="cmd.reply_template"
           type="textarea"
           :rows="2"
-          placeholder="回复模板，如 余额：{{data.balance}} 元"
+          :placeholder="$t('feature.commandReplyTemplate')"
           class="mb-2"
         />
 
         <!-- 参数 -->
-        <div class="text-xs text-gray-500 mb-1">参数（按顺序）：</div>
+        <div class="text-xs text-gray-500 mb-1">{{ $t('feature.commandParams') }}</div>
         <div
           v-for="(p, pi) in cmd.params"
           :key="pi"
           class="flex items-center space-x-2 mb-2"
         >
-          <el-input v-model="p.name" placeholder="参数名" class="flex-1" />
-          <el-input v-model="p.description" placeholder="说明" class="flex-1" />
-          <el-input v-model="p.pattern" placeholder="正则（可选）" class="flex-1" />
-          <el-checkbox v-model="p.required">必填</el-checkbox>
-          <el-button type="danger" plain size="small" @click="removeParam(cmd, pi)">删除</el-button>
+          <el-input v-model="p.name" :placeholder="$t('feature.paramName')" class="flex-1" />
+          <el-input v-model="p.description" :placeholder="$t('feature.paramDescription')" class="flex-1" />
+          <el-input v-model="p.pattern" :placeholder="$t('feature.paramPattern')" class="flex-1" />
+          <el-checkbox v-model="p.required">{{ $t('feature.required') }}</el-checkbox>
+          <el-button type="danger" plain size="small" @click="removeParam(cmd, pi)">{{ $t('system.delete') }}</el-button>
         </div>
-        <el-button size="small" plain @click="addParam(cmd)">+ 添加参数</el-button>
+        <el-button size="small" plain @click="addParam(cmd)">{{ $t('feature.addParam') }}</el-button>
       </div>
 
-      <el-button type="primary" plain size="small" @click="addCommand">+ 添加命令</el-button>
+      <el-button type="primary" plain size="small" @click="addCommand">{{ $t('feature.addCommand') }}</el-button>
     </div>
 
     <div class="flex justify-end mt-4">
@@ -213,10 +213,10 @@ const category = computed(() => [
     { label: t('feature.categories.realMan'), value: 'realMan' },
 ])
 
-const enabled = [
-    { label: '启用', value: 1 },
-    { label: '禁用', value: 0 },
-]
+const enabled = computed(() => [
+    { label: t('system.enabled'), value: 1 },
+    { label: t('system.disabled'), value: 0 },
+])
 
 // 触发方式：与 UpdateIntent 的 type 一致，覆盖全部 update 类型
 const triggerOptions = computed(() => [
@@ -240,7 +240,7 @@ const groupedDrivers = computed(() => {
   if (!Array.isArray(drivers.value)) return []
   const map: Record<string, any[]> = {}
   drivers.value.forEach((d) => {
-    const g = d.group || '其它'
+    const g = d.group || t('feature.otherGroup')
     ;(map[g] = map[g] || []).push(d)
   })
   return Object.entries(map).map(([group, items]) => ({ group, items }))
@@ -422,7 +422,7 @@ const saveCommands = async (featureId: any) => {
   try {
     await http.post(`telegram/features/${featureId}/commands`, { commands: payload })
   } catch (e: any) {
-    ElMessage.warning('功能已保存，但命令保存失败：' + (e?.message || ''))
+    ElMessage.warning(t('feature.saveCommandsFailed') + (e?.message || ''))
   }
 }
 

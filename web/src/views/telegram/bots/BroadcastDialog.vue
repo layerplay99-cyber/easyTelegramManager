@@ -14,14 +14,14 @@
                             />
                         </el-select>
                     </el-form-item>
-                    <el-form-item label="发送通道">
+                    <el-form-item :label="$t('broadcast.sendChannel')">
                         <el-radio-group v-model="formData.channel">
-                            <el-radio value="bot">Bot（纯文本 / 图文）</el-radio>
-                            <el-radio value="user">Telegram 客服账号（可发自定义 / 动态表情）</el-radio>
+                            <el-radio value="bot">{{ $t('broadcast.channelBot') }}</el-radio>
+                            <el-radio value="user">{{ $t('broadcast.channelUser') }}</el-radio>
                         </el-radio-group>
                     </el-form-item>
-                    <el-form-item label="客服账号" v-if="formData.channel === 'user'">
-                        <el-select v-model="formData.telegramUserId" placeholder="选择发送用的客服账号" style="width: 100%">
+                    <el-form-item :label="$t('broadcast.supportAccount')" v-if="formData.channel === 'user'">
+                        <el-select v-model="formData.telegramUserId" :placeholder="$t('broadcast.selectSupportAccount')" style="width: 100%">
                             <el-option
                                 v-for="u in telegramUsers"
                                 :key="u.id"
@@ -29,18 +29,18 @@
                                 :value="u.id"
                             />
                         </el-select>
-                        <div class="text-xs text-gray-400 mt-1">按该客服账号名下的群发送（app_id 匹配）</div>
+                        <div class="text-xs text-gray-400 mt-1">{{ $t('broadcast.supportAccountTip') }}</div>
                     </el-form-item>
-                    <el-form-item label="消息模板">
-                        <el-select v-model="formData.templateId" placeholder="可选：使用已保存的模板" clearable style="width: 100%">
+                    <el-form-item :label="$t('broadcast.messageTemplate')">
+                        <el-select v-model="formData.templateId" :placeholder="$t('broadcast.templatePlaceholder')" clearable style="width: 100%">
                             <el-option v-for="tpl in templates" :key="tpl.id" :label="tpl.title" :value="tpl.id">
                                 <span>{{ tpl.title }}</span>
                                 <el-tag size="small" class="ml-2" :type="tpl.channel === 'user' ? 'success' : 'info'">
-                                    {{ tpl.channel === 'user' ? '客服' : 'Bot' }}
+                                    {{ tpl.channel === 'user' ? $t('broadcast.support') : 'Bot' }}
                                 </el-tag>
                             </el-option>
                         </el-select>
-                        <div class="text-xs text-gray-400 mt-1">选了模板后以模板内容为准，下方文本会被忽略</div>
+                        <div class="text-xs text-gray-400 mt-1">{{ $t('broadcast.templateTip') }}</div>
                     </el-form-item>
                     <el-form-item :label="$t('groupSelect.messageType')" v-if="!formData.templateId">
                         <el-select v-model="formData.type" :placeholder="$t('groupSelect.messageTypePlaceholder')" style="width: 200px">
@@ -477,7 +477,7 @@ const handleSubmit = async () => {
 
     if (formData.value.channel === 'user' && !formData.value.telegramUserId) {
         ElMessage({
-            message: '请选择发送用的客服账号',
+            message: t('broadcast.selectSupportAccountRequired'),
             type: 'warning'
         })
         return

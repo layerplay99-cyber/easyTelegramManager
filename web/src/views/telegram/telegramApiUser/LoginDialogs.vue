@@ -338,7 +338,7 @@ const handleLoginStatusBroadcast = (event: any) => {
     // 检查登录状态
     if (event.login_status === 1) {
         ElMessage({
-            message: event.message || '登录成功！',
+            message: event.message || t('account.loginSuccess'),
             type: 'success',
             customClass: 'success-message'
         })

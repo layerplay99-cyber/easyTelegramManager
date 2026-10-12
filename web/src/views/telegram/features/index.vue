@@ -2,11 +2,12 @@
     <div>
         <Search :search="search" :reset="reset">
             <template v-slot:body>
-                <el-form-item label="功能名称" prop="name">
+                <el-form-item :label="$t('feature.field.name')" prop="name">
                     <el-input v-model="(query as any).name" name="name" clearable />
                 </el-form-item>
-                <el-form-item label="是否启用" prop="enabled">
-                    <el-select v-model="(query as any).enabled" placeholder="请选择" clearable multiple>
+                <el-form-item :label="$t('feature.field.enabled')" prop="enabled">
+                    <el-select v-model="(query as any).enabled" :placeholder="$t('system.pleaseSelect')" clearable
+                        multiple>
                         <el-option v-for="item in enabled" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                 </el-form-item>
@@ -15,20 +16,20 @@
         <div class="table-default">
             <Operate :show="open" />
             <el-table :data="tableData" class="mt-3" v-loading="loading">
-                <el-table-column prop="name" label="功能名称" />
-                  <el-table-column prop="category" label="功能归属" />
+                <el-table-column prop="name" :label="$t('feature.field.name')" />
+                  <el-table-column prop="category" :label="$t('feature.field.category')" />
                       <!-- 执行器：取代旧的「功能类型/请求类型/数据来源」三个枚举 -->
-                            <el-table-column prop="driver_label" label="执行器" width="180">
+                            <el-table-column prop="driver_label" :label="$t('feature.driverLabel')" width="180">
                                 <template #default="scope">
                             <el-tag size="small">{{ scope.row.driver_label || scope.row.driver }}</el-tag>
                                 </template>
                               </el-table-column>
-                              <el-table-column label="触发方式" width="110">
+                              <el-table-column :label="$t('feature.triggerLabel')" width="110">
                                 <template #default="scope">
                             {{ triggerLabel(scope.row.trigger) }}
                           </template>
                               </el-table-column>
-                <el-table-column prop="description" label="功能描述" width="200">
+                <el-table-column prop="description" :label="$t('feature.field.description')" width="200">
                     <template #default="scope">
                         <el-tooltip
                             :content="scope.row.description || ''"
@@ -40,7 +41,7 @@
                         </el-tooltip>
                     </template>
                 </el-table-column>
-                <el-table-column label="命令" min-width="150">
+                <el-table-column :label="$t('feature.commandsLabel')" min-width="150">
                     <template #default="scope">
                     <template v-if="commandsOf(scope.row.id).length">
                         <el-tag
@@ -55,7 +56,7 @@
                    <span v-else class="text-xs text-gray-400">-</span>
                        </template>
                           </el-table-column>
-                <el-table-column label="是否启用" width="100">
+                <el-table-column :label="$t('feature.field.enabled')" width="100">
                     <template #default="scope">
                         <el-switch
                             v-model="scope.row.enabled"
@@ -66,9 +67,9 @@
                         />
                     </template>
                 </el-table-column>
-                <el-table-column prop="created_at" label="创建时间" />
-                <el-table-column prop="updated_at" label="更新时间" />
-                <el-table-column label="操作" width="200">
+                <el-table-column prop="created_at" :label="$t('system.createTime')" />
+                <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
+                <el-table-column :label="$t('system.operation')" width="200">
                     <template #default="scope">
                         <Update @click="open(scope.row.id)" />
                         <Destroy @click="destroy(api, scope.row.id)" />
@@ -109,22 +110,25 @@ const { open, close, title, visible, id } = useOpen()
 const userStore = useUserStore()
 const isSuperAdmin = userStore.isSuperAdmin()
 
+// 触发方式国际化（默认中文，取不到时回落原始 key）
+const { t } = useI18n()
+
 const enabled = [
-    { label: '启用', value: 1 },
-    { label: '禁用', value: 0 }
+    { label: t('system.enabled'), value: 1 },
+    { label: t('system.disabled'), value: 0 }
 ]
 
 // 归属映射（列表已改用 driver/trigger，旧的 type/requestType/location 列已移除）
 const categoryMap = {
-    'system': '系统',
-    'custom': '客户端',
-  'bot': '机器人',
-    'realMan': '真人'
+    'system': t('feature.categories.system'),
+    'custom': t('feature.categories.custom'),
+  'bot': t('feature.categories.bot'),
+    'realMan': t('feature.categories.realMan')
 }
 
 const enabledMap = {
-    1: '启用',
-    0: '禁用'
+    1: t('system.enabled'),
+    0: t('system.disabled')
 }
 
 // 转换表格数据，将 value 转换为 label 显示
@@ -149,20 +153,17 @@ const handleEnabledChange = async (row: any) => {
     try {
         // 直接调用更新API，只传递id和enabled状态
         await http.put(`${api}/${row.id}`, { enabled: row.enabled })
-        Message.success('状态更新成功')
+        Message.success(t('feature.statusUpdated'))
         // 更新成功后刷新数据
         search()
     } catch (error) {
         // 如果更新失败，恢复原状态
         row.enabled = row.enabled === 1 ? 0 : 1
-        Message.error('状态更新失败')
+        Message.error(t('system.updateFailed'))
     } finally {
         row.switchLoading = false
     }
 }
-
-// 触发方式国际化（默认中文，取不到时回落原始 key）
-const { t } = useI18n()
 
 const triggerLabel = (key: string) => {
   if (!key) return '-'

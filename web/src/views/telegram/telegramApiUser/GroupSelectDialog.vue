@@ -200,7 +200,7 @@ const loadGroups = async () => {
     } catch (error) {
         console.error('加载群组失败:', error)
         ElMessage({
-            message: '加载群组失败，请稍后重试',
+            message: t('groupSelect.loadGroupsRetry'),
             type: 'error'
         })
         groups.value = []
@@ -299,7 +299,7 @@ const handleSubmit = async () => {
     } catch (error) {
         console.error('执行功能失败:', error)
         ElMessage({
-            message: '执行功能失败，请稍后重试',
+            message: t('groupSelect.executeRetry'),
             type: 'error'
         })
     } finally {

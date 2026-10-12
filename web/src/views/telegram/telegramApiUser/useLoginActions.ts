@@ -1,5 +1,6 @@
 import { ElMessage } from 'element-plus'
 import { useTelegramStore } from '@/stores/modules/telegram/teleApi'
+import { t } from '@/support/helper'
 
 export function useLoginActions() {
     const telegramStore = useTelegramStore()
@@ -18,7 +19,7 @@ export function useLoginActions() {
                 // 情况1：需要二次验证
                 if (result.data.require_2fa) {
                     ElMessage({
-                        message: result.data.message || '需要输入两步验证密码',
+                        message: result.data.message || t('account.need2FA'),
                         type: 'warning',
                         customClass: 'warning-message'
                     })
@@ -30,7 +31,7 @@ export function useLoginActions() {
                 if (result.data.qr_svg) {
                     callbacks.onShowQrCode(user.id, result.data.qr_svg)
                     ElMessage({
-                        message: result.data.message || '请扫码登录',
+                        message: result.data.message || t('account.pleaseScanQr'),
                         type: 'success',
                         customClass: 'success-message'
                     })
@@ -39,13 +40,13 @@ export function useLoginActions() {
 
                 // 其他情况
                 ElMessage({
-                    message: result.message || '登录请求返回异常',
+                    message: result.message || t('account.loginResponseAbnormal'),
                     type: 'warning',
                     customClass: 'warning-message'
                 })
             } else {
                 ElMessage({
-                    message: result.message || '登录请求失败',
+                    message: result.message || t('account.loginRequestFailed'),
                     type: 'error',
                     customClass: 'error-message'
                 })
@@ -53,7 +54,7 @@ export function useLoginActions() {
         } catch (error) {
             console.error('提交登录请求失败:', error)
             ElMessage({
-                message: '登录请求失败，请稍后重试',
+                message: t('account.loginRequestFailedRetry'),
                 type: 'error',
                 customClass: 'error-message'
             })
@@ -67,14 +68,14 @@ export function useLoginActions() {
 
             if (result.success) {
                 ElMessage({
-                    message: '注销成功',
+                    message: t('account.logoutSuccess'),
                     type: 'success',
                     customClass: 'success-message'
                 })
                 onSuccess()
             } else {
                 ElMessage({
-                    message: result.message || '注销失败',
+                    message: result.message || t('account.logoutFailed'),
                     type: 'error',
                     customClass: 'error-message'
                 })
@@ -82,7 +83,7 @@ export function useLoginActions() {
         } catch (error) {
             console.error('注销失败:', error)
             ElMessage({
-                message: '注销失败，请稍后重试',
+                message: t('account.logoutFailedRetry'),
                 type: 'error',
                 customClass: 'error-message'
             })
@@ -96,14 +97,14 @@ export function useLoginActions() {
 
             if (result.success) {
                 ElMessage({
-                    message: result.message || '同步群组成功',
+                    message: result.message || t('account.syncGroupsSuccess'),
                     type: 'success',
                     customClass: 'success-message'
                 })
                 onSuccess()
             } else {
                 ElMessage({
-                    message: result.message || '同步群组失败',
+                    message: result.message || t('account.syncGroupsFailed'),
                     type: 'error',
                     customClass: 'error-message'
                 })
@@ -111,7 +112,7 @@ export function useLoginActions() {
         } catch (error) {
             console.error('同步群组失败:', error)
             ElMessage({
-                message: '同步群组失败，请稍后重试',
+                message: t('account.syncGroupsFailedRetry'),
                 type: 'error',
                 customClass: 'error-message'
             })

@@ -118,6 +118,17 @@ ensure_env_var() {
 # ============================================================================
 # 1. 共享栈
 # ============================================================================
+# 项目已自带 redis（主 docker-compose.yml 的 redis 服务 → tgbot-redis）。
+# 若共享栈还残留旧的 stack-redis，会占用 stack 网络上的 redis 别名，
+# 导致 tgbot-redis 起不来（别名解析冲突），这里显式移除，
+# 保证一条脚本部署、无需再手动敲 docker rm。
+remove_shared_redis() {
+    if docker inspect stack-redis >/dev/null 2>&1; then
+        log "移除冲突的共享栈 redis(stack-redis)，redis 改由项目自带 tgbot-redis 提供"
+        docker rm -f stack-redis >/dev/null 2>&1 || true
+    fi
+}
+
 deploy_stack() {
     log "部署共享栈 → $STACK_ROOT"
 
@@ -157,8 +168,10 @@ EOF
         stack_compose build php node
     fi
 
-    log "启动 mysql / redis / nginx"
-    stack_compose up -d mysql redis nginx
+    log "启动 mysql / nginx（redis 由项目自带 tgbot-redis 提供）"
+    stack_compose up -d mysql nginx
+
+    remove_shared_redis
 
     wait_mysql
     create_db
@@ -499,6 +512,8 @@ deploy_app() {
 
     log "构建 Telethon 镜像（本地构建，不去 registry 拉）"
     app_compose build telegram-py
+
+    remove_shared_redis
 
     log "启动项目容器"
     app_compose up -d

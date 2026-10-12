@@ -2,8 +2,8 @@
 # 公共 Docker 栈（单一共享栈）
 # ----------------------------------------------------------------------------
 # 部署位置：/opt/docker-stack
-# 作用：向所有项目提供 php(镜像) / node(镜像+共享环境) / mysql / redis /
-#       pgsql / nginx 六类公共能力。各项目只跑自己的 app 容器，并通过
+# 作用：向所有项目提供 php(镜像) / node(镜像+共享环境) / mysql / pgsql /
+#       nginx 五类公共能力。各项目只跑自己的 app 容器，并通过
 #       external 网络 `stack` 接入本栈。
 #
 # 配置：复制 .env.example 为 .env 后按需修改（STACK_ROOT / PROJECTS_ROOT 等）。
@@ -12,7 +12,7 @@
 #   构建公共镜像（php / node）：
 #     docker compose build php node
 #   启动共享基础设施：
-#     docker compose up -d mysql redis pgsql nginx node
+#     docker compose up -d mysql pgsql nginx node
 #   查看状态：
 #     docker compose ps
 # ============================================================================
@@ -71,17 +71,6 @@ services:
             retries: 30
         networks: [stack]
 
-    # ---------------------------------------------------------- Redis（共享）
-    redis:
-        image: redis:7-alpine
-        container_name: stack-redis
-        command: ["redis-server", "--appendonly", "yes"]
-        ports:
-            - "${REDIS_PORT}:6379"
-        volumes:
-            - ${STACK_ROOT}/data/redis:/data
-        networks: [stack]
-
     # ---------------------------------------------------------- PostgreSQL（共享）
     pgsql:
         image: postgres:16-alpine
@@ -118,7 +107,6 @@ services:
             - ${PROJECTS_ROOT}:/opt/projects:ro
         depends_on:
             - mysql
-            - redis
             - pgsql
         networks: [stack]
 

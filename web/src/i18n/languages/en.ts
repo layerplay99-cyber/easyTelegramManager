@@ -337,6 +337,22 @@ const en = {
     saveFailed: 'Failed to save'
   },
 
+  dict: {
+    name: 'Dictionary Name',
+    nameRequired: 'Dictionary name is required',
+    key: 'Dictionary Key',
+    keyRequired: 'Dictionary key is required',
+    status: 'Dictionary Status',
+    description: 'Dictionary Description',
+    list: 'List',
+    valueLabel: 'Value Label',
+    valueLabelRequired: 'Value label is required',
+    valueName: 'Value Name',
+    value: 'Value Key',
+    valueRequired: 'Value key is required',
+    sort: 'Sort'
+  },
+
   permission: {
     departmentName: 'Department Name',
     departmentNameRequired: 'Department name is required',

@@ -2,10 +2,10 @@
   <div>
     <Search :search="search" :reset="reset">
       <template v-slot:body>
-        <el-form-item label="字典值名" prop="label">
+        <el-form-item :label="$t('dict.valueLabel')" prop="label">
           <el-input v-model="query.label" name="label" clearable />
         </el-form-item>
-        <el-form-item label="状态" prop="status">
+        <el-form-item :label="$t('system.status')" prop="status">
           <el-input v-model="query.status" name="status" clearable />
         </el-form-item>
       </template>
@@ -14,16 +14,16 @@
       <Operate :show="open" />
       <el-table :data="tableData" class="mt-3" v-loading="loading">
         <el-table-column prop="id" label="ID" />
-        <el-table-column prop="label" label="字典值名称" />
-        <el-table-column prop="value" label="字典键值" />
-        <el-table-column prop="sort" label="排序" />
-        <el-table-column prop="status" label="状态">
+        <el-table-column prop="label" :label="$t('dict.valueName')" />
+        <el-table-column prop="value" :label="$t('dict.value')" />
+        <el-table-column prop="sort" :label="$t('dict.sort')" />
+        <el-table-column prop="status" :label="$t('system.status')">
           <template #default="scope">
             <Status v-model="scope.row.status" :id="scope.row.id" :api="api" />
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" />
-        <el-table-column label="操作" width="200">
+        <el-table-column prop="description" :label="$t('dict.description')" />
+        <el-table-column :label="$t('system.operation')" width="200">
           <template #default="scope">
             <Update @click="open(scope.row.id)" />
             <Destroy @click="destroy(api, scope.row.id)" />

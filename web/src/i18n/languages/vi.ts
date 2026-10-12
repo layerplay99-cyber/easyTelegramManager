@@ -336,6 +336,22 @@ const vi = {
     saveFailed: 'Lưu thất bại'
   },
 
+  dict: {
+    name: 'Tên từ điển',
+    nameRequired: 'Phải nhập tên từ điển',
+    key: 'Khóa từ điển',
+    keyRequired: 'Phải nhập khóa từ điển',
+    status: 'Trạng thái từ điển',
+    description: 'Mô tả từ điển',
+    list: 'Danh sách',
+    valueLabel: 'Tên giá trị',
+    valueLabelRequired: 'Phải nhập tên giá trị',
+    valueName: 'Tên giá trị',
+    value: 'Khóa giá trị',
+    valueRequired: 'Phải nhập khóa giá trị',
+    sort: 'Sắp xếp'
+  },
+
   permission: {
     departmentName: 'Tên phòng ban',
     departmentNameRequired: 'Phải nhập tên phòng ban',

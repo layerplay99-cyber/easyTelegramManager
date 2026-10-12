@@ -336,6 +336,22 @@ const zh = {
     saveFailed: '保存失败'
   },
 
+  dict: {
+    name: '字典名称',
+    nameRequired: '字典名称必须填写',
+    key: '字典键名',
+    keyRequired: '字典键名必须填写',
+    status: '字典状态',
+    description: '字典描述',
+    list: '列表',
+    valueLabel: '字典值名',
+    valueLabelRequired: '字典值名必须填写',
+    valueName: '字典值名称',
+    value: '字典键值',
+    valueRequired: '字典键值必须填写',
+    sort: '排序'
+  },
+
   permission: {
     departmentName: '部门名称',
     departmentNameRequired: '部门名称必须填写',

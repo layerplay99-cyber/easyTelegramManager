@@ -336,6 +336,22 @@ const th = {
     saveFailed: 'บันทึกล้มเหลว'
   },
 
+  dict: {
+    name: 'ชื่อพจนานุกรม',
+    nameRequired: 'ต้องกรอกชื่อพจนานุกรม',
+    key: 'ชื่อคีย์พจนานุกรม',
+    keyRequired: 'ต้องกรอกชื่อคีย์พจนานุกรม',
+    status: 'สถานะพจนานุกรม',
+    description: 'คำอธิบายพจนานุกรม',
+    list: 'รายการ',
+    valueLabel: 'ชื่อค่าพจนานุกรม',
+    valueLabelRequired: 'ต้องกรอกชื่อค่าพจนานุกรม',
+    valueName: 'ชื่อค่า',
+    value: 'คีย์ค่า',
+    valueRequired: 'ต้องกรอกคีย์ค่า',
+    sort: 'การจัดเรียง'
+  },
+
   permission: {
     departmentName: 'ชื่อแผนก',
     departmentNameRequired: 'ต้องกรอกชื่อแผนก',

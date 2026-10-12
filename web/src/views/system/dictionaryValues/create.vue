@@ -1,33 +1,33 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
     <el-form-item
-      label="字典值名"
+      :label="$t('dict.valueLabel')"
       prop="label"
       :rules="[
         {
           required: true,
-          message: '字典值名必须填写'
+          message: $t('dict.valueLabelRequired')
         }
       ]"
     >
       <el-input v-model="formData.label" name="label" clearable />
     </el-form-item>
     <el-form-item
-      label="字典键值"
+      :label="$t('dict.value')"
       prop="value"
       :rules="[
         {
           required: true,
-          message: '字典键值必须填写'
+          message: $t('dict.valueRequired')
         }
       ]"
     >
       <el-input-number v-model="formData.value" name="value" clearable :min="1" />
     </el-form-item>
-    <el-form-item label="排序" prop="sort">
+    <el-form-item :label="$t('dict.sort')" prop="sort">
       <el-input-number v-model="formData.sort" name="sort" :min="1" />
     </el-form-item>
-    <el-form-item label="描述" prop="description">
+    <el-form-item :label="$t('dict.description')" prop="description">
       <el-input v-model="formData.description" name="description" clearable type="textarea" />
     </el-form-item>
     <div class="flex justify-end">

@@ -2,7 +2,7 @@
     <div>
         <Search :search="search" :reset="reset">
             <template v-slot:body>
-                <el-form-item label="群名称" prop="name">
+                <el-form-item :label="$t('group.name')" prop="name">
                     <el-input v-model="query.name" name="name" clearable />
                 </el-form-item>
                 <!-- <el-form-item label="状态" prop="enabled">
@@ -15,7 +15,7 @@
         <div class="table-default">
             <div class="pt-5 pl-2">
                 <el-button type="primary" plain @click="handleExportTemplate">
-                    + 批量设置分组
+                    {{ $t('group.batchSetGroup') }}
                 </el-button>
             </div>
 
@@ -25,24 +25,24 @@
                 <el-table-column prop="id" label="id" width="100" />
                 <el-table-column prop="bot_id" label="botId" />
                 <el-table-column prop="app_id" label="appId" />
-                <el-table-column prop="name" label="群名称" />
-                <el-table-column prop="chat_id" label="群聊ID" />
-                <el-table-column prop="group_group.name" label="分组名称" />
-                <el-table-column prop="enabled" label="状态">
+                <el-table-column prop="name" :label="$t('group.name')" />
+                <el-table-column prop="chat_id" :label="$t('group.chatId')" />
+                <el-table-column prop="group_group.name" :label="$t('group.groupName')" />
+                <el-table-column prop="enabled" :label="$t('system.status')">
                     <template #default="scope">
-                        <label v-if="scope.row.enabled === 1">启用</label>
-                        <label v-else>禁用</label>
+                        <label v-if="scope.row.enabled === 1">{{ $t('system.enabled') }}</label>
+                        <label v-else>{{ $t('system.disabled') }}</label>
                     </template>
                 </el-table-column>
-                <el-table-column prop="created_at" label="创建时间" />
-                <el-table-column prop="updated_at" label="更新时间" />
-                <el-table-column label="操作" width="350">
+                <el-table-column prop="created_at" :label="$t('system.createTime')" />
+                <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
+                <el-table-column :label="$t('system.operation')" width="350">
                     <template #default="scope">
                         <el-button type="success" size="small" @click="openConfigDialog(scope.row)">
-                            <Icon name="cog" className="w-4 h-4 mr-1" /> 配置
+                            <Icon name="cog" className="w-4 h-4 mr-1" /> {{ $t('group.config') }}
                         </el-button>
                         <el-button type="primary" size="small" @click="openFeatureDialog(scope.row)">
-                            <Icon name="puzzle-piece" className="w-4 h-4 mr-1" /> 功能
+                            <Icon name="puzzle-piece" className="w-4 h-4 mr-1" /> {{ $t('group.feature') }}
                         </el-button>
                         <!-- <Update @click="open(scope.row.id)" /> -->
                         <Destroy @click="destroy(api, scope.row.id)" />
@@ -58,16 +58,16 @@
 
         <Dialog v-model="group_visible" :title="group_title" destroy-on-close>
             <el-form label-width="120px" class="pr-4">
-                <el-form-item label="选择群分组" prop="group_id">
-                    <el-select v-model="groupForm.group_id" filterable placeholder="请选择群聊"
+                <el-form-item :label="$t('group.selectGroupCategory')" prop="group_id">
+                    <el-select v-model="groupForm.group_id" filterable :placeholder="$t('group.selectGroupPlaceholder')"
                         style="width: 100%;">
                         <el-option v-for="item in groupList" :key="item.id" :label="item.name + ' (' + item.id + ')'"
                             :value="item.id" />
                     </el-select>
                 </el-form-item>
                 <el-form-item>
-                    <el-button type="primary" @click="handleGroupSubmit">提交</el-button>
-                    <el-button @click="group_visible = false">取消</el-button>
+                    <el-button type="primary" @click="handleGroupSubmit">{{ $t('system.submit') }}</el-button>
+                    <el-button @click="group_visible = false">{{ $t('system.cancel') }}</el-button>
                 </el-form-item>
             </el-form>
         </Dialog>
@@ -83,51 +83,51 @@
         />
 
         <!-- 配置对话框 -->
-        <el-dialog v-model="configDialog.visible" title="群组配置" width="600px" destroy-on-close>
+        <el-dialog v-model="configDialog.visible" :title="$t('group.configTitle')" width="600px" destroy-on-close>
             <el-form :model="configDialog.form" label-width="120px">
-                <el-form-item label="商户ID" prop="mid">
-                    <el-input v-model="configDialog.form.mid" placeholder="请输入商户ID" />
+                <el-form-item :label="$t('group.merchantId')" prop="mid">
+                    <el-input v-model="configDialog.form.mid" :placeholder="$t('group.merchantIdPlaceholder')" />
                 </el-form-item>
 
-                <el-form-item label="客服" prop="customers">
+                <el-form-item :label="$t('group.customService')" prop="customers">
                     <el-input
                         v-model="configDialog.form.customers"
-                        placeholder="多个客服用逗号分隔"
+                        :placeholder="$t('group.customersPlaceholder')"
                         type="textarea"
                         :rows="2"
                     />
-                    <div class="text-gray-500 text-xs mt-1">提示：多个客服请用逗号分隔</div>
+                    <div class="text-gray-500 text-xs mt-1">{{ $t('group.customersTip') }}</div>
                 </el-form-item>
 
-                <el-form-item label="回复语言" prop="replyLang">
-                    <el-select v-model="configDialog.form.replyLang" placeholder="请选择回复语言" style="width: 100%">
-                        <el-option label="中文" value="zh_CN" />
-                        <el-option label="英文" value="en_US" />
-                        <el-option label="泰语" value="th_TH" />
-                        <el-option label="越南语" value="vi_VN" />
+                <el-form-item :label="$t('group.replyLang')" prop="replyLang">
+                    <el-select v-model="configDialog.form.replyLang" :placeholder="$t('group.replyLangPlaceholder')" style="width: 100%">
+                        <el-option :label="$t('system.chinese')" value="zh_CN" />
+                        <el-option :label="$t('system.english')" value="en_US" />
+                        <el-option :label="$t('system.thai')" value="th_TH" />
+                        <el-option :label="$t('system.vietnamese')" value="vi_VN" />
                     </el-select>
                 </el-form-item>
 
-                <el-form-item label="欢迎语" prop="welcome">
+                <el-form-item :label="$t('group.welcome')" prop="welcome">
                     <el-input
                         v-model="configDialog.form.welcome"
-                        placeholder="请输入欢迎语"
+                        :placeholder="$t('group.welcomePlaceholder')"
                         type="textarea"
                         :rows="3"
                     />
                 </el-form-item>
 
-                <el-form-item label="自动回复" prop="autoReply">
+                <el-form-item :label="$t('group.autoReply')" prop="autoReply">
                     <div class="space-y-2">
                         <div v-for="(item, index) in configDialog.form.autoReply" :key="index" class="flex gap-2">
                             <el-input
                                 v-model="item.key"
-                                placeholder="关键词"
+                                :placeholder="$t('group.keyword')"
                                 style="flex: 1"
                             />
                             <el-input
                                 v-model="item.value"
-                                placeholder="回复内容"
+                                :placeholder="$t('group.replyContent')"
                                 style="flex: 2"
                             />
                             <el-button
@@ -135,11 +135,11 @@
                                 link
                                 @click="removeAutoReply(index)"
                             >
-                                删除
+                                {{ $t('system.delete') }}
                             </el-button>
                         </div>
                         <el-button type="primary" link @click="addAutoReply">
-                            + 添加自动回复
+                            {{ $t('group.addAutoReply') }}
                         </el-button>
                     </div>
                 </el-form-item>
@@ -147,9 +147,9 @@
 
             <template #footer>
                 <div class="dialog-footer">
-                    <el-button @click="configDialog.visible = false">取消</el-button>
+                    <el-button @click="configDialog.visible = false">{{ $t('system.cancel') }}</el-button>
                     <el-button type="primary" @click="saveConfig" :loading="configDialog.loading">
-                        保存配置
+                        {{ $t('group.saveConfig') }}
                     </el-button>
                 </div>
             </template>
@@ -165,6 +165,7 @@ import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
 import { useGroup } from '@/stores/modules/telegram/group'
 import FeatureConfig from '@/components/telegram/FeatureConfig.vue'
+import { t } from '@/support/helper'
 
 const api = 'telegram/bot/groups'
 
@@ -174,12 +175,12 @@ const { open, close, title, visible, id } = useOpen()
 
 const tableRef = ref()
 const group_visible = ref(false);
-const group_title = ref("批量设置分组");
+const group_title = ref(t('group.batchSetGroup'));
 const tableData = computed(() => data.value?.data)
 // 状态选项定义
 const options = ref([
-    { value: 1, label: '启用' },
-    { value: 0, label: '禁用' }
+    { value: 1, label: t('system.enabled') },
+    { value: 0, label: t('system.disabled') }
 ])
 
 const groupList = ref<Array<{ id: number; name: string }>>([]);
@@ -203,10 +204,10 @@ const handleFeatureSaved = () => {
 
 // 类型映射（保留用于其他地方可能使用）
 const categoryMap: Record<string, string> = {
-    'system': '系统',
-    'custom': '客户端',
-    'bot': '机器人',
-    'realMan': '真人'
+    'system': t('feature.categories.system'),
+    'custom': t('feature.categories.custom'),
+    'bot': t('feature.categories.bot'),
+    'realMan': t('feature.categories.realMan')
 };
 
 // 配置对话框相关

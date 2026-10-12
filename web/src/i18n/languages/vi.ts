@@ -35,7 +35,8 @@ const vi = {
     operateFailed: 'Thao tác thất bại',
     updateFailed: 'Cập nhật thất bại',
     enabled: 'Đã bật',
-    disabled: 'Đã tắt'
+    disabled: 'Đã tắt',
+    submit: 'Gửi'
   },
 
   table: {
@@ -134,6 +135,32 @@ const vi = {
     webhookPlatformPlaceholder: 'Dùng callback nền tảng hiện tại (không cần nhập)',
     webhookCustomPlaceholder: 'Nhập URL Webhook bên ngoài',
     webhookAutoUse: 'Tự động dùng URL callback nền tảng hiện tại: '
+  },
+
+  group: {
+    name: 'Tên nhóm',
+    chatId: 'ID chat',
+    groupName: 'Danh mục',
+    batchSetGroup: 'Đặt danh mục hàng loạt',
+    config: 'Cấu hình',
+    feature: 'Tính năng',
+    configTitle: 'Cấu hình nhóm',
+    merchantId: 'ID merchant',
+    merchantIdPlaceholder: 'Nhập ID merchant',
+    customService: 'Hỗ trợ',
+    customersPlaceholder: 'Ngăn cách nhiều CS bằng dấu phẩy',
+    customersTip: 'Gợi ý: ngăn cách nhiều CS bằng dấu phẩy',
+    replyLang: 'Ngôn ngữ trả lời',
+    replyLangPlaceholder: 'Chọn ngôn ngữ trả lời',
+    welcome: 'Lời chào',
+    welcomePlaceholder: 'Nhập lời chào',
+    autoReply: 'Trả lời tự động',
+    keyword: 'Từ khóa',
+    replyContent: 'Nội dung trả lời',
+    addAutoReply: 'Thêm trả lời tự động',
+    saveConfig: 'Lưu cấu hình',
+    selectGroupCategory: 'Chọn danh mục',
+    selectGroupPlaceholder: 'Chọn nhóm'
   },
 
   // 功能（执行器 / 触发方式 / 分类）

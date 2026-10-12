@@ -35,7 +35,8 @@ const en = {
     operateFailed: 'Operation failed',
     updateFailed: 'Update failed',
     enabled: 'Enabled',
-    disabled: 'Disabled'
+    disabled: 'Disabled',
+    submit: 'Submit'
   },
 
   table: {
@@ -135,6 +136,32 @@ const en = {
     webhookPlatformPlaceholder: 'Use current platform callback (no input needed)',
     webhookCustomPlaceholder: 'Enter external Webhook URL',
     webhookAutoUse: 'Will auto-use current platform callback URL: '
+  },
+
+  group: {
+    name: 'Group Name',
+    chatId: 'Chat ID',
+    groupName: 'Category',
+    batchSetGroup: 'Batch Set Category',
+    config: 'Config',
+    feature: 'Features',
+    configTitle: 'Group Config',
+    merchantId: 'Merchant ID',
+    merchantIdPlaceholder: 'Enter merchant ID',
+    customService: 'Support',
+    customersPlaceholder: 'Separate multiple agents with commas',
+    customersTip: 'Tip: separate multiple agents with commas',
+    replyLang: 'Reply Language',
+    replyLangPlaceholder: 'Select reply language',
+    welcome: 'Welcome Message',
+    welcomePlaceholder: 'Enter welcome message',
+    autoReply: 'Auto Reply',
+    keyword: 'Keyword',
+    replyContent: 'Reply',
+    addAutoReply: 'Add Auto Reply',
+    saveConfig: 'Save Config',
+    selectGroupCategory: 'Select Category',
+    selectGroupPlaceholder: 'Select group'
   },
 
   // 功能（执行器 / 触发方式 / 分类）

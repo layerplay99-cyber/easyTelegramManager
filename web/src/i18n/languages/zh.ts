@@ -35,7 +35,8 @@ const zh = {
     operateFailed: '操作失败',
     updateFailed: '更新失败',
     enabled: '启用',
-    disabled: '禁用'
+    disabled: '禁用',
+    submit: '提交'
   },
 
   table: {
@@ -134,6 +135,32 @@ const zh = {
     webhookPlatformPlaceholder: '使用当前平台回调（无需填写）',
     webhookCustomPlaceholder: '请输入外部 Webhook URL',
     webhookAutoUse: '将自动使用当前平台回调地址：'
+  },
+
+  group: {
+    name: '群名称',
+    chatId: '群聊ID',
+    groupName: '分组名称',
+    batchSetGroup: '批量设置分组',
+    config: '配置',
+    feature: '功能',
+    configTitle: '群组配置',
+    merchantId: '商户ID',
+    merchantIdPlaceholder: '请输入商户ID',
+    customService: '客服',
+    customersPlaceholder: '多个客服用逗号分隔',
+    customersTip: '提示：多个客服请用逗号分隔',
+    replyLang: '回复语言',
+    replyLangPlaceholder: '请选择回复语言',
+    welcome: '欢迎语',
+    welcomePlaceholder: '请输入欢迎语',
+    autoReply: '自动回复',
+    keyword: '关键词',
+    replyContent: '回复内容',
+    addAutoReply: '添加自动回复',
+    saveConfig: '保存配置',
+    selectGroupCategory: '选择群分组',
+    selectGroupPlaceholder: '请选择群聊'
   },
 
   // 功能（执行器 / 触发方式 / 分类）

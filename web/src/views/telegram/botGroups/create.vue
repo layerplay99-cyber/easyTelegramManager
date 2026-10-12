@@ -3,10 +3,10 @@
         <el-form-item label="Bot-ID" prop="bot_id">
             <el-input v-model="formData.bot_id" name="bot_id" :readonly="true" clearable />
         </el-form-item>
-        <el-form-item label="群名称" prop="name">
+        <el-form-item :label="$t('group.name')" prop="name">
             <el-input v-model="formData.name" name="name" :readonly="true" clearable />
         </el-form-item>
-        <el-form-item label="群聊ID" prop="chat_id">
+        <el-form-item :label="$t('group.chatId')" prop="chat_id">
             <el-input v-model="formData.chat_id" name="chat_id" :readonly="true" clearable />
         </el-form-item>
         <!-- <el-form-item label="状态" prop="status">

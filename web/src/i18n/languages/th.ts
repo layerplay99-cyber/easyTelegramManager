@@ -35,7 +35,8 @@ const th = {
     operateFailed: 'การทำงานล้มเหลว',
     updateFailed: 'อัปเดตล้มเหลว',
     enabled: 'เปิดใช้งาน',
-    disabled: 'ปิดใช้งาน'
+    disabled: 'ปิดใช้งาน',
+    submit: 'ส่ง'
   },
 
   table: {
@@ -134,6 +135,32 @@ const th = {
     webhookPlatformPlaceholder: 'ใช้การเรียกกลับของแพลตฟอร์มปัจจุบัน (ไม่ต้องกรอก)',
     webhookCustomPlaceholder: 'กรอก URL Webhook ภายนอก',
     webhookAutoUse: 'จะใช้ URL เรียกกลับของแพลตฟอร์มปัจจุบันโดยอัตโนมัติ: '
+  },
+
+  group: {
+    name: 'ชื่อกลุ่ม',
+    chatId: 'ID แชท',
+    groupName: 'หมวดหมู่',
+    batchSetGroup: 'ตั้งค่าหมวดหมู่แบบกลุ่ม',
+    config: 'ตั้งค่า',
+    feature: 'ฟีเจอร์',
+    configTitle: 'ตั้งค่ากลุ่ม',
+    merchantId: 'ID ร้านค้า',
+    merchantIdPlaceholder: 'กรอก ID ร้านค้า',
+    customService: 'ฝ่ายบริการ',
+    customersPlaceholder: 'คั่นหลายฝ่ายด้วยจุลภาค',
+    customersTip: 'คำแนะนำ：คั่นหลายฝ่ายด้วยจุลภาค',
+    replyLang: 'ภาษาตอบ',
+    replyLangPlaceholder: 'กรุณาเลือกภาษาตอบ',
+    welcome: 'ข้อความต้อนรับ',
+    welcomePlaceholder: 'กรอกข้อความต้อนรับ',
+    autoReply: 'ตอบอัตโนมัติ',
+    keyword: 'คำสำคัญ',
+    replyContent: 'ข้อความตอบ',
+    addAutoReply: 'เพิ่มตอบอัตโนมัติ',
+    saveConfig: 'บันทึกการตั้งค่า',
+    selectGroupCategory: 'เลือกหมวดหมู่',
+    selectGroupPlaceholder: 'กรุณาเลือกกลุ่ม'
   },
 
   // 功能（执行器 / 触发方式 / 分类）

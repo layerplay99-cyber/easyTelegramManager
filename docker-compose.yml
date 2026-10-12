@@ -150,9 +150,26 @@ services:
         networks:
             - stack
 
+    # ---------------------------------------------------------- Redis（项目自带，独立）
+    # 不依赖共享栈的 stack-redis：本机已有 easycall-redis，stack-redis 与其共用数据
+    # 目录/端口会起不来（曾 Exited 139），导致 tgbot-php 在 stack 网络解析不到 redis、
+    # webhook 推队列失败 → 群不同步。这里单独起一个 redis：独占命名卷、不映射宿主端口，
+    # 借服务名 redis 在 stack 网络提供别名；tgbot-php/queue/reverb 的 REDIS_HOST=redis
+    # 即解析到它，与共享栈的 redis 彻底解耦。
+    # 前提：删除/停用共享栈的 stack-redis，释放 stack 网络上的 redis 别名。
+    redis:
+        image: redis:7-alpine
+        container_name: tgbot-redis
+        restart: unless-stopped
+        volumes:
+            - tgbot_redis:/data
+        networks:
+            - stack
+
 volumes:
     node_modules:
     tgbot_media:
+    tgbot_redis:
 
 networks:
     stack:

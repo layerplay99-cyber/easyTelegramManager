@@ -64,6 +64,28 @@ export function t(translate: string) {
 }
 
 /**
+ * 翻译动态标题（菜单 / 面包屑 / 标签 / 导航搜索）。
+ *
+ * 约定：语言包 `menus` 命名空间以「中文名」为 key（menus.<中文名>）。
+ * 命中翻译则返回翻译；未配置（含当前语言没翻译）时回落原始标题，
+ * 避免把 menus.xxx 这类 key 直接显示到界面。切换语言时依赖 i18n.global
+ * 的响应式在组件重渲染时重新求值。
+ *
+ * @param title 原始标题（一般为后端 permission_name，中文）
+ */
+export function translateTitle(title?: string | null): string {
+  if (!title) {
+    return ''
+  }
+
+  const key = `menus.${title}`
+  const translated = i18n.global.t(key)
+
+  // vue-i18n 找不到翻译时返回 key 本身，此时回落原文
+  return translated === key ? title : (translated as string)
+}
+
+/**
  * is undefined
  *
  * @param value

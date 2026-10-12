@@ -5,7 +5,7 @@
 
       <Teleport to="body">
         <el-dialog v-model="searchMenuVisiable" width="30%" draggable>
-          <el-cascader :filterable="true" :options="options" @change="toWhere" placeholder="请输入菜单名称" clearable class="w-full" :show-all-levels="false" />
+          <el-cascader :filterable="true" :options="options" @change="toWhere" :placeholder="$t('nav.searchMenu')" clearable class="w-full" :show-all-levels="false" />
         </el-dialog>
       </Teleport>
     </div>
@@ -17,6 +17,7 @@ import { usePermissionsStore } from '@/stores/modules/user/permissions'
 import { Menu } from '@/types/Menu'
 import router from '@/router'
 import { ref, computed } from 'vue'
+import { translateTitle } from '@/support/helper'
 
 const searchMenuVisiable = ref(false)
 
@@ -43,9 +44,9 @@ function filterMenus(menus: Menu[] | undefined): Object[] {
   menus?.forEach(menu => {
     if (menu.meta === undefined) {
       const child = menu.children?.pop()
-      cascaderMenus.push(Object.assign({ label: child?.meta?.title, value: child?.path }))
+      cascaderMenus.push(Object.assign({ label: translateTitle(child?.meta?.title), value: child?.path }))
     } else {
-      const cascaderMenu = Object.assign({ label: menu.meta?.title, value: menu.path, children: [] })
+      const cascaderMenu = Object.assign({ label: translateTitle(menu.meta?.title), value: menu.path, children: [] })
 
       cascaderMenu.children = filterMenus(menu.children)
 

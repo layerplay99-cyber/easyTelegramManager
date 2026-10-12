@@ -20,7 +20,65 @@ const vi = {
     back: 'Quay lại',
     update: 'Cập nhật',
     search: 'Tìm kiếm',
-    reset: 'Đặt lại'
+    reset: 'Đặt lại',
+    profile: 'Hồ sơ',
+    logout: 'Đăng xuất',
+    logoutConfirm: 'Bạn có chắc chắn muốn đăng xuất không?'
+  },
+
+  table: {
+    selected: 'Đã chọn',
+    selectedItems: 'mục',
+    export: 'Xuất',
+    loose: 'Rộng',
+    default: 'Mặc định',
+    compact: 'Gọn',
+    columnSettings: 'Cài đặt cột'
+  },
+
+  nav: {
+    searchMenu: 'Tìm kiếm menu'
+  },
+
+  menus: {
+    '首页': 'Trang chủ',
+    '权限管理': 'Phân quyền',
+    '部门管理': 'Phòng ban',
+    '岗位管理': 'Chức vụ',
+    '菜单管理': 'Menu',
+    '角色管理': 'Vai trò',
+    '用户管理': 'Người dùng',
+    '系统管理': 'Hệ thống',
+    '字典管理': 'Từ điển',
+    '字典值管理': 'Giá trị từ điển',
+    '开发工具': 'Công cụ phát triển',
+    'Schema': 'Schema',
+    '号码采集': 'Thu thập số',
+    '号码仓库': 'Kho số',
+    '扫描记录': 'Lịch sử quét',
+    '账号仓库': 'Kho tài khoản',
+    '附加功能': 'Tính năng bổ sung',
+    '功能列表': 'Danh sách tính năng',
+    '三方配置': 'Cấu hình bên thứ ba',
+    '三方接口': 'API bên thứ ba',
+    '上游接口配置': 'Cấu hình API upstream',
+    '机器人管理': 'Quản lý bot',
+    'Telegram客服': 'Hỗ trợ Telegram',
+    '机器人列表': 'Danh sách bot',
+    '群分组': 'Danh mục nhóm',
+    '群列表': 'Danh sách nhóm',
+    '钱包管理': 'Quản lý ví',
+    '会员': 'Thành viên',
+    '钱包': 'Ví',
+    '充值订单': 'Đơn nạp tiền',
+    '提现订单': 'Đơn rút tiền',
+    '账本流水': 'Sổ sách',
+    '支付通道': 'Kênh thanh toán',
+    '风控中心': 'Kiểm soát rủi ro',
+    '交易限额': 'Hạn mức giao dịch',
+    '汇率': 'Tỷ giá',
+    '消息模板': 'Mẫu tin nhắn',
+    '表情素材': 'Emoji'
   },
 
   // 功能（执行器 / 触发方式 / 分类）

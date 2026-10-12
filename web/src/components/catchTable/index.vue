@@ -15,18 +15,18 @@
       <div class="h-16 pt-5">
         <!-- 多选 -->
         <div v-if="multiSelectIds.length > 0" class="flex justify-between">
-          <div class="flex pt-2 text-sm text-slate-400"><Icon name="check" class="mr-2" /> 已选 {{ multiSelectIds.length }} 条数据</div>
+          <div class="flex pt-2 text-sm text-slate-400"><Icon name="check" class="mr-2" /> {{ $t('table.selected') }} {{ multiSelectIds.length }} {{ $t('table.selectedItems') }}</div>
           <div class="flex gap-2">
             <!--批量操作的插槽-->
             <slot name="multiOperate" />
-            <el-button @click="destroy(props.api, multiSelectIds.join(','))" type="danger" plain size="small"> <Icon name="trash" className="w-4 h-4 mr-1" />删除 </el-button>
+            <el-button @click="destroy(props.api, multiSelectIds.join(','))" type="danger" plain size="small"> <Icon name="trash" className="w-4 h-4 mr-1" />{{ $t('system.delete') }} </el-button>
           </div>
         </div>
         <!-- 正常头部 -->
         <div class="flex flex-row justify-between" v-else>
           <div>
             <Add @click="openDialog" v-if="operation" />
-            <el-button @click="download(exportUrl ? exportUrl : api)" v-if="exports">导出</el-button>
+            <el-button @click="download(exportUrl ? exportUrl : api)" v-if="exports">{{ $t('table.export') }}</el-button>
             <!-- 头部插槽 -->
             <slot name="operation" />
           </div>
@@ -42,17 +42,17 @@
                 <el-icon><More /></el-icon>
                 <template #dropdown>
                   <el-dropdown-menu class="w-20 mt-2">
-                    <el-dropdown-item command="large" v-if="tableSize === 'large'">宽松</el-dropdown-item>
-                    <el-dropdown-item command="large" v-else>宽松</el-dropdown-item>
-                    <el-dropdown-item command="default" divided>默认</el-dropdown-item>
-                    <el-dropdown-item command="small" divided>紧凑</el-dropdown-item>
+                    <el-dropdown-item command="large" v-if="tableSize === 'large'">{{ $t('table.loose') }}</el-dropdown-item>
+                    <el-dropdown-item command="large" v-else>{{ $t('table.loose') }}</el-dropdown-item>
+                    <el-dropdown-item command="default" divided>{{ $t('table.default') }}</el-dropdown-item>
+                    <el-dropdown-item command="small" divided>{{ $t('table.compact') }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
             </el-button>
             <!-- 栏目 -->
             <el-button text circle>
-              <el-popover placement="bottom" :width="100" trigger="hover" title="列设置">
+              <el-popover placement="bottom" :width="100" trigger="hover" :title="$t('table.columnSettings')">
                 <template #reference>
                   <Icon name="squares-plus" className="w-4 h-4" />
                 </template>

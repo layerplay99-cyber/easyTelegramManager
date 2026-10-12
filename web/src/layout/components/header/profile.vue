@@ -7,10 +7,10 @@
       </div>
       <template #dropdown>
         <el-dropdown-menu class="w-28">
-          <el-dropdown-item> <Icon name="user" /> <router-link :to="{ path: '/users/center' }"> 个人信息</router-link> </el-dropdown-item>
+          <el-dropdown-item> <Icon name="user" /> <router-link :to="{ path: '/users/center' }"> {{ $t('system.profile') }}</router-link> </el-dropdown-item>
           <el-dropdown-item divided @click="logout">
             <Icon name="power" className="mr-1 w-4 h-4" />
-            退 出
+            {{ $t('system.logout') }}
           </el-dropdown-item>
         </el-dropdown-menu>
       </template>
@@ -22,12 +22,13 @@
 import { useUserStore } from '@/stores/modules/user'
 import { useNavTabStore } from "@/stores/modules/tabs";
 import Message from '@/support/message'
+import { t } from '@/support/helper'
 
 const userStore = useUserStore()
 const navTabStore = useNavTabStore()
 
 const logout = () => {
-  Message.confirm('确定退出系统吗?', () => {
+  Message.confirm(t('system.logoutConfirm'), () => {
       userStore.logout()
       navTabStore.removeAllTabs()
   })

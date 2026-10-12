@@ -20,7 +20,65 @@ const en = {
     back: 'Back',
     update: 'Update',
     search: 'Search',
-    reset: 'Reset'
+    reset: 'Reset',
+    profile: 'Profile',
+    logout: 'Logout',
+    logoutConfirm: 'Are you sure you want to log out?'
+  },
+
+  table: {
+    selected: 'Selected',
+    selectedItems: 'items',
+    export: 'Export',
+    loose: 'Loose',
+    default: 'Default',
+    compact: 'Compact',
+    columnSettings: 'Column Settings'
+  },
+
+  nav: {
+    searchMenu: 'Search menu'
+  },
+
+  menus: {
+    '首页': 'Home',
+    '权限管理': 'Permissions',
+    '部门管理': 'Departments',
+    '岗位管理': 'Posts',
+    '菜单管理': 'Menus',
+    '角色管理': 'Roles',
+    '用户管理': 'Users',
+    '系统管理': 'System',
+    '字典管理': 'Dictionaries',
+    '字典值管理': 'Dictionary Values',
+    '开发工具': 'Dev Tools',
+    'Schema': 'Schema',
+    '号码采集': 'Number Collection',
+    '号码仓库': 'Number Library',
+    '扫描记录': 'Scan Logs',
+    '账号仓库': 'Account Library',
+    '附加功能': 'Extra Features',
+    '功能列表': 'Features',
+    '三方配置': 'Third-party Config',
+    '三方接口': 'Third-party APIs',
+    '上游接口配置': 'Upstream API Config',
+    '机器人管理': 'Bot Management',
+    'Telegram客服': 'Telegram Support',
+    '机器人列表': 'Bots',
+    '群分组': 'Group Categories',
+    '群列表': 'Groups',
+    '钱包管理': 'Wallet',
+    '会员': 'Members',
+    '钱包': 'Wallets',
+    '充值订单': 'Recharge Orders',
+    '提现订单': 'Withdraw Orders',
+    '账本流水': 'Ledger',
+    '支付通道': 'Payment Channels',
+    '风控中心': 'Risk Control',
+    '交易限额': 'Transaction Limits',
+    '汇率': 'Exchange Rates',
+    '消息模板': 'Message Templates',
+    '表情素材': 'Emoji Assets'
   },
 
   // 功能（执行器 / 触发方式 / 分类）

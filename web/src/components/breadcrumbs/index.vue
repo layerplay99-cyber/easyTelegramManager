@@ -3,7 +3,7 @@
     <transition-group name="breadcrumb">
       <!--<el-breadcrumb-item :to="{ path: '/' }" class="text-blue=">Dashboard</el-breadcrumb-item>-->
 
-      <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="index" class="text">{{ item }}</el-breadcrumb-item>
+      <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="index" class="text">{{ translateTitle(item) }}</el-breadcrumb-item>
     </transition-group>
   </el-breadcrumb>
 </template>
@@ -13,6 +13,7 @@ import router from '@/router'
 import { watch, onMounted, ref } from 'vue'
 import { useAppStore } from '@/stores/modules/app'
 import { RouteLocationNormalizedLoaded } from 'vue-router'
+import { translateTitle } from '@/support/helper'
 
 const appStore = useAppStore()
 const breadcrumbs = ref<string[]>([])

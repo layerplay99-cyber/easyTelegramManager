@@ -20,7 +20,24 @@ const zh = {
     back: '返回',
     update: '更新',
     search: '搜索',
-    reset: '重置'
+    reset: '重置',
+    profile: '个人信息',
+    logout: '退出',
+    logoutConfirm: '确定退出系统吗?'
+  },
+
+  table: {
+    selected: '已选',
+    selectedItems: '条数据',
+    export: '导出',
+    loose: '宽松',
+    default: '默认',
+    compact: '紧凑',
+    columnSettings: '列设置'
+  },
+
+  nav: {
+    searchMenu: '请输入菜单名称'
   },
 
   // 功能（执行器 / 触发方式 / 分类）

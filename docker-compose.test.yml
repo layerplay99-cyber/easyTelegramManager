@@ -25,3 +25,12 @@ services:
         networks:
             - stack
         restart: unless-stopped
+
+    # 测试环境覆盖：Telethon 的回调必须打回「测试」后端（tgbot-nginx → tgbot-php），
+    # 不能沿用生产默认的 http://stack-nginx（否则群被同步进生产库，测试群列表永远为空）。
+    # tgbot-nginx 在 stack 网络内，且是第一个 server 块（无匹配 Host 时作默认），
+    # LARAVEL_HOST 用 tgbot.local 即可正常路由。
+    telegram-py:
+        environment:
+            LARAVEL_BASE_URL: http://tgbot-nginx
+            LARAVEL_HOST: tgbot.local

@@ -47,6 +47,8 @@ const vi = {
     pleaseInput: 'Vui lòng nhập',
     fieldRequired: 'Trường này là bắt buộc',
     batchDelete: 'Xóa hàng loạt',
+    create: 'Tạo',
+    update: 'Cập nhật',
     invalidFileType: 'Không đúng loại file được phép tải lên, chỉ hỗ trợ',
     loginExpiredReLogin: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'
   },

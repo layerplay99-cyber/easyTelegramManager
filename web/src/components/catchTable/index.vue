@@ -406,7 +406,7 @@ const openDialog = (v = null, dialogTitle: string = '') => {
 
   visible.value = true
   // @ts-ignore
-  title.value = dialogTitle || (v?.id ? '更新' : '创建')
+  title.value = dialogTitle || (v?.id ? t('system.update') : t('system.create'))
 }
 const closeDialog = () => {
   visible.value = false

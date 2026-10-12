@@ -47,6 +47,8 @@ const en = {
     pleaseInput: 'Please enter',
     fieldRequired: 'This field is required',
     batchDelete: 'Batch Delete',
+    create: 'Create',
+    update: 'Update',
     invalidFileType: 'Unsupported file type, only ',
     loginExpiredReLogin: 'Login expired, please sign in again'
   },

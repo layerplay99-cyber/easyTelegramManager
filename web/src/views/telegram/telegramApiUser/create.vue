@@ -6,14 +6,14 @@
 <el-form-item label="APP Hash" prop="app_hash">
   <el-input v-model="formData.app_hash" name="app_hash" clearable />
 </el-form-item>
-<el-form-item label="电话号码" prop="phone_number">
+<el-form-item :label="$t('account.phone')" prop="phone_number">
   <el-input v-model="formData.phone_number" name="phone_number" clearable />
 </el-form-item>
-<el-form-item label="昵称" prop="nickname">
+<el-form-item :label="$t('account.nickname')" prop="nickname">
   <el-input v-model="formData.nickname" name="nickname" clearable />
 </el-form-item>
-<el-form-item label="状态" prop="status">
- <el-select v-model="formData.status" placeholder="请选择" clearable>
+<el-form-item :label="$t('system.status')" prop="status">
+ <el-select v-model="formData.status" :placeholder="$t('system.pleaseSelect')" clearable>
      <el-option
        v-for="item in options"
        :key="item.value"
@@ -32,6 +32,7 @@
 import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
 import { onMounted } from 'vue'
+import { t } from '@/support/helper'
 
 const props = defineProps({
   primary: [String, Number],
@@ -39,8 +40,8 @@ const props = defineProps({
 })
 
 const options = [
-    { label: '启用', value: 1 },
-    { label: '禁用', value: 0 }
+    { label: t('system.enabled'), value: 1 },
+    { label: t('system.disabled'), value: 0 }
 ]
 
 const { formData, form, loading, submitForm, close } = useCreate(props.api, props.primary)

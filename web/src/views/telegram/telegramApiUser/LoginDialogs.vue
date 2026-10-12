@@ -1,23 +1,23 @@
 <template>
     <div>
         <!-- 验证码输入对话框 -->
-        <el-dialog v-model="codeDialog.visible" title="输入验证码" width="400px">
+        <el-dialog v-model="codeDialog.visible" :title="$t('account.codeTitle')" width="400px">
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium mb-2">用户信息</label>
-                    <p class="text-gray-600">手机号: {{ codeDialog.user?.phone }}</p>
+                    <label class="block text-sm font-medium mb-2">{{ $t('account.userInfo') }}</label>
+                    <p class="text-gray-600">{{ $t('account.phone') }}: {{ codeDialog.user?.phone }}</p>
                     <p class="text-gray-600">ID: {{ codeDialog.user?.id }}</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-2">验证码</label>
-                    <el-input v-model="codeDialog.code" placeholder="请输入验证码" maxlength="6" show-word-limit />
+                    <label class="block text-sm font-medium mb-2">{{ $t('account.code') }}</label>
+                    <el-input v-model="codeDialog.code" :placeholder="$t('account.codePlaceholder')" maxlength="6" show-word-limit />
                 </div>
             </div>
             <template #footer>
                 <div class="dialog-footer">
-                    <el-button @click="closeCodeDialog">取消</el-button>
+                    <el-button @click="closeCodeDialog">{{ $t('system.cancel') }}</el-button>
                     <el-button type="primary" @click="submitCode" :loading="codeDialog.loading">
-                        提交验证码
+                        {{ $t('account.submitCode') }}
                     </el-button>
                 </div>
             </template>
@@ -26,7 +26,7 @@
         <!-- 登录二维码对话框 -->
         <el-dialog
             v-model="loginDialog.visible"
-            title="扫码登录"
+            :title="$t('account.qrLoginTitle')"
             width="500px"
             :close-on-click-modal="false"
             @close="closeLoginDialog"
@@ -37,38 +37,38 @@
                 <img
                     v-if="qrImageUrl"
                     :src="qrImageUrl"
-                    alt="登录二维码"
+                    :alt="$t('account.qrAlt')"
                     style="margin-bottom: 20px; width: 280px; height: 280px;"
                 />
                 <p v-if="loginDialog.qrSvg" style="color: #606266; text-align: center;">
-                    请打开 Telegram 手机客户端，扫描二维码登录
+                    {{ $t('account.qrTip') }}
                 </p>
                 <div v-else-if="!loginDialog.loading" style="padding: 20px; text-align: center; color: #909399;">
-                    未获取到登录二维码
+                    {{ $t('account.qrNotFound') }}
                 </div>
             </div>
         </el-dialog>
 
         <!-- 2FA密码输入对话框 -->
-        <el-dialog v-model="twoFADialog.visible" title="输入两步验证密码" width="400px">
+        <el-dialog v-model="twoFADialog.visible" :title="$t('account.twoFATitle')" width="400px">
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium mb-2">两步验证密码</label>
+                    <label class="block text-sm font-medium mb-2">{{ $t('account.twoFA') }}</label>
                     <el-input
                         v-model="twoFADialog.password"
                         type="password"
-                        placeholder="请输入两步验证密码"
+                        :placeholder="$t('account.twoFAPlaceholder')"
                         show-password
                         @keyup.enter="submit2FAPassword"
                     />
-                    <p class="text-gray-500 text-xs mt-2">这是您在Telegram中设置的两步验证密码</p>
+                    <p class="text-gray-500 text-xs mt-2">{{ $t('account.twoFATip') }}</p>
                 </div>
             </div>
             <template #footer>
                 <div class="dialog-footer">
-                    <el-button @click="close2FADialog">取消</el-button>
+                    <el-button @click="close2FADialog">{{ $t('system.cancel') }}</el-button>
                     <el-button type="primary" @click="submit2FAPassword" :loading="twoFADialog.loading">
-                        提交密码
+                        {{ $t('account.submit2FA') }}
                     </el-button>
                 </div>
             </template>
@@ -80,6 +80,7 @@
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useTelegramStore } from '@/stores/modules/telegram/teleApi'
+import { t } from '@/support/helper'
 
 const emit = defineEmits<{
     (e: 'loginSuccess'): void
@@ -144,7 +145,7 @@ const closeCodeDialog = () => {
 const submitCode = async () => {
     if (!codeDialog.value.code.trim()) {
         ElMessage({
-            message: '请输入验证码',
+            message: t('account.codeRequired'),
             type: 'error',
             customClass: 'error-message'
         })
@@ -158,7 +159,7 @@ const submitCode = async () => {
 
         if (result.success) {
             ElMessage({
-                message: '验证码提交成功',
+                message: t('account.codeSubmitSuccess'),
                 type: 'success',
                 customClass: 'success-message'
             })
@@ -166,7 +167,7 @@ const submitCode = async () => {
             emit('refreshList')
         } else {
             ElMessage({
-                message: result.message || '提交失败',
+                message: result.message || t('account.submitFailed'),
                 type: 'error',
                 customClass: 'error-message'
             })
@@ -174,7 +175,7 @@ const submitCode = async () => {
     } catch (error) {
         console.error('提交验证码失败:', error)
         ElMessage({
-            message: '提交失败，请稍后重试',
+            message: t('account.submitFailedRetry'),
             type: 'error',
             customClass: 'error-message'
         })
@@ -202,7 +203,7 @@ const close2FADialog = () => {
 const submit2FAPassword = async () => {
     if (!twoFADialog.value.password.trim()) {
         ElMessage({
-            message: '请输入两步验证密码',
+            message: t('account.twoFARequired'),
             type: 'error',
             customClass: 'error-message'
         })
@@ -211,7 +212,7 @@ const submit2FAPassword = async () => {
 
     if (!twoFADialog.value.userId) {
         ElMessage({
-            message: '用户ID丢失',
+            message: t('account.userIdLost'),
             type: 'error',
             customClass: 'error-message'
         })
@@ -225,7 +226,7 @@ const submit2FAPassword = async () => {
 
         if (result.success) {
             ElMessage({
-                message: '2FA验证成功，登录完成',
+                message: t('account.twoFASuccess'),
                 type: 'success',
                 customClass: 'success-message'
             })
@@ -233,7 +234,7 @@ const submit2FAPassword = async () => {
             emit('refreshList')
         } else {
             ElMessage({
-                message: result.message || '2FA验证失败',
+                message: result.message || t('account.twoFAFailed'),
                 type: 'error',
                 customClass: 'error-message'
             })
@@ -241,7 +242,7 @@ const submit2FAPassword = async () => {
     } catch (error) {
         console.error('提交2FA密码失败:', error)
         ElMessage({
-            message: '提交失败，请稍后重试',
+            message: t('account.submitFailedRetry'),
             type: 'error',
             customClass: 'error-message'
         })
@@ -291,7 +292,7 @@ const startLoginStatusPolling = (userId: number) => {
                     closeLoginDialog()
 
                     ElMessage({
-                        message: '登录成功！',
+                        message: t('account.loginSuccess'),
                         type: 'success',
                         customClass: 'success-message'
                     })
@@ -305,7 +306,7 @@ const startLoginStatusPolling = (userId: number) => {
                     open2FADialog(userId)
 
                     ElMessage({
-                        message: result.data.message || '需要输入两步验证密码',
+                        message: result.data.message || t('account.need2FA'),
                         type: 'warning',
                         customClass: 'warning-message'
                     })
@@ -344,7 +345,7 @@ const handleLoginStatusBroadcast = (event: any) => {
         emit('loginSuccess')
     } else if (event.require_2fa && event.login_status === 2) {
         ElMessage({
-            message: event.message || '需要输入两步验证密码',
+            message: event.message || t('account.need2FA'),
             type: 'warning',
             customClass: 'warning-message'
         })

@@ -5,11 +5,11 @@
                 <el-form-item label="Bot-ID" prop="name">
                     <el-input v-model="query.name" name="name" clearable />
                 </el-form-item>
-                <el-form-item label="Bot用户名" prop="username">
+                <el-form-item :label="$t('bots.username')" prop="username">
                     <el-input v-model="query.username" name="username" clearable />
                 </el-form-item>
-                <el-form-item label="状态" prop="enabled">
-                    <el-select v-model="query.enabled" placeholder="请选择" clearable>
+                <el-form-item :label="$t('system.status')" prop="enabled">
+                    <el-select v-model="query.enabled" :placeholder="$t('system.pleaseSelect')" clearable>
                         <el-option v-for="item in enabled" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                 </el-form-item>
@@ -25,14 +25,14 @@
             <el-table :data="tableData" class="mt-3" v-loading="loading">
                 <el-table-column prop="id" label="id" />
                 <el-table-column prop="api_token" label="Api_Token" />
-                <el-table-column prop="username" label="Bot用户名" />
+                <el-table-column prop="username" :label="$t('bots.username')" />
                 <el-table-column prop="url_token" label="Url-Token" />
       <!-- 三方上游：仅超级管理员可见/可改（后端也已硬校验） -->
-      <el-table-column v-if="isSuperAdmin" label="三方上游" min-width="200">
+      <el-table-column v-if="isSuperAdmin" :label="$t('bots.thirdUpstream')" min-width="200">
         <template #default="scope">
           <el-select
             v-model="scope.row.third_config_id"
-            placeholder="未指定"
+            :placeholder="$t('bots.thirdUnspecified')"
             clearable
             filterable
             class="w-full"
@@ -48,8 +48,8 @@
           </el-select>
         </template>
       </el-table-column>
-                <el-table-column prop="description" label="Bot描述" />
-                <el-table-column prop="enabled" label="激活状态">
+                <el-table-column prop="description" :label="$t('bots.description')" />
+                <el-table-column prop="enabled" :label="$t('bots.activeStatus')">
                     <template #default="scope">
                         <el-switch
                             v-model="scope.row.enabled"
@@ -60,18 +60,18 @@
                         />
                     </template>
                 </el-table-column>
-                <el-table-column prop="created_at" label="创建时间" />
-                <el-table-column prop="updated_at" label="更新时间" />
-                <el-table-column label="操作" width="460">
+                <el-table-column prop="created_at" :label="$t('system.createTime')" />
+                <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
+                <el-table-column :label="$t('system.operation')" width="460">
                     <template #default="scope">
                         <el-button type="info" size="small" :loading="scope.row.infoLoading" @click="handleViewWebhook(scope.row)">
-                            <Icon name="info" className="w-4 h-4 mr-1" /> 查看状态
+                            <Icon name="info" className="w-4 h-4 mr-1" /> {{ $t('bots.viewStatus') }}
                         </el-button>
                         <el-button type="success" size="small" @click="openBotBroadcastDialog(scope.row)">
-                            <Icon name="paper-plane" className="w-4 h-4 mr-1" /> 群发
+                            <Icon name="paper-plane" className="w-4 h-4 mr-1" /> {{ $t('bots.broadcast') }}
                         </el-button>
                         <el-button type="warning" size="small" @click="openBotFeatureDialog(scope.row)">
-                            <Icon name="puzzle-piece" className="w-4 h-4 mr-1" /> 功能配置
+                            <Icon name="puzzle-piece" className="w-4 h-4 mr-1" /> {{ $t('bots.featureConfig') }}
                         </el-button>
                         <Update @click="open(scope.row.id)" />
                         <Destroy @click="destroy(api, scope.row.id)" />
@@ -103,7 +103,7 @@
         />
 
         <!-- Webhook 状态查看对话框 -->
-        <el-dialog v-model="webhookInfoVisible" title="Webhook 状态" width="640px" destroy-on-close>
+        <el-dialog v-model="webhookInfoVisible" :title="$t('bots.webhookTitle')" width="640px" destroy-on-close>
             <div v-loading="webhookInfoLoading">
                 <el-alert
                     v-if="webhookInfo"
@@ -114,31 +114,31 @@
                     class="mb-3"
                 />
                 <el-descriptions v-if="webhookInfo" :column="1" border size="small">
-                    <el-descriptions-item label="回调地址（Telegram 实际注册）">
-                        {{ webhookInfo.url || '（未设置）' }}
+                    <el-descriptions-item :label="$t('bots.webhookUrl')">
+                        {{ webhookInfo.url || $t('bots.webhookUnset') }}
                     </el-descriptions-item>
-                    <el-descriptions-item label="最后错误时间">
+                    <el-descriptions-item :label="$t('bots.lastErrorTime')">
                         {{ webhookInfo.last_error_date ? formatTs(webhookInfo.last_error_date) : '—' }}
                     </el-descriptions-item>
-                    <el-descriptions-item label="最后错误信息">
+                    <el-descriptions-item :label="$t('bots.lastErrorMessage')">
                         <span :class="webhookInfo.last_error_message ? 'text-red-500' : ''">
-                            {{ webhookInfo.last_error_message || '无' }}
+                            {{ webhookInfo.last_error_message || $t('system.none') }}
                         </span>
                     </el-descriptions-item>
-                    <el-descriptions-item label="积压更新数">
+                    <el-descriptions-item :label="$t('bots.pendingUpdates')">
                         {{ webhookInfo.pending_update_count ?? '—' }}
                     </el-descriptions-item>
-                    <el-descriptions-item label="最大连接数">
+                    <el-descriptions-item :label="$t('bots.maxConnections')">
                         {{ webhookInfo.max_connections ?? '—' }}
                     </el-descriptions-item>
-                    <el-descriptions-item label="允许更新类型">
-                        {{ (webhookInfo.allowed_updates && webhookInfo.allowed_updates.length) ? webhookInfo.allowed_updates.join(', ') : '全部' }}
+                    <el-descriptions-item :label="$t('bots.allowedUpdates')">
+                        {{ (webhookInfo.allowed_updates && webhookInfo.allowed_updates.length) ? webhookInfo.allowed_updates.join(', ') : $t('system.all') }}
                     </el-descriptions-item>
-                    <el-descriptions-item label="自建证书">
-                        {{ webhookInfo.has_custom_certificate ? '是' : '否' }}
+                    <el-descriptions-item :label="$t('bots.customCert')">
+                        {{ webhookInfo.has_custom_certificate ? $t('system.yes') : $t('system.no') }}
                     </el-descriptions-item>
                 </el-descriptions>
-                <div v-else class="text-gray-400 text-sm">暂无数据</div>
+                <div v-else class="text-gray-400 text-sm">{{ $t('system.noData') }}</div>
             </div>
         </el-dialog>
     </div>
@@ -158,6 +158,7 @@ import { useUserStore } from '@/stores/modules/user'
 import Icon from '@/components/icon/index.vue'
 import Message from '@/support/message'
 import http from '@/support/http'
+import { t } from '@/support/helper'
 
 const api = 'telegram/bots'
 
@@ -170,8 +171,8 @@ const telegramStore = useTelegramStore()
 
 // 状态选项定义
 const enabled = ref([
-    { value: 1, label: '已激活' },
-    { value: 0, label: '待激活' }
+    { value: 1, label: t('bots.activated') },
+    { value: 0, label: t('bots.pending') }
 ])
 
 // 处理启用状态变化
@@ -182,15 +183,15 @@ const handleEnabledChange = async (row: any) => {
         // 如果是关闭（enabled从1变0），调用delBotWebHook
         if (row.enabled === 1) {
             await telegramStore.setBotWebHook(row.id)
-            Message.success('机器人激活成功')
+            Message.success(t('bots.activateSuccess'))
         } else {
             await telegramStore.delBotWebHook(row.id)
-            Message.success('机器人已关闭')
+            Message.success(t('bots.deactivateSuccess'))
         }
         search()
     } catch (error) {
         row.enabled = row.enabled === 1 ? 0 : 1
-        Message.error('操作失败')
+        Message.error(t('system.operateFailed'))
     } finally {
         row.switchLoading = false
     }
@@ -261,15 +262,15 @@ const webhookStatusType = computed<'success' | 'warning' | 'error' | 'info'>(() 
 })
 const webhookStatusTitle = computed(() => {
     if (!webhookInfo.value) return ''
-    if (!webhookInfo.value.url) return '尚未设置 Webhook'
-    if (webhookInfo.value.last_error_message) return 'Webhook 异常'
-    return 'Webhook 正常'
+    if (!webhookInfo.value.url) return t('bots.notSetWebhook')
+    if (webhookInfo.value.last_error_message) return t('bots.webhookError')
+    return t('bots.webhookOk')
 })
 const webhookStatusDesc = computed(() => {
     if (!webhookInfo.value) return ''
-    if (!webhookInfo.value.url) return '该机器人未向 Telegram 注册回调地址，请先在列表开启「激活」。'
-    if (webhookInfo.value.last_error_message) return 'Telegram 最近一次投递失败：多为回调地址无法公网访问、非 HTTPS、证书问题或 secret_token 不匹配。'
-    return 'Telegram 已成功注册回调地址，机器人可正常接收消息。'
+    if (!webhookInfo.value.url) return t('bots.webhookNotSetDesc')
+    if (webhookInfo.value.last_error_message) return t('bots.webhookErrorDesc')
+    return t('bots.webhookOkDesc')
 })
 
 const formatTs = (ts: number) => {
@@ -288,10 +289,10 @@ const handleViewWebhook = async (row: any) => {
             webhookInfo.value = payload.data
             webhookInfoVisible.value = true
         } else {
-            Message.error(payload?.message || result.message || '获取状态失败')
+            Message.error(payload?.message || result.message || t('bots.getStatusFailed'))
         }
     } catch (e) {
-        Message.error('获取状态失败')
+        Message.error(t('bots.getStatusFailed'))
     } finally {
         row.infoLoading = false
         webhookInfoLoading.value = false
@@ -322,9 +323,9 @@ const loadThirdConfigs = async () => {
 const saveThirdConfig = async (row: any, value: any) => {
   try {
     await http.put(`${api}/${row.id}`, { third_config_id: value ?? null })
-    Message.success('已更新该机器人的三方上游')
+    Message.success(t('bots.thirdUpdated'))
   } catch {
-    Message.error('更新失败')
+    Message.error(t('system.updateFailed'))
     search()
   }
 }

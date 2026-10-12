@@ -3,16 +3,16 @@
         <el-form-item label="Api_Token" prop="api_token">
             <el-input v-model="formData.api_token" name="api_token" clearable />
         </el-form-item>
-        <el-form-item label="Bot用户名" prop="username">
+        <el-form-item :label="$t('bots.username')" prop="username">
             <el-input v-model="formData.username" name="username" clearable />
         </el-form-item>
         <el-form-item label="Url_Token" prop="url_token">
             <el-input v-model="formData.url_token" name="url_token" clearable />
         </el-form-item>
-        <el-form-item label="Webhook 指向" prop="webhook_target">
+        <el-form-item :label="$t('bots.webhookTarget')" prop="webhook_target">
             <el-radio-group v-model="webhookTarget">
-                <el-radio value="platform">当前平台</el-radio>
-                <el-radio value="custom">自定义外链</el-radio>
+                <el-radio value="platform">{{ $t('bots.webhookPlatform') }}</el-radio>
+                <el-radio value="custom">{{ $t('bots.webhookCustom') }}</el-radio>
             </el-radio-group>
         </el-form-item>
         <el-form-item label="WebHookUrl" prop="webhook_url">
@@ -21,17 +21,17 @@
                 name="webhook_url"
                 clearable
                 :disabled="webhookTarget === 'platform'"
-                :placeholder="webhookTarget === 'platform' ? '使用当前平台回调（无需填写）' : '请输入外部 Webhook URL'"
+                :placeholder="webhookTarget === 'platform' ? $t('bots.webhookPlatformPlaceholder') : $t('bots.webhookCustomPlaceholder')"
             />
             <div v-if="webhookTarget === 'platform'" class="text-gray-400 text-xs mt-1">
-                将自动使用当前平台回调地址：{{ platformWebhookUrl }}
+                {{ $t('bots.webhookAutoUse') }}{{ platformWebhookUrl }}
             </div>
         </el-form-item>
         <!-- 三方上游：仅超级管理员可见/可改（后端也已硬校验） -->
-        <el-form-item v-if="isSuperAdmin" label="三方上游" prop="third_config_id">
+        <el-form-item v-if="isSuperAdmin" :label="$t('bots.thirdUpstream')" prop="third_config_id">
             <el-select
                 v-model="formData.third_config_id"
-                placeholder="未指定（该机器人无法调用三方接口）"
+                :placeholder="$t('bots.thirdUnspecifiedCreate')"
                 clearable
                 filterable
                 class="w-full"
@@ -45,14 +45,14 @@
                 />
             </el-select>
             <div class="text-xs text-gray-500 mt-1">
-                该机器人调用三方接口时使用的上游（地址 + Token）。不同机器人可指向不同上游。
+                {{ $t('bots.thirdTip') }}
             </div>
         </el-form-item>
-        <el-form-item label="Bot描述" prop="description">
+        <el-form-item :label="$t('bots.description')" prop="description">
             <el-input v-model="formData.description" name="description" clearable />
         </el-form-item>
-        <el-form-item v-show="false" label="状态" prop="enabled">
-            <el-select v-model="formData.enabled" placeholder="请选择" clearable>
+        <el-form-item v-show="false" :label="$t('system.status')" prop="enabled">
+            <el-select v-model="formData.enabled" :placeholder="$t('system.pleaseSelect')" clearable>
                 <el-option v-for="item in enabled" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
         </el-form-item>
@@ -68,6 +68,7 @@ import { useShow } from '@/composables/curd/useShow'
 import { computed, onMounted, ref, watch } from 'vue'
 import http from '@/support/http'
 import { useUserStore } from '@/stores/modules/user'
+import { t } from '@/support/helper'
 
 const props = defineProps({
     primary: [String, Number],
@@ -75,8 +76,8 @@ const props = defineProps({
 })
 
 const enabled = ref([
-  { value: 1, label: '启用' },
-    { value: 0, label: '禁用' }
+  { value: 1, label: t('system.enabled') },
+    { value: 0, label: t('system.disabled') }
 ])
 
 // 三方上游：仅超级管理员可见/可改（上游涉及地址与 Token，属成本与安全边界）

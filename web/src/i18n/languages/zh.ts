@@ -37,7 +37,9 @@ const zh = {
     enabled: '启用',
     disabled: '禁用',
     submit: '提交',
-    save: '保存'
+    save: '保存',
+    on: '开启',
+    off: '关闭'
   },
 
   table: {
@@ -332,6 +334,50 @@ const zh = {
     loadFailed: '加载失败',
     saveSuccess: '保存成功',
     saveFailed: '保存失败'
+  },
+
+  user: {
+    username: '用户名',
+    nickname: '昵称',
+    nicknameRequired: '昵称必须填写',
+    nicknamePlaceholder: '请填写昵称',
+    account: '账号',
+    accountRequired: '账号必须填写',
+    accountPattern: '账号只能包含数字和字母',
+    accountPlaceholder: '请填写账号',
+    email: '邮箱',
+    emailRequired: '邮箱必须填写',
+    emailInvalid: '邮箱格式不正确',
+    emailPlaceholder: '请填写邮箱',
+    password: '密码',
+    passwordRequired: '密码必须填写',
+    passwordPattern: '必须包含大小写字母和数字的组合，可以使用特殊字符，长度在6-20之间',
+    passwordPlaceholder: '请输入密码',
+    role: '角色',
+    roleRequired: '请选择角色',
+    department: '部门',
+    job: '岗位',
+    twoFactor: '二次验证',
+    twoFactorOn: '二次验证已开启',
+    twoFactorOff: '二次验证已关闭',
+    twoFactorUpdateFailed: '设置二次验证状态失败',
+    noTwoFactorPermission: '您没有权限设置二次验证',
+    profile: '个人资料',
+    loginLog: '登录日志',
+    operateLog: '操作日志',
+    onlySelf: '只看自己',
+    creator: '创建人',
+    module: '模块',
+    httpMethod: '请求方法',
+    httpStatus: '请求状态',
+    timeTaken: '耗时',
+    params: '参数',
+    browser: '浏览器',
+    platform: '平台',
+    ip: 'IP',
+    success: '成功',
+    failed: '失败',
+    loginTime: '登录时间'
   },
 
   wallet: {

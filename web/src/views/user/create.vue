@@ -3,38 +3,38 @@
     <div class="flex flex-row justify-between">
       <div :class="hasRoles ? 'w-1/2' : 'w-full'">
         <el-form-item
-          label="昵称"
+          :label="$t('user.nickname')"
           prop="username"
           :rules="[
             {
               required: true,
-              message: '昵称必须填写'
+              message: $t('user.nicknameRequired')
             }
           ]"
         >
-          <el-input v-model="formData.username" placeholder="请填写昵称" />
+          <el-input v-model="formData.username" :placeholder="$t('user.nicknamePlaceholder')" />
         </el-form-item>
         <el-form-item
-          label="账号"
+          :label="$t('user.account')"
           prop="email"
           :rules="[
             {
               required: true,
-              message: '账号必须填写'
+              message: $t('user.accountRequired')
             },
             {
               pattern: /^[a-zA-Z0-9]+$/,
-              message: '账号只能包含数字和字母'
+              message: $t('user.accountPattern')
             }
           ]"
         >
-          <el-input v-model="formData.email" placeholder="请填写账号" />
+          <el-input v-model="formData.email" :placeholder="$t('user.accountPlaceholder')" />
         </el-form-item>
-        <el-form-item label="密码" prop="password" :rules="passwordRules">
-          <el-input v-model="formData.password" type="password" show-password placeholder="请输入密码" />
+        <el-form-item :label="$t('user.password')" prop="password" :rules="passwordRules">
+          <el-input v-model="formData.password" type="password" show-password :placeholder="$t('user.passwordPlaceholder')" />
         </el-form-item>
 
-        <el-form-item label="角色" prop="roles" v-if="hasRoles" :rules="[{ required: true, message: '请选择角色' }]">
+        <el-form-item :label="$t('user.role')" prop="roles" v-if="hasRoles" :rules="[{ required: true, message: $t('user.roleRequired') }]">
           <el-tree-select
             v-model="formData.roles"
             :default-expanded-keys="formData.roles"
@@ -51,10 +51,10 @@
       </div>
 
       <div class="w-1/2" v-if="hasRoles">
-        <el-form-item label="部门" prop="department_id">
+        <el-form-item :label="$t('user.department')" prop="department_id">
           <el-tree-select v-model="formData.department_id" :data="departments" check-strictly :props="{ label: 'department_name', value: 'id' }" />
         </el-form-item>
-        <el-form-item label="岗位" prop="department_id">
+        <el-form-item :label="$t('user.job')" prop="department_id">
           <el-select v-model="formData.jobs" multiple>
             <el-option v-for="item in jobs" :key="item.id" :label="item.job_name" :value="item.id" />
           </el-select>
@@ -74,6 +74,7 @@ import { useShow } from '@/composables/curd/useShow'
 
 import { onMounted, ref } from 'vue'
 import http from '@/support/http'
+import { t } from '@/support/helper'
 
 const props = defineProps({
   primary: [String, Number],
@@ -87,11 +88,11 @@ const props = defineProps({
 const passwordRules = [
   {
     required: true,
-    message: '密码必须填写'
+    message: t('user.passwordRequired')
   },
   {
     pattern: /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,20}$/,
-    message: '必须包含大小写字母和数字的组合，可以使用特殊字符，长度在6-20之间'
+    message: t('user.passwordPattern')
   }
 ]
 

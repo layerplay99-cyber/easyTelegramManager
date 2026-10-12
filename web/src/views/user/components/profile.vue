@@ -2,45 +2,45 @@
   <el-form :model="profile" ref="form" v-loading="loading" label-position="top">
     <Upload imageClass="w-28 h-28 rounded-full mx-auto" v-model="profile.avatar" />
     <el-form-item
-      label="昵称"
+      :label="$t('user.nickname')"
       prop="username"
       class="mt-2"
       :rules="[
         {
           required: true,
-          message: '昵称必须填写'
+          message: $t('user.nicknameRequired')
         }
       ]"
     >
-      <el-input v-model="profile.username" placeholder="请填写昵称" />
+      <el-input v-model="profile.username" :placeholder="$t('user.nicknamePlaceholder')" />
     </el-form-item>
     <el-form-item
-      label="邮箱"
+      :label="$t('user.email')"
       prop="email"
       :rules="[
         {
           required: true,
-          message: '邮箱必须填写'
+          message: $t('user.emailRequired')
         },
         {
           type: 'email',
-          message: '邮箱格式不正确'
+          message: $t('user.emailInvalid')
         }
       ]"
     >
-      <el-input v-model="profile.email" placeholder="请填写邮箱" />
+      <el-input v-model="profile.email" :placeholder="$t('user.emailPlaceholder')" />
     </el-form-item>
     <el-form-item
-      label="密码"
+      :label="$t('user.password')"
       prop="password"
       :rules="[
         {
           pattern: /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,20}$/,
-          message: '必须包含大小写字母和数字的组合，可以使用特殊字符，长度在6-20之间'
+          message: $t('user.passwordPattern')
         }
       ]"
     >
-      <el-input v-model="profile.password" type="password" show-password placeholder="请输入密码" />
+      <el-input v-model="profile.password" type="password" show-password :placeholder="$t('user.passwordPlaceholder')" />
     </el-form-item>
     <div class="flex justify-center">
       <el-button type="primary" @click="submitForm(form)">{{ $t('system.update') }}</el-button>

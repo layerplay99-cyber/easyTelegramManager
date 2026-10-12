@@ -4,13 +4,13 @@
     <div :class="hasRoles ? 'w-full ml-0 sm:ml-2 mt-2 sm:mt-0' : 'w-full'">
       <Search :search="search" :reset="reset">
         <template v-slot:body>
-          <el-form-item label="用户名">
+          <el-form-item :label="$t('user.username')">
             <el-input v-model="query.username" clearable />
           </el-form-item>
-          <el-form-item label="邮箱">
+          <el-form-item :label="$t('user.email')">
             <el-input v-model="query.email" clearable />
           </el-form-item>
-          <el-form-item label="状态">
+          <el-form-item :label="$t('system.status')">
             <Select v-model="query.status" clearable api="status" />
           </el-form-item>
         </template>
@@ -18,37 +18,37 @@
       <div class="table-default">
         <Operate :show="open">
           <template #operate>
-            <el-button @click="download('/user')">导出</el-button>
+            <el-button @click="download('/user')">{{ $t('table.export') }}</el-button>
           </template>
         </Operate>
         <el-table :data="tableData" class="mt-3" v-loading="loading">
-          <el-table-column prop="username" label="用户名" width="150" />
+          <el-table-column prop="username" :label="$t('user.username')" width="150" />
           <!-- <el-table-column prop="avatar" label="头像">
             <template #default="scope">
               <el-avatar :icon="UserFilled" v-if="!scope.row.avatar" />
               <el-avatar :src="scope.row.avatar" v-else />
             </template>
           </el-table-column> -->
-          <el-table-column prop="email" label="邮箱" />
-          <el-table-column prop="status" label="状态">
+          <el-table-column prop="email" :label="$t('user.email')" />
+          <el-table-column prop="status" :label="$t('system.status')">
             <template #default="scope">
               <Status v-model="scope.row.status" :id="scope.row.id" :api="api" />
             </template>
           </el-table-column>
-          <el-table-column label="二次验证" width="120" v-if="canSetTwoFactor">
+          <el-table-column :label="$t('user.twoFactor')" width="120" v-if="canSetTwoFactor">
             <template #default="scope">
               <el-switch
                 v-model="scope.row.two_factor_enabled"
                 :loading="scope.row.twoFactorLoading"
                 @change="handleTwoFactorChange(scope.row)"
-                active-text="开启"
-                inactive-text="关闭"
+                :active-text="$t('system.on')"
+                :inactive-text="$t('system.off')"
                 :disabled="scope.row.twoFactorLoading"
               />
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" />
-          <el-table-column label="操作" width="200">
+          <el-table-column prop="created_at" :label="$t('system.createTime')" />
+          <el-table-column :label="$t('system.operation')" width="200">
             <template #default="scope">
               <Update @click="open(scope.row.id)" />
               <Destroy @click="destroy(api, scope.row.id)" />
@@ -79,6 +79,7 @@ import { isUndefined } from '@/support/helper'
 import { UserFilled } from '@element-plus/icons-vue'
 import { useExcelDownload } from '@/composables/curd/useExcelDownload'
 import { ElMessage } from 'element-plus'
+import { t } from '@/support/helper'
 
 const userStore = useUserStore()
 
@@ -134,7 +135,7 @@ const handleTwoFactorChange = async (user: any) => {
 
   // 检查权限
   if (!canSetTwoFactor.value) {
-    ElMessage.error('您没有权限设置二次验证')
+    ElMessage.error(t('user.noTwoFactorPermission'))
     // 恢复原状态
     user.two_factor_enabled = !user.two_factor_enabled
     return
@@ -150,16 +151,16 @@ const handleTwoFactorChange = async (user: any) => {
     if (result.code === 10000 && result.data.success) {
       // 更新状态
       user.two_factor_enabled = result.data.two_factor_enabled
-      ElMessage.success(`二次验证已${user.two_factor_enabled ? '开启' : '关闭'}`)
+      ElMessage.success(t(user.two_factor_enabled ? 'user.twoFactorOn' : 'user.twoFactorOff'))
     } else {
       // 失败时恢复原状态
       user.two_factor_enabled = !user.two_factor_enabled
-      ElMessage.error(result.message || '设置失败')
+      ElMessage.error(result.message || t('system.operateFailed'))
     }
   } catch (error) {
     // 失败时恢复原状态
     user.two_factor_enabled = !user.two_factor_enabled
-    ElMessage.error('设置二次验证状态失败')
+    ElMessage.error(t('user.twoFactorUpdateFailed'))
   } finally {
     user.twoFactorLoading = false
   }

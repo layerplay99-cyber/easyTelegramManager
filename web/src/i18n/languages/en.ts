@@ -37,7 +37,9 @@ const en = {
     enabled: 'Enabled',
     disabled: 'Disabled',
     submit: 'Submit',
-    save: 'Save'
+    save: 'Save',
+    on: 'On',
+    off: 'Off'
   },
 
   table: {
@@ -333,6 +335,50 @@ const en = {
     loadFailed: 'Failed to load',
     saveSuccess: 'Saved successfully',
     saveFailed: 'Failed to save'
+  },
+
+  user: {
+    username: 'Username',
+    nickname: 'Nickname',
+    nicknameRequired: 'Nickname is required',
+    nicknamePlaceholder: 'Please enter nickname',
+    account: 'Account',
+    accountRequired: 'Account is required',
+    accountPattern: 'Account can only contain letters and digits',
+    accountPlaceholder: 'Please enter account',
+    email: 'Email',
+    emailRequired: 'Email is required',
+    emailInvalid: 'Email format is invalid',
+    emailPlaceholder: 'Please enter email',
+    password: 'Password',
+    passwordRequired: 'Password is required',
+    passwordPattern: 'Must contain uppercase, lowercase and digits, special chars allowed, length 6-20',
+    passwordPlaceholder: 'Please enter password',
+    role: 'Role',
+    roleRequired: 'Please select a role',
+    department: 'Department',
+    job: 'Job',
+    twoFactor: 'Two-Factor Auth',
+    twoFactorOn: 'Two-factor authentication enabled',
+    twoFactorOff: 'Two-factor authentication disabled',
+    twoFactorUpdateFailed: 'Failed to update two-factor status',
+    noTwoFactorPermission: 'You have no permission to set two-factor auth',
+    profile: 'Profile',
+    loginLog: 'Login Logs',
+    operateLog: 'Operation Logs',
+    onlySelf: 'Only Mine',
+    creator: 'Creator',
+    module: 'Module',
+    httpMethod: 'HTTP Method',
+    httpStatus: 'HTTP Status',
+    timeTaken: 'Time Taken',
+    params: 'Params',
+    browser: 'Browser',
+    platform: 'Platform',
+    ip: 'IP',
+    success: 'Success',
+    failed: 'Failed',
+    loginTime: 'Login Time'
   },
 
   wallet: {

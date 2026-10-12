@@ -37,7 +37,9 @@ const th = {
     enabled: 'เปิดใช้งาน',
     disabled: 'ปิดใช้งาน',
     submit: 'ส่ง',
-    save: 'บันทึก'
+    save: 'บันทึก',
+    on: 'เปิด',
+    off: 'ปิด'
   },
 
   table: {
@@ -332,6 +334,50 @@ const th = {
     loadFailed: 'โหลดล้มเหลว',
     saveSuccess: 'บันทึกสำเร็จ',
     saveFailed: 'บันทึกล้มเหลว'
+  },
+
+  user: {
+    username: 'ชื่อผู้ใช้',
+    nickname: 'ชื่อเล่น',
+    nicknameRequired: 'ต้องกรอกชื่อเล่น',
+    nicknamePlaceholder: 'กรุณากรอกชื่อเล่น',
+    account: 'บัญชี',
+    accountRequired: 'ต้องกรอกบัญชี',
+    accountPattern: 'บัญชีต้องเป็นตัวอักษรและตัวเลขเท่านั้น',
+    accountPlaceholder: 'กรุณากรอกบัญชี',
+    email: 'อีเมล',
+    emailRequired: 'ต้องกรอกอีเมล',
+    emailInvalid: 'รูปแบบอีเมลไม่ถูกต้อง',
+    emailPlaceholder: 'กรุณากรอกอีเมล',
+    password: 'รหัสผ่าน',
+    passwordRequired: 'ต้องกรอกรหัสผ่าน',
+    passwordPattern: 'ต้องมีตัวพิมพ์ใหญ่ พิมพ์เล็ก และตัวเลข ใช้อักขระพิเศษได้ ความยาว 6-20',
+    passwordPlaceholder: 'กรุณากรอกรหัสผ่าน',
+    role: 'บทบาท',
+    roleRequired: 'กรุณาเลือกบทบาท',
+    department: 'แผนก',
+    job: 'ตำแหน่ง',
+    twoFactor: 'ยืนยันสองขั้น',
+    twoFactorOn: 'เปิดการยืนยันสองขั้นแล้ว',
+    twoFactorOff: 'ปิดการยืนยันสองขั้นแล้ว',
+    twoFactorUpdateFailed: 'ตั้งค่าสถานะยืนยันสองขั้นล้มเหลว',
+    noTwoFactorPermission: 'คุณไม่มีสิทธิ์ตั้งค่าการยืนยันสองขั้น',
+    profile: 'ข้อมูลส่วนตัว',
+    loginLog: 'บันทึกการเข้าสู่ระบบ',
+    operateLog: 'บันทึกการดำเนินการ',
+    onlySelf: 'เฉพาะของฉัน',
+    creator: 'ผู้สร้าง',
+    module: 'โมดูล',
+    httpMethod: 'เมธอดคำขอ',
+    httpStatus: 'สถานะคำขอ',
+    timeTaken: 'เวลาที่ใช้',
+    params: 'พารามิเตอร์',
+    browser: 'เบราว์เซอร์',
+    platform: 'แพลตฟอร์ม',
+    ip: 'IP',
+    success: 'สำเร็จ',
+    failed: 'ล้มเหลว',
+    loginTime: 'เวลาเข้าสู่ระบบ'
   },
 
   wallet: {

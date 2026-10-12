@@ -3,7 +3,7 @@
     <el-card shadow="never" class="w-full sm:w-[35rem] h-[32rem]">
       <template #header>
         <div class="card-header">
-          <span>个人资料</span>
+          <span>{{ $t('user.profile') }}</span>
         </div>
       </template>
       <div class="flex flex-col w-full">
@@ -14,10 +14,10 @@
     </el-card>
 
     <el-tabs v-model="activeName" class="w-full pl-3 pr-3 mt-2 ml-0 bg-white dark:bg-regal-dark sm:mt-0 sm:ml-2">
-      <el-tab-pane label="登录日志" name="login_log">
+      <el-tab-pane :label="$t('user.loginLog')" name="login_log">
         <LoginLog />
       </el-tab-pane>
-      <el-tab-pane label="操作日志" name="operation_log">
+      <el-tab-pane :label="$t('user.operateLog')" name="operation_log">
         <OperateLog />
       </el-tab-pane>
     </el-tabs>

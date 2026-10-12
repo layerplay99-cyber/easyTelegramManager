@@ -37,7 +37,9 @@ const vi = {
     enabled: 'Đã bật',
     disabled: 'Đã tắt',
     submit: 'Gửi',
-    save: 'Lưu'
+    save: 'Lưu',
+    on: 'Bật',
+    off: 'Tắt'
   },
 
   table: {
@@ -332,6 +334,50 @@ const vi = {
     loadFailed: 'Tải thất bại',
     saveSuccess: 'Lưu thành công',
     saveFailed: 'Lưu thất bại'
+  },
+
+  user: {
+    username: 'Tên người dùng',
+    nickname: 'Biệt danh',
+    nicknameRequired: 'Phải nhập biệt danh',
+    nicknamePlaceholder: 'Vui lòng nhập biệt danh',
+    account: 'Tài khoản',
+    accountRequired: 'Phải nhập tài khoản',
+    accountPattern: 'Tài khoản chỉ gồm chữ và số',
+    accountPlaceholder: 'Vui lòng nhập tài khoản',
+    email: 'Email',
+    emailRequired: 'Phải nhập email',
+    emailInvalid: 'Định dạng email không đúng',
+    emailPlaceholder: 'Vui lòng nhập email',
+    password: 'Mật khẩu',
+    passwordRequired: 'Phải nhập mật khẩu',
+    passwordPattern: 'Phải gồm chữ hoa, chữ thường và số, có thể dùng ký tự đặc biệt, độ dài 6-20',
+    passwordPlaceholder: 'Vui lòng nhập mật khẩu',
+    role: 'Vai trò',
+    roleRequired: 'Vui lòng chọn vai trò',
+    department: 'Phòng ban',
+    job: 'Chức vụ',
+    twoFactor: 'Xác thực 2 bước',
+    twoFactorOn: 'Đã bật xác thực 2 bước',
+    twoFactorOff: 'Đã tắt xác thực 2 bước',
+    twoFactorUpdateFailed: 'Cài đặt trạng thái xác thực 2 bước thất bại',
+    noTwoFactorPermission: 'Bạn không có quyền cài đặt xác thực 2 bước',
+    profile: 'Hồ sơ cá nhân',
+    loginLog: 'Nhật ký đăng nhập',
+    operateLog: 'Nhật ký thao tác',
+    onlySelf: 'Chỉ của tôi',
+    creator: 'Người tạo',
+    module: 'Module',
+    httpMethod: 'Phương thức HTTP',
+    httpStatus: 'Trạng thái HTTP',
+    timeTaken: 'Thời gian xử lý',
+    params: 'Tham số',
+    browser: 'Trình duyệt',
+    platform: 'Nền tảng',
+    ip: 'IP',
+    success: 'Thành công',
+    failed: 'Thất bại',
+    loginTime: 'Thời gian đăng nhập'
   },
 
   wallet: {

@@ -886,6 +886,17 @@ const en = {
       title: 'Create Schema',
       name: 'Schema Name',
       name_verify: 'please input schema name',
+      module: 'Module Name',
+      schemaName: 'Schema Name',
+      belongModule: 'Module',
+      selectExistTable: 'Select Existing Table',
+      fields: 'Fields',
+      softDelete: 'Soft Delete?',
+      generateCode: 'Generate Code',
+      schemaStructure: 'Schema Structure',
+      confirmDelete: 'Confirm delete? The data table will be kept. To drop related tables, please do it manually!',
+      fillStructureFirst: 'Please fill in the table structure first',
+      createSuccess: 'Created successfully',
       engine: {
         name: 'Search Engine',
         verify: 'please select schema engine',
@@ -945,15 +956,65 @@ const en = {
       controller: {
         name: 'Controller',
         placeholder: 'please input controller name',
-        verify: 'please input Controller name  first'
+        verify: 'please input Controller name  first',
+        tip: 'Controllers are generated under app/admin/controller'
       },
       model: {
         name: 'Model',
         placeholder: 'please input model name',
-        verify: 'please input model name  first'
+        verify: 'please input model name  first',
+        tip: 'Models are generated under app/admin/model'
       },
-      paginate: 'Paginate'
+      paginate: 'Paginate',
+      paginate_tip: 'Whether the list uses pagination',
+      success: 'Code generated. If a controller was set, add the page via the menu to access it'
+    },
+    table: {
+      name: 'Table Name',
+      placeholder: 'Please enter table name',
+      verify: 'Table name is required'
+    },
+    field: {
+      name: 'Field',
+      placeholder: 'Please enter field',
+      length_placeholder: 'Please enter length',
+      index: 'Index',
+      index_placeholder: 'Select table index',
+      default_placeholder: 'Please enter default value',
+      add_default: 'Add default value',
+      comment_placeholder: 'Please enter table comment',
+      created_updated_at: 'Created At & Updated At',
+      creator_id: 'Creator ID',
+      primary: 'Primary Key',
+      primary_placeholder: 'Please enter the primary key field',
+      add: 'Add Field',
+      required: 'Please fill in the table fields first',
+      value_exists: 'The value [{value}] already exists',
+      type_number: 'Number',
+      type_datetime: 'Date & Time',
+      type_text: 'Text'
     }
+  },
+
+  develop: {
+    moduleName: 'Module Name',
+    moduleNameRequired: 'Module name is required',
+    moduleNamePattern: 'Module name can only contain letters',
+    moduleDir: 'Module Directory',
+    moduleVersion: 'Module Version',
+    moduleStatus: 'Module Status',
+    install: 'Install',
+    installModule: 'Install Module',
+    installType: 'Install Type',
+    normalInstall: 'Normal Install',
+    zipInstall: 'ZIP Install',
+    selectInstallModule: 'Select module to install',
+    uploadZip: 'Upload ZIP',
+    selectModuleFile: 'Select module file',
+    confirmDeleteModule: 'Confirm delete? ⚠️ All files under the module will be deleted',
+    permissionModule: 'Permission Management',
+    cmsModule: 'Content Management',
+    systemModule: 'System Management'
   },
 
   module: {

@@ -889,6 +889,17 @@ const zh = {
       title: '创建数据表',
       name: '表名称',
       name_verify: '请输入表名称',
+      module: '模块名称',
+      schemaName: 'Schema 名称',
+      belongModule: '所属模块',
+      selectExistTable: '选择已有表',
+      fields: '字段',
+      softDelete: '?软删',
+      generateCode: '生成代码',
+      schemaStructure: 'Schema 结构',
+      confirmDelete: '确认删除吗? 删除后数据表将会保留，如需删除相关表，请手动进行删除!',
+      fillStructureFirst: '请先填写表结构数据',
+      createSuccess: '创建成功',
       engine: {
         name: '表引擎',
         verify: '请选择表引擎',
@@ -948,20 +959,70 @@ const zh = {
       controller: {
         name: '控制器',
         placeholder: '请输入控制器名称',
-        verify: '请输入控制器名称'
+        verify: '请输入控制器名称',
+        tip: '控制器生成在 app/admin/controller 目录下'
       },
       model: {
         name: '模型',
         placeholder: '请输入模型名称',
-        verify: '请输入模型名称'
+        verify: '请输入模型名称',
+        tip: '模型生成在 app/admin/model 目录下'
       },
       paginate: '分页',
+      paginate_tip: '控制列表是否使用分页功能',
+      success: '代码生成成功，如果设置了控制了，请通过菜单添加页面访问',
       menu: {
         name: '菜单名称',
         placeholder: '请输入菜单名称',
         verify: '请输入菜单名称'
       }
+    },
+    table: {
+      name: '表名',
+      placeholder: '请填写表名',
+      verify: '表名必须填写'
+    },
+    field: {
+      name: '字段',
+      placeholder: '请填写字段',
+      length_placeholder: '请填写长度',
+      index: '索引',
+      index_placeholder: '选择表索引',
+      default_placeholder: '请填写默认值',
+      add_default: '添加默认值',
+      comment_placeholder: '请填写表注释',
+      created_updated_at: '创建时间&更新时间',
+      creator_id: '创建人ID',
+      primary: '主键',
+      primary_placeholder: '请填写主键字段',
+      add: '新增字段',
+      required: '请先填写表字段',
+      value_exists: '值[{value}]已存在',
+      type_number: '数字',
+      type_datetime: '日期与时间',
+      type_text: '文本'
     }
+  },
+
+  develop: {
+    moduleName: '模块名称',
+    moduleNameRequired: '模块名称必须填写',
+    moduleNamePattern: '模块名称只允许大小字母组合',
+    moduleDir: '模块目录',
+    moduleVersion: '模块版本',
+    moduleStatus: '模块状态',
+    install: '安装',
+    installModule: '安装模块',
+    installType: '安装方式',
+    normalInstall: '普通安装',
+    zipInstall: 'ZIP 安装',
+    selectInstallModule: '选择安装模块',
+    uploadZip: '上传 ZIP',
+    selectModuleFile: '选择模块文件',
+    confirmDeleteModule: '确认删除吗? ⚠️将会删除模块下所有文件',
+    permissionModule: '权限管理',
+    cmsModule: '内容管理',
+    systemModule: '系统管理'
   },
 
   module: {

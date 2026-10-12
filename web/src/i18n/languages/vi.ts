@@ -890,6 +890,17 @@ const vi = {
       title: 'Tạo lược đồ',
       name: 'Tên lược đồ',
       name_verify: 'Vui lòng nhập tên lược đồ',
+      module: 'Tên module',
+      schemaName: 'Tên lược đồ',
+      belongModule: 'Module',
+      selectExistTable: 'Chọn bảng có sẵn',
+      fields: 'Trường',
+      softDelete: 'Xóa mềm?',
+      generateCode: 'Tạo code',
+      schemaStructure: 'Cấu trúc lược đồ',
+      confirmDelete: 'Xác nhận xóa? Bảng dữ liệu sẽ được giữ lại, nếu muốn xóa bảng liên quan vui lòng thực hiện thủ công!',
+      fillStructureFirst: 'Vui lòng điền dữ liệu cấu trúc bảng trước',
+      createSuccess: 'Tạo thành công',
       engine: {
         name: 'Công cụ tìm kiếm',
         verify: 'Vui lòng chọn công cụ lược đồ',
@@ -949,15 +960,65 @@ const vi = {
       controller: {
         name: 'Bộ điều khiển',
         placeholder: 'Vui lòng nhập tên bộ điều khiển',
-        verify: 'Vui lòng nhập tên bộ điều khiển trước'
+        verify: 'Vui lòng nhập tên bộ điều khiển trước',
+        tip: 'Bộ điều khiển được tạo trong thư mục app/admin/controller'
       },
       model: {
         name: 'Mô hình',
         placeholder: 'Vui lòng nhập tên mô hình',
-        verify: 'Vui lòng nhập tên mô hình trước'
+        verify: 'Vui lòng nhập tên mô hình trước',
+        tip: 'Mô hình được tạo trong thư mục app/admin/model'
       },
-      paginate: 'Phân trang'
+      paginate: 'Phân trang',
+      paginate_tip: 'Kiểm soát việc danh sách có dùng phân trang hay không',
+      success: 'Tạo code thành công, nếu đã cài đặt controller hãy thêm trang qua menu để truy cập'
+    },
+    table: {
+      name: 'Tên bảng',
+      placeholder: 'Vui lòng nhập tên bảng',
+      verify: 'Phải nhập tên bảng'
+    },
+    field: {
+      name: 'Trường',
+      placeholder: 'Vui lòng nhập trường',
+      length_placeholder: 'Vui lòng nhập độ dài',
+      index: 'Chỉ mục',
+      index_placeholder: 'Chọn chỉ mục bảng',
+      default_placeholder: 'Vui lòng nhập giá trị mặc định',
+      add_default: 'Thêm giá trị mặc định',
+      comment_placeholder: 'Vui lòng nhập chú thích bảng',
+      created_updated_at: 'Thời gian tạo & cập nhật',
+      creator_id: 'ID người tạo',
+      primary: 'Khóa chính',
+      primary_placeholder: 'Vui lòng nhập trường khóa chính',
+      add: 'Thêm trường',
+      required: 'Vui lòng điền trường của bảng trước',
+      value_exists: 'Giá trị [{value}] đã tồn tại',
+      type_number: 'Số',
+      type_datetime: 'Ngày & giờ',
+      type_text: 'Văn bản'
     }
+  },
+
+  develop: {
+    moduleName: 'Tên module',
+    moduleNameRequired: 'Phải nhập tên module',
+    moduleNamePattern: 'Tên module chỉ được gồm các chữ cái',
+    moduleDir: 'Thư mục module',
+    moduleVersion: 'Phiên bản module',
+    moduleStatus: 'Trạng thái module',
+    install: 'Cài đặt',
+    installModule: 'Cài đặt module',
+    installType: 'Cách cài đặt',
+    normalInstall: 'Cài đặt thường',
+    zipInstall: 'Cài đặt ZIP',
+    selectInstallModule: 'Chọn module để cài đặt',
+    uploadZip: 'Tải lên ZIP',
+    selectModuleFile: 'Chọn file module',
+    confirmDeleteModule: 'Xác nhận xóa? ⚠️Tất cả file trong module sẽ bị xóa',
+    permissionModule: 'Quản lý quyền',
+    cmsModule: 'Quản lý nội dung',
+    systemModule: 'Quản lý hệ thống'
   },
 
   module: {

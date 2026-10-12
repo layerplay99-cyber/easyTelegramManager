@@ -2,7 +2,7 @@
   <div>
     <Search :search="search" :reset="reset">
       <template v-slot:body>
-        <el-form-item label="模块名称">
+        <el-form-item :label="$t('develop.moduleName')">
           <el-input v-model="query.title" name="title" clearable />
         </el-form-item>
       </template>
@@ -11,23 +11,23 @@
       <Operate :show="open">
         <template v-slot:operate>
           <!-- header 插槽的内容放这里 -->
-          <el-button type="success" class="float-right" @click="installVisible = true"><Icon name="cog-6-tooth" class="w-4 h-4 mr-1" /> 安装</el-button>
+          <el-button type="success" class="float-right" @click="installVisible = true"><Icon name="cog-6-tooth" class="w-4 h-4 mr-1" /> {{ $t('develop.install') }}</el-button>
         </template>
       </Operate>
       <el-table :data="tableData" class="mt-3" v-loading="loading">
-        <el-table-column prop="title" label="模块名称" width="180" />
-        <el-table-column prop="path" label="模块目录" width="180" />
-        <el-table-column prop="version" label="模块版本">
+        <el-table-column prop="title" :label="$t('develop.moduleName')" width="180" />
+        <el-table-column prop="path" :label="$t('develop.moduleDir')" width="180" />
+        <el-table-column prop="version" :label="$t('develop.moduleVersion')">
           <template #default="scope">
             <el-tag type="warning">{{ scope.row.version }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="enable" label="模块状态">
+        <el-table-column prop="enable" :label="$t('develop.moduleStatus')">
           <template #default="scope">
             <Status v-model="scope.row.enable" :id="scope.row.name" :api="api" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300">
+        <el-table-column :label="$t('system.operation')" width="300">
           <template #default="scope">
             <Update @click="open(scope.row.name)" />
             <Destroy @click="destroy(api, scope.row.name)" />
@@ -40,7 +40,7 @@
     </Dialog>
 
     <!-- 安装 -->
-    <Dialog v-model="installVisible" title="安装模块" destroy-on-close>
+    <Dialog v-model="installVisible" :title="$t('develop.installModule')" destroy-on-close>
       <Install @close="closeInstall" />
     </Dialog>
   </div>
@@ -54,11 +54,12 @@ import Install from './install.vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
+import { t } from '@/support/helper'
 
 const api = 'module'
 
 const { data, query, search, reset, loading } = useGetList(api)
-const { destroy, deleted } = useDestroy('确认删除吗? ⚠️将会删除模块下所有文件')
+const { destroy, deleted } = useDestroy(t('develop.confirmDeleteModule'))
 const { open, close, title, visible, id } = useOpen()
 
 const tableData = computed(() => data.value?.data)

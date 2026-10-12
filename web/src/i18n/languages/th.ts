@@ -890,6 +890,17 @@ const th = {
       title: 'สร้างสคีมา',
       name: 'ชื่อสคีมา',
       name_verify: 'กรุณาใส่ชื่อสคีมา',
+      module: 'ชื่อโมดูล',
+      schemaName: 'ชื่อสคีมา',
+      belongModule: 'โมดูล',
+      selectExistTable: 'เลือกตารางที่มีอยู่',
+      fields: 'ฟิลด์',
+      softDelete: 'ลบแบบ soft?',
+      generateCode: 'สร้างโค้ด',
+      schemaStructure: 'โครงสร้างสคีมา',
+      confirmDelete: 'ยืนยันการลบ? ตารางข้อมูลจะยังคงอยู่ หากต้องการลบตารางที่เกี่ยวข้อง กรุณาลบด้วยตนเอง!',
+      fillStructureFirst: 'กรุณากรอกข้อมูลโครงสร้างตารางก่อน',
+      createSuccess: 'สร้างสำเร็จ',
       engine: {
         name: 'เครื่องมือค้นหา',
         verify: 'กรุณาเลือกเครื่องมือสคีมา',
@@ -949,15 +960,65 @@ const th = {
       controller: {
         name: 'คอนโทรลเลอร์',
         placeholder: 'กรุณาใส่ชื่อคอนโทรลเลอร์',
-        verify: 'กรุณาใส่ชื่อคอนโทรลเลอร์ก่อน'
+        verify: 'กรุณาใส่ชื่อคอนโทรลเลอร์ก่อน',
+        tip: 'คอนโทรลเลอร์ถูกสร้างในไดเรกทอรี app/admin/controller'
       },
       model: {
         name: 'โมเดล',
         placeholder: 'กรุณาใส่ชื่อโมเดล',
-        verify: 'กรุณาใส่ชื่อโมเดลก่อน'
+        verify: 'กรุณาใส่ชื่อโมเดลก่อน',
+        tip: 'โมเดลถูกสร้างในไดเรกทอรี app/admin/model'
       },
-      paginate: 'แบ่งหน้า'
+      paginate: 'แบ่งหน้า',
+      paginate_tip: 'ควบคุมว่ารายการจะใช้การแบ่งหน้าหรือไม่',
+      success: 'สร้างโค้ดสำเร็จ หากตั้งค่าคอนโทรลเลอร์แล้ว กรุณาเพิ่มหน้าผ่านเมนูเพื่อเข้าถึง'
+    },
+    table: {
+      name: 'ชื่อตาราง',
+      placeholder: 'กรุณากรอกชื่อตาราง',
+      verify: 'ต้องกรอกชื่อตาราง'
+    },
+    field: {
+      name: 'ฟิลด์',
+      placeholder: 'กรุณากรอกฟิลด์',
+      length_placeholder: 'กรุณากรอกความยาว',
+      index: 'ดัชนี',
+      index_placeholder: 'เลือกดัชนีตาราง',
+      default_placeholder: 'กรุณากรอกค่าเริ่มต้น',
+      add_default: 'เพิ่มค่าเริ่มต้น',
+      comment_placeholder: 'กรุณากรอกหมายเหตุตาราง',
+      created_updated_at: 'เวลาสร้างและเวลาอัปเดต',
+      creator_id: 'รหัสผู้สร้าง',
+      primary: 'คีย์หลัก',
+      primary_placeholder: 'กรุณากรอกฟิลด์คีย์หลัก',
+      add: 'เพิ่มฟิลด์',
+      required: 'กรุณากรอกฟิลด์ตารางก่อน',
+      value_exists: 'ค่า[{value}]มีอยู่แล้ว',
+      type_number: 'ตัวเลข',
+      type_datetime: 'วันที่และเวลา',
+      type_text: 'ข้อความ'
     }
+  },
+
+  develop: {
+    moduleName: 'ชื่อโมดูล',
+    moduleNameRequired: 'ต้องกรอกชื่อโมดูล',
+    moduleNamePattern: 'ชื่อโมดูลต้องเป็นตัวอักษรเท่านั้น',
+    moduleDir: 'ไดเรกทอรีโมดูล',
+    moduleVersion: 'เวอร์ชันโมดูล',
+    moduleStatus: 'สถานะโมดูล',
+    install: 'ติดตั้ง',
+    installModule: 'ติดตั้งโมดูล',
+    installType: 'วิธีการติดตั้ง',
+    normalInstall: 'ติดตั้งปกติ',
+    zipInstall: 'ติดตั้ง ZIP',
+    selectInstallModule: 'เลือกโมดูลที่จะติดตั้ง',
+    uploadZip: 'อัปโหลด ZIP',
+    selectModuleFile: 'เลือกไฟล์โมดูล',
+    confirmDeleteModule: 'ยืนยันการลบ? ⚠️ไฟล์ทั้งหมดในโมดูลจะถูกลบ',
+    permissionModule: 'จัดการสิทธิ์',
+    cmsModule: 'จัดการเนื้อหา',
+    systemModule: 'จัดการระบบ'
   },
 
   module: {

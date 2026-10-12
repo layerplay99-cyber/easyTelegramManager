@@ -97,6 +97,7 @@ import Message from '@/support/message'
 import http from '@/support/http'
 import { Code } from '@/enum/app'
 import { VueDraggable } from 'vue-draggable-plus'
+import { t } from '@/support/helper'
 
 const schemaStore = useSchemaStore()
 const emits = defineEmits(['prev', 'next'])
@@ -144,11 +145,11 @@ const deleteField = (id: number) => {
 
 const next = () => {
   if (schemaStore.getStructures.length < 1) {
-    Message.error('请先填写表结构数据')
+    Message.error(t('generate.schema.fillStructureFirst'))
   } else {
     http.post('schema', schemaStore.$state).then(r => {
       if (r.data.code === Code.SUCCESS) {
-        Message.success('创建成功')
+        Message.success(t('generate.schema.createSuccess'))
         schemaStore.finished()
       }
     })

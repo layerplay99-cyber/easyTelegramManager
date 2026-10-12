@@ -1,11 +1,11 @@
 <template>
   <el-form :model="formData" label-width="120px" ref="form" v-loading="loading" class="pr-4">
-    <el-form-item label="安装方式" prop="type">
+    <el-form-item :label="$t('develop.installType')" prop="type">
       <el-radio-group v-model="formData.type">
         <el-radio-button
           v-for="item in [
-            { label: '普通安装', value: 1 },
-            { label: 'ZIP 安装', value: 2 }
+            { label: $t('develop.normalInstall'), value: 1 },
+            { label: $t('develop.zipInstall'), value: 2 }
           ]"
           :key="item.value"
           :value="item.value"
@@ -15,17 +15,17 @@
       </el-radio-group>
     </el-form-item>
     <el-form-item
-      label="模块名称"
+      :label="$t('develop.moduleName')"
       prop="title"
       :rules="[
         {
           required: true,
-          message: '模块名称必须填写'
+          message: $t('develop.moduleNameRequired')
         },
         {
           validator: (rule: any, value: any, callback: any) => {
             if (!/^[A-Za-z]+$/.test(value)) {
-              callback('模块名称只允许大小字母组合')
+              callback(t('develop.moduleNamePattern'))
             } else {
               callback()
             }
@@ -34,20 +34,20 @@
         }
       ]"
     >
-      <el-select v-model="formData.title" placeholder="选择安装模块">
+      <el-select v-model="formData.title" :placeholder="$t('develop.selectInstallModule')">
         <el-option v-for="item in modules" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </el-form-item>
-    <el-form-item label="上传 ZIP" prop="file" v-if="formData.type === 2">
+    <el-form-item :label="$t('develop.uploadZip')" prop="file" v-if="formData.type === 2">
       <Upload action="module/upload" :limit="1" accept=".zip" :on-success="moduleUpload">
         <template #trigger>
-          <el-button type="primary">选择模块文件</el-button>
+          <el-button type="primary">{{ $t('develop.selectModuleFile') }}</el-button>
         </template>
       </Upload>
     </el-form-item>
 
     <div class="flex justify-end">
-      <el-button type="primary" @click="submitForm(form)">安装</el-button>
+      <el-button type="primary" @click="submitForm(form)">{{ $t('develop.install') }}</el-button>
     </div>
   </el-form>
 </template>
@@ -59,6 +59,7 @@ import { useCreate } from '@/composables/curd/useCreate'
 import { onMounted } from 'vue'
 import { Code } from '@/enum/app'
 import Message from '@/support/message'
+import { t } from '@/support/helper'
 
 const { formData, form, loading, submitForm, close } = useCreate('module/install')
 formData.value.type = 1
@@ -79,15 +80,15 @@ const moduleUpload = (response: any) => {
 
 const modules = [
   {
-    label: '权限管理',
+    label: t('develop.permissionModule'),
     value: 'permissions'
   },
   {
-    label: '内容管理',
+    label: t('develop.cmsModule'),
     value: 'cms'
   },
   {
-    label: '系统管理',
+    label: t('develop.systemModule'),
     value: 'system'
   }
 ]

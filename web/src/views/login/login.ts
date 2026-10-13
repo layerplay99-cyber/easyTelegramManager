@@ -59,7 +59,7 @@ export const useLogin = () => {
                     if (showCodeInput.value && !value) {
                         callback(new Error(t('login.codeRequired')))
                     } else if (value && !/^\d{6}$/.test(value)) {
-                        callback(new Error(t('login.codeMustBeSixDigits'))
+                        callback(new Error(t('login.codeMustBeSixDigits')))
                     } else {
                         callback()
                     }

@@ -127,7 +127,20 @@ const vi = {
     '/wallet/walletChannel': 'Kênh thanh toán',
     '/wallet/walletRisk': 'Kiểm soát rủi ro',
     '/wallet/walletLimit': 'Hạn mức giao dịch',
-    '/wallet/walletRate': 'Tỷ giá'
+    '/wallet/walletRate': 'Tỷ giá',
+    '/permission/users': 'Quản trị viên',
+    '/cms': 'Quản lý nội dung',
+    '/cms/articles': 'Bài viết',
+    '/cms/articles/category': 'Danh mục',
+    '/cms/articles/post': 'Tất cả bài viết',
+    '/cms/articles/tag': 'Thẻ',
+    '/cms/articles/create/:id?': 'Tạo bài viết',
+    '/cms/resources': 'Tài nguyên',
+    '/cms/setting': 'Cài đặt',
+    '/cms/setting/general': 'Chung',
+    '/cms/setting/content': 'Nội dung',
+    '/cms/setting/other': 'Khác',
+    '/cms/setting/personal': 'Cá nhân'
   },
 
   bots: {

@@ -127,7 +127,20 @@ const th = {
     '/wallet/walletChannel': 'ช่องทางชำระเงิน',
     '/wallet/walletRisk': 'ควบคุมความเสี่ยง',
     '/wallet/walletLimit': 'วงเงินธุรกรรม',
-    '/wallet/walletRate': 'อัตราแลกเปลี่ยน'
+    '/wallet/walletRate': 'อัตราแลกเปลี่ยน',
+    '/permission/users': 'ผู้ดูแลระบบ',
+    '/cms': 'การจัดการเนื้อหา',
+    '/cms/articles': 'บทความ',
+    '/cms/articles/category': 'หมวดหมู่',
+    '/cms/articles/post': 'บทความทั้งหมด',
+    '/cms/articles/tag': 'แท็ก',
+    '/cms/articles/create/:id?': 'สร้างบทความ',
+    '/cms/resources': 'ทรัพยากร',
+    '/cms/setting': 'การตั้งค่า',
+    '/cms/setting/general': 'ทั่วไป',
+    '/cms/setting/content': 'เนื้อหา',
+    '/cms/setting/other': 'อื่นๆ',
+    '/cms/setting/personal': 'ส่วนตัว'
   },
 
   bots: {

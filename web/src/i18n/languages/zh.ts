@@ -127,7 +127,20 @@ const zh = {
     '/wallet/walletChannel': '支付通道',
     '/wallet/walletRisk': '风控中心',
     '/wallet/walletLimit': '交易限额',
-    '/wallet/walletRate': '汇率'
+    '/wallet/walletRate': '汇率',
+    '/permission/users': '管理员列表',
+    '/cms': '内容管理',
+    '/cms/articles': '文章',
+    '/cms/articles/category': '分类目录',
+    '/cms/articles/post': '所有文章',
+    '/cms/articles/tag': '标签',
+    '/cms/articles/create/:id?': '创建文章',
+    '/cms/resources': '资源管理',
+    '/cms/setting': '设置',
+    '/cms/setting/general': '常规',
+    '/cms/setting/content': '内容',
+    '/cms/setting/other': '其他',
+    '/cms/setting/personal': '个人'
   },
 
   bots: {

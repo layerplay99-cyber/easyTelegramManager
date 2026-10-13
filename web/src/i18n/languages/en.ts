@@ -127,7 +127,20 @@ const en = {
     '/wallet/walletChannel': 'Payment Channels',
     '/wallet/walletRisk': 'Risk Control',
     '/wallet/walletLimit': 'Transaction Limits',
-    '/wallet/walletRate': 'Exchange Rates'
+    '/wallet/walletRate': 'Exchange Rates',
+    '/permission/users': 'Admin Users',
+    '/cms': 'Content Management',
+    '/cms/articles': 'Articles',
+    '/cms/articles/category': 'Categories',
+    '/cms/articles/post': 'All Posts',
+    '/cms/articles/tag': 'Tags',
+    '/cms/articles/create/:id?': 'Create Article',
+    '/cms/resources': 'Resources',
+    '/cms/setting': 'Settings',
+    '/cms/setting/general': 'General',
+    '/cms/setting/content': 'Content',
+    '/cms/setting/other': 'Other',
+    '/cms/setting/personal': 'Personal'
   },
 
   bots: {

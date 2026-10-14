@@ -61,8 +61,16 @@ class CheckDataScope extends Command
             ));
         }
 
-        $descendantRoleIds = (new Roles)->getDescendantRoleIds($roleIds);
-        $this->info('可见角色（本人角色 + 全部子角色）：' . ($descendantRoleIds ? implode(', ', $descendantRoleIds) : '(无)'));
+        if ($user->isSuperAdmin()) {
+            $descendantRoleIds = Roles::query()->pluck('id')->map(fn ($i) => (int) $i)->all();
+            $this->info('可见角色：全部（超级管理员不限制）');
+        } else {
+            $descendantRoleIds = array_map('intval', array_unique(array_merge(
+                (new Roles)->getDescendantRoleIds($roleIds),
+                (new Roles)->where('creator_id', $user->id)->pluck('id')->all()
+            )));
+            $this->info('可见角色（本人角色 + 全部子角色 + 本人创建的）：' . ($descendantRoleIds ? implode(', ', $descendantRoleIds) : '(无)'));
+        }
 
         // 反查：这些「不可见」的角色里，有没有父级落在可见范围内
         $hiddenRoles = Roles::query()->whereNotIn('id', $descendantRoleIds)->get(['id', 'parent_id', 'role_name']);
@@ -77,11 +85,18 @@ class CheckDataScope extends Command
         }
 
         // ---------- 部门 ----------
-        $departmentId = (int) $user->department_id;
-        $followIds = $departmentId ? (new Departments)->findFollowDepartments($departmentId) : [];
-        $visibleDeptIds = $departmentId ? array_map('intval', array_merge($followIds, [$departmentId])) : [];
-        $this->line('');
-        $this->info('可见部门（本部门 + 全部子部门）：' . ($visibleDeptIds ? implode(', ', $visibleDeptIds) : '(无，department_id 为 0)'));
+        if ($user->isSuperAdmin()) {
+            $visibleDeptIds = Departments::query()->pluck('id')->map(fn ($i) => (int) $i)->all();
+            $this->info('可见部门：全部（超级管理员不限制）');
+        } else {
+            $departmentId = (int) $user->department_id;
+            $followIds = $departmentId ? (new Departments)->findFollowDepartments($departmentId) : [];
+            $visibleDeptIds = array_map('intval', array_unique(array_merge(
+                $departmentId ? array_merge($followIds, [$departmentId]) : [],
+                (new Departments)->where('creator_id', $user->id)->pluck('id')->all()
+            )));
+            $this->info('可见部门（本部门 + 全部子部门 + 本人创建的）：' . ($visibleDeptIds ? implode(', ', $visibleDeptIds) : '(无，department_id 为 0)'));
+        }
 
         // ---------- DataScope ----------
         $scope = app(DataScope::class);
@@ -96,6 +111,32 @@ class CheckDataScope extends Command
         $this->line('  部门  总数 ' . Departments::query()->count() . ' / 可见 ' . ($visibleDeptIds ? Departments::query()->whereIn('id', $visibleDeptIds)->count() : 0));
         $this->line('  岗位  总数 ' . Jobs::query()->count() . ' / 按 creator_id 可见 ' . ($visibleCreatorIds === null ? Jobs::query()->count() : Jobs::query()->whereIn('creator_id', $visibleCreatorIds)->count()));
 
+        // ---------- 看到的记录到底是谁的 ----------
+        // 这一节是重点：「列表里有数据」≠ 「看到了别人的数据」。
+        // 把每条可见记录的归属人摊开，一眼看出是不是本人创建的。
+        $this->line('');
+        $this->info('可见角色归属：');
+        foreach (Roles::query()->whereIn('id', $descendantRoleIds)->get(['id', 'role_name', 'parent_id', 'creator_id']) as $r) {
+            $this->line(sprintf(
+                '  #%d %s → %s',
+                $r->id,
+                $r->role_name,
+                (int) $r->creator_id === (int) $user->id ? '本人创建（可改）' : ((int) $r->creator_id === 0 ? '无主数据' : "用户 #{$r->creator_id} 创建（只能看，不能改）")
+            ));
+        }
+
+        $this->line('');
+        $this->info('可见部门归属：');
+        foreach (Departments::query()->whereIn('id', $visibleDeptIds ?: [0])->get(['id', 'department_name', 'parent_id', 'creator_id']) as $d) {
+            $this->line(sprintf(
+                '  #%d %s → %s%s',
+                $d->id,
+                $d->department_name,
+                (int) $d->creator_id === (int) $user->id ? '本人创建（可改）' : ((int) $d->creator_id === 0 ? '无主数据' : "用户 #{$d->creator_id} 创建（只能看，不能改）"),
+                (int) $d->id === (int) $user->department_id ? '（本人所属部门）' : ''
+            ));
+        }
+
         // ---------- 岗位归属分布 ----------
         $this->line('');
         $this->info('岗位 creator_id 分布：');
@@ -107,6 +148,13 @@ class CheckDataScope extends Command
         $this->line('');
         $this->info('角色 creator_id / parent_id 分布：');
         foreach (Roles::query()->selectRaw('creator_id, parent_id, count(*) as c')->groupBy('creator_id', 'parent_id')->get() as $row) {
+            $this->line(sprintf('  creator_id=%s parent_id=%s → %d 个', $row->creator_id, $row->parent_id, $row->c));
+        }
+
+        // ---------- 部门归属分布 ----------
+        $this->line('');
+        $this->info('部门 creator_id / parent_id 分布：');
+        foreach (Departments::query()->selectRaw('creator_id, parent_id, count(*) as c')->groupBy('creator_id', 'parent_id')->get() as $row) {
             $this->line(sprintf('  creator_id=%s parent_id=%s → %d 个', $row->creator_id, $row->parent_id, $row->c));
         }
 

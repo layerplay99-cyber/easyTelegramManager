@@ -37,13 +37,11 @@ class RolesController extends Controller
             })->getList();
         }
 
-        $userRoleIds = $this->getLoginUser()->roles->pluck('id')->toArray();
+        $allRoleIds = $this->visibleRoleIds();
 
-        $allRoleIds = $this->model->getDescendantRoleIds($userRoleIds);
-
-        return $this->model->setBeforeGetList(function ($query) use ($allRoleIds, $userRoleIds) {
+        return $this->model->setBeforeGetList(function ($query) use ($allRoleIds) {
             $query->whereIn('id', $allRoleIds)
-                ->with(['permissions' => function ($query) use ($userRoleIds) {
+                ->with(['permissions' => function ($query) {
                     $roles = $this->getLoginUser()->roles;
                     $rolePermissions = $roles->flatMap(function ($role) {
                         return $role->permissions->pluck('id');
@@ -82,7 +80,12 @@ class RolesController extends Controller
     /**
      * 当前登录用户可见的角色 id 集合；null 表示不限制（超管）
      *
-     * 与 index() 同一套规则：自己拥有的角色 + 其所有子角色。
+     * 两部分取并集：
+     *   1. 自己拥有的角色 + 其所有子角色（超管预设的层级，按 parent_id 往下）；
+     *   2. 自己创建的角色（creator_id = 本人）。
+     *
+     * 第 2 条不能少：如果他的角色本身就是超管建的顶层角色（parent_id=0），
+     * 那他新建的顶层角色不在「本人角色 + 子角色」里，建完就凭空消失。
      */
     protected function visibleRoleIds(): ?array
     {
@@ -90,9 +93,13 @@ class RolesController extends Controller
             return null;
         }
 
-        return array_map('intval', $this->model->getDescendantRoleIds(
-            $this->getLoginUser()->roles->pluck('id')->toArray()
-        ));
+        $user = $this->getLoginUser();
+
+        $ids = $this->model->getDescendantRoleIds($user->roles->pluck('id')->toArray());
+
+        $ids = array_merge($ids, $this->model->where('creator_id', $user->id)->pluck('id')->all());
+
+        return array_map('intval', array_unique($ids));
     }
 
     /**
@@ -109,6 +116,25 @@ class RolesController extends Controller
 
         if ($visible !== null && ! in_array((int) $role->getKey(), $visible, true)) {
             throw new FailedException('角色不存在或无权访问');
+        }
+
+        return $role;
+    }
+
+    /**
+     * 写操作（改/删）取出「自己创建的」角色
+     *
+     * 可见 ≠ 可改：按层级能看到上级/同级建的角色（比如超管给部门A管理员
+     * 预置的角色），但改它就成了"编辑超管设置的角色"。
+     * 读走 findVisibleRole，写走这里。
+     */
+    protected function findOwnedRole($id): Roles
+    {
+        $role = $this->findVisibleRole($id);
+
+        if (! $this->getLoginUser()->isSuperAdmin()
+            && (int) $role->getAttribute('creator_id') !== (int) $this->getLoginUser()->id) {
+            throw new FailedException('只能修改自己创建的角色');
         }
 
         return $role;
@@ -176,7 +202,7 @@ class RolesController extends Controller
      */
     public function update($id, RoleRequest $request)
     {
-        $this->findVisibleRole($id);
+        $this->findOwnedRole($id);
 
         $data = $request->all();
         $data['data_range'] = (int) $data['data_range'];
@@ -195,7 +221,7 @@ class RolesController extends Controller
      */
     public function destroy($id)
     {
-        $this->findVisibleRole($id);
+        $this->findOwnedRole($id);
 
         if ($this->model->where($this->model->getParentIdColumn(), $id)->first()) {
             throw new FailedException('请先删除子角色');

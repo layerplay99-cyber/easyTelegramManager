@@ -25,14 +25,15 @@ class DepartmentsController extends Controller
 
             return $this->model->getList();
         }
-        $departmentId = $this->getLoginUser()->department_id;
-        if (! $departmentId) {
+
+        $visibleDepartmentIds = $this->visibleDepartmentIds();
+
+        if (empty($visibleDepartmentIds)) {
             return [];
         }
-        $followDepartmentIds = $this->model->findFollowDepartments($departmentId);
-        $followDepartmentIds[] = $departmentId;
-        $this->model->setBeforeGetList(function ($query) use ($followDepartmentIds) {
-            return $query->whereIn('id', $followDepartmentIds);
+
+        $this->model->setBeforeGetList(function ($query) use ($visibleDepartmentIds) {
+            return $query->whereIn('id', $visibleDepartmentIds);
         });
         return $this->model->getList();
     }
@@ -40,7 +41,10 @@ class DepartmentsController extends Controller
     /**
      * 当前登录用户可见的部门 id 集合；null 表示不限制（超管）
      *
-     * 与 index() 同一套规则：本部门 + 其所有子部门。
+     * 两部分取并集：
+     *   1. 本部门 + 其所有子部门（按 parent_id 往下）；
+     *   2. 自己创建的部门（creator_id = 本人）——否则他用 parent_id=0
+     *      新建的部门不在本部门子树里，建完就看不见。
      */
     protected function visibleDepartmentIds(): ?array
     {
@@ -48,16 +52,17 @@ class DepartmentsController extends Controller
             return null;
         }
 
-        $departmentId = (int) $this->getLoginUser()->department_id;
+        $user = $this->getLoginUser();
 
-        if (! $departmentId) {
-            return [];
-        }
+        $departmentId = (int) $user->department_id;
 
-        $ids = $this->model->findFollowDepartments($departmentId);
-        $ids[] = $departmentId;
+        $ids = $departmentId
+            ? array_merge($this->model->findFollowDepartments($departmentId), [$departmentId])
+            : [];
 
-        return array_map('intval', $ids);
+        $ids = array_merge($ids, $this->model->where('creator_id', $user->id)->pluck('id')->all());
+
+        return array_map('intval', array_unique($ids));
     }
 
     /**
@@ -74,6 +79,25 @@ class DepartmentsController extends Controller
 
         if ($visible !== null && ! in_array((int) $department->getKey(), $visible, true)) {
             throw new FailedException('部门不存在或无权访问');
+        }
+
+        return $department;
+    }
+
+    /**
+     * 写操作（改/删/启停）取出「自己创建的」部门
+     *
+     * 可见 ≠ 可改：本部门可能是超管建好再把账号丢进去的，按层级能看到，
+     * 但改它就是"编辑超管设置的部门"。读走 findVisibleDepartment，写走这里。
+     * 需要在自己部门下细分（如客服组/财务组）用 store，parent_id 允许落在可见范围内。
+     */
+    protected function findOwnedDepartment($id): Departments
+    {
+        $department = $this->findVisibleDepartment($id);
+
+        if (! $this->getLoginUser()->isSuperAdmin()
+            && (int) $department->getAttribute('creator_id') !== (int) $this->getLoginUser()->id) {
+            throw new FailedException('只能修改自己创建的部门');
         }
 
         return $department;
@@ -104,21 +128,21 @@ class DepartmentsController extends Controller
 
     public function update($id, Request $request)
     {
-        $this->findVisibleDepartment($id);
+        $this->findOwnedDepartment($id);
 
         return $this->model->updateBy($id, $request->all());
     }
 
     public function destroy($id)
     {
-        $this->findVisibleDepartment($id);
+        $this->findOwnedDepartment($id);
 
         return $this->model->deleteBy($id);
     }
 
     public function enable($id)
     {
-        $this->findVisibleDepartment($id);
+        $this->findOwnedDepartment($id);
 
         return $this->model->toggleBy($id);
     }

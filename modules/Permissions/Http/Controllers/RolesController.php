@@ -74,7 +74,64 @@ class RolesController extends Controller
 
         $this->assertDataRangeAllowed($data['data_range']);
 
+        $this->assertParentRoleAllowed($data['parent_id'] ?? 0);
+
         return $this->model->storeBy($data);
+    }
+
+    /**
+     * 当前登录用户可见的角色 id 集合；null 表示不限制（超管）
+     *
+     * 与 index() 同一套规则：自己拥有的角色 + 其所有子角色。
+     */
+    protected function visibleRoleIds(): ?array
+    {
+        if ($this->getLoginUser()->isSuperAdmin()) {
+            return null;
+        }
+
+        return array_map('intval', $this->model->getDescendantRoleIds(
+            $this->getLoginUser()->roles->pluck('id')->toArray()
+        ));
+    }
+
+    /**
+     * 取出可见范围内的角色
+     *
+     * show / update / destroy 原来都是 firstBy($id) 直接按 id 取，
+     * 部门管理员传超管角色的 id 就能查看、修改、删除别人的角色。
+     */
+    protected function findVisibleRole($id): Roles
+    {
+        $role = $this->model->firstBy($id);
+
+        $visible = $this->visibleRoleIds();
+
+        if ($visible !== null && ! in_array((int) $role->getKey(), $visible, true)) {
+            throw new FailedException('角色不存在或无权访问');
+        }
+
+        return $role;
+    }
+
+    /**
+     * 父角色必须在自己可见范围内
+     *
+     * 否则可以把子角色挂到超管角色下面，反过来让超管能看到/管理这个角色。
+     */
+    protected function assertParentRoleAllowed(mixed $parentId): void
+    {
+        $visible = $this->visibleRoleIds();
+
+        if ($visible === null) {
+            return;
+        }
+
+        $parentId = (int) $parentId;
+
+        if ($parentId > 0 && ! in_array($parentId, $visible, true)) {
+            throw new FailedException('无权在他人角色下创建子角色');
+        }
     }
 
     /**
@@ -98,7 +155,7 @@ class RolesController extends Controller
      */
     public function show($id, Request $request)
     {
-        $role = $this->model->firstBy($id);
+        $role = $this->findVisibleRole($id);
 
         if ($request->has('from') && $request->get('from') == 'parent_role') {
             $role->setAttribute('permissions', $role->permissions()->get()->toTree());
@@ -119,6 +176,8 @@ class RolesController extends Controller
      */
     public function update($id, RoleRequest $request)
     {
+        $this->findVisibleRole($id);
+
         $data = $request->all();
         $data['data_range'] = (int) $data['data_range'];
         if (!DataRange::Personal_Choose->assert($data['data_range'])) {
@@ -136,6 +195,8 @@ class RolesController extends Controller
      */
     public function destroy($id)
     {
+        $this->findVisibleRole($id);
+
         if ($this->model->where($this->model->getParentIdColumn(), $id)->first()) {
             throw new FailedException('请先删除子角色');
         }

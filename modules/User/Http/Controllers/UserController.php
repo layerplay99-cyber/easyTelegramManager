@@ -3,11 +3,13 @@
 namespace Modules\User\Http\Controllers;
 
 use Catch\Base\CatchController as Controller;
+use Catch\Exceptions\FailedException;
 use Catch\Support\Module\ModuleRepository;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Modules\Permissions\Models\Departments;
 use Modules\Permissions\Support\DataScope;
+use Modules\Permissions\Support\HierarchyScope;
 use Modules\User\Models\LogLogin;
 use Modules\User\Models\LogOperate;
 use Modules\User\Models\User;
@@ -59,11 +61,11 @@ class UserController extends Controller
 
         $loginUser = $this->getLoginUser();
 
-        // 部门管理员建号必须落在自己部门里：
+        // 部门管理员建号只能落在自己（及自己建的账号）创建的部门里：
         // 数据范围（本部门 / 本部门及以下）是按 users.department_id 反推可见用户的，
         // 允许自选部门就等于能自选数据范围，直接把隔离打穿。
         if (! $loginUser->isSuperAdmin()) {
-            $data['department_id'] = $loginUser->department_id;
+            $data['department_id'] = $this->assignableDepartmentId($data['department_id'] ?? null, $loginUser);
         }
 
         return $this->user->storeBy($data);
@@ -77,7 +79,11 @@ class UserController extends Controller
      */
     public function show($id)
     {
-        $user = $this->user->firstBy($id)->makeHidden([
+        $user = $this->user->firstBy($id);
+
+        $this->assertOperableUser($user, $this->getLoginUser());
+
+        $user->makeHidden([
             'password',
             'two_factor_secret',
             'two_factor_secret_temp',
@@ -108,8 +114,10 @@ class UserController extends Controller
         $loginUser = $this->getLoginUser();
 
         if (! $loginUser->isSuperAdmin()) {
-            // 同上：不允许把账号（自己或下级）挪到别的部门
-            $data['department_id'] = $loginUser->department_id;
+            $this->assertOperableUser($this->user->firstBy($id), $loginUser);
+
+            // 同上：不允许把账号（自己或下级）挪到别人的部门
+            $data['department_id'] = $this->assignableDepartmentId($data['department_id'] ?? null, $loginUser);
         }
 
         return $this->user->updateBy($id, $data);
@@ -127,6 +135,8 @@ class UserController extends Controller
         // tokens() 会去删 tokenable_id 为空的记录，被删用户的令牌实际一直有效。
         $user = $this->user->firstBy($id);
 
+        $this->assertOperableUser($user, $this->getLoginUser());
+
         if ($user) {
             $user->tokens()->delete();
         }
@@ -142,7 +152,53 @@ class UserController extends Controller
      */
     public function enable($id)
     {
+        $this->assertOperableUser($this->user->firstBy($id), $this->getLoginUser());
+
         return $this->user->toggleBy($id);
+    }
+
+    /**
+     * 部门归属：只允许落在自己（及自己建的账号）创建的部门里
+     *
+     * 传了别人的部门、或者压根没传，一律退回自己的所属部门。
+     * 允许自选部门就等于自选数据范围（本部门 / 本部门及以下），隔离会被打穿。
+     */
+    protected function assignableDepartmentId(mixed $departmentId, mixed $loginUser): int
+    {
+        $visible = app(HierarchyScope::class)->visibleIds(app(Departments::class), $loginUser) ?? [];
+
+        $departmentId = (int) $departmentId;
+
+        if ($departmentId && in_array($departmentId, $visible, true)) {
+            return $departmentId;
+        }
+
+        return (int) $loginUser->department_id;
+    }
+
+    /**
+     * 越权拦截：只能操作自己、以及自己（递归）创建的账号
+     *
+     * 超管账号单独挡一道——他的 creator_id 未必落在别人的归属链外
+     * （比如超管的 creator_id 可能就是他自己，剩下一堆账号的 creator_id 也是他），
+     * 光按归属链判断不足以保护。
+     */
+    protected function assertOperableUser(mixed $target, mixed $loginUser): void
+    {
+        if (! $target || $loginUser->isSuperAdmin()) {
+            return;
+        }
+
+        if ((int) $target->getKey() === (int) config('catch.super_admin')) {
+            throw new FailedException('无权操作超级管理员账号');
+        }
+
+        // 自己改自己（改密码、改昵称）永远是允许的
+        if ((int) $target->getKey() === (int) $loginUser->id) {
+            return;
+        }
+
+        app(DataScope::class)->assertInOwnershipChain($target, $loginUser, '只能操作自己及自己创建的用户');
     }
 
     /**

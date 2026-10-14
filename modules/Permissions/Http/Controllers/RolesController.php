@@ -13,6 +13,8 @@ use Illuminate\Http\Request;
 use Modules\Permissions\Enums\DataRange;
 use Modules\Permissions\Models\Roles;
 use Modules\Permissions\Http\Requests\RoleRequest;
+use Modules\Permissions\Support\DataScope;
+use Modules\Permissions\Support\HierarchyScope;
 
 class RolesController extends Controller
 {
@@ -29,26 +31,27 @@ class RolesController extends Controller
      */
     public function index(): mixed
     {
-        if ($this->getLoginUser()->isSuperAdmin()) {
-            return $this->model->setBeforeGetList(function ($query) {
-                return $query->with(['permissions' => function ($query) {
-                    $query->select('id');
-                }]);
-            })->getList();
-        }
-
         $allRoleIds = $this->visibleRoleIds();
+        $isSuperAdmin = $this->getLoginUser()->isSuperAdmin();
 
-        return $this->model->setBeforeGetList(function ($query) use ($allRoleIds) {
-            $query->whereIn('id', $allRoleIds)
-                ->with(['permissions' => function ($query) {
-                    $roles = $this->getLoginUser()->roles;
-                    $rolePermissions = $roles->flatMap(function ($role) {
+        return $this->model->setBeforeGetList(function ($query) use ($allRoleIds, $isSuperAdmin) {
+            if ($allRoleIds !== null) {
+                $query->whereIn('id', $allRoleIds);
+            }
+
+            $query->with(['permissions' => function ($query) use ($isSuperAdmin) {
+                // 非超管只看得到自己角色已经有的菜单，避免照着列表去勾没被授权的菜单
+                if (! $isSuperAdmin) {
+                    $rolePermissions = $this->getLoginUser()->roles->flatMap(function ($role) {
                         return $role->permissions->pluck('id');
                     })->unique()->values()->toArray();
+
                     $query->whereIn('id', $rolePermissions);
-                    $query->select('id');
-                }]);
+                }
+
+                $query->select('id');
+            }]);
+
             return $query;
         })->getList();
     }
@@ -80,26 +83,14 @@ class RolesController extends Controller
     /**
      * 当前登录用户可见的角色 id 集合；null 表示不限制（超管）
      *
-     * 两部分取并集：
-     *   1. 自己拥有的角色 + 其所有子角色（超管预设的层级，按 parent_id 往下）；
-     *   2. 自己创建的角色（creator_id = 本人）。
-     *
-     * 第 2 条不能少：如果他的角色本身就是超管建的顶层角色（parent_id=0），
-     * 那他新建的顶层角色不在「本人角色 + 子角色」里，建完就凭空消失。
+     * 层级 = creator_id 归属链 + parent_id 子树，详见 HierarchyScope：
+     *   - 看得见自己建的、以及自己建的账号（递归）建的角色；
+     *   - 这些角色下面的整棵子树也看得见；
+     *   - 看不见上级（超管）建的角色，哪怕这个角色正被授予给自己。
      */
     protected function visibleRoleIds(): ?array
     {
-        if ($this->getLoginUser()->isSuperAdmin()) {
-            return null;
-        }
-
-        $user = $this->getLoginUser();
-
-        $ids = $this->model->getDescendantRoleIds($user->roles->pluck('id')->toArray());
-
-        $ids = array_merge($ids, $this->model->where('creator_id', $user->id)->pluck('id')->all());
-
-        return array_map('intval', array_unique($ids));
+        return app(HierarchyScope::class)->visibleIds($this->model, $this->getLoginUser());
     }
 
     /**
@@ -122,20 +113,22 @@ class RolesController extends Controller
     }
 
     /**
-     * 写操作（改/删）取出「自己创建的」角色
+     * 写操作（改/删）取出「归属链内」的角色
      *
-     * 可见 ≠ 可改：按层级能看到上级/同级建的角色（比如超管给部门A管理员
-     * 预置的角色），但改它就成了"编辑超管设置的角色"。
-     * 读走 findVisibleRole，写走这里。
+     * 可见 ≠ 可改，可改也不等于「只能改自己建的」：
+     *   - 超管建的角色：看都看不到，更不该改；
+     *   - 下级管理员建的角色：上级看得到，也归上级管（不然上级没法收拾下级留下的东西）。
+     * 所以写权限按归属链判：creator_id ∈ {本人} ∪ {本人创建的账号，递归}。
      */
     protected function findOwnedRole($id): Roles
     {
         $role = $this->findVisibleRole($id);
 
-        if (! $this->getLoginUser()->isSuperAdmin()
-            && (int) $role->getAttribute('creator_id') !== (int) $this->getLoginUser()->id) {
-            throw new FailedException('只能修改自己创建的角色');
-        }
+        app(DataScope::class)->assertInOwnershipChain(
+            $role,
+            $this->getLoginUser(),
+            '只能修改自己及下级创建的角色'
+        );
 
         return $role;
     }

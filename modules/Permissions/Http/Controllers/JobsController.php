@@ -3,6 +3,7 @@
 namespace Modules\Permissions\Http\Controllers;
 
 use Catch\Base\CatchController as Controller;
+use Catch\Exceptions\FailedException;
 use Modules\Permissions\Models\Jobs;
 use Modules\Permissions\Support\DataScope;
 use Illuminate\Http\Request;
@@ -15,32 +16,17 @@ class JobsController extends Controller
     }
 
     /**
-     * 岗位是「组织字典」而不是部门私有数据
+     * 岗位没有 parent_id，层级只有 creator_id 这一维：归属链
      *
-     * 之前按 creator_id 收窄列表，结果部门A管理员列表直接空了——
-     * 超管预置的岗位（creator_id=1）看不到，自己又一个都没建，
-     * 导致给他创建的账号分配不了岗位。
-     *
-     * 所以这里区分读和写：
-     *   - 读（index / show）：全员可见，岗位是共享字典；
-     *   - 写（update / destroy / enable）：只能改自己创建的，超管可改全部。
-     */
-    protected function findVisibleJob($id): Jobs
-    {
-        $job = $this->model->findOrFail($id);
-
-        app(DataScope::class)->assertVisible($job);
-
-        return $job;
-    }
-
-    /**
-     * @param Request $request
-     * @return mixed
+     * 本人 + 本人创建的账号（递归）建的岗位可见。
+     * 上级看得到下级建的，看不到上级建的——超管预置的岗位对管理员不可见，
+     * 他要给自己的账号分配岗位就自己建。
      */
     public function index(Request $request): mixed
     {
-        return $this->model->getList();
+        return $this->model->setBeforeGetList(function ($query) {
+            return app(DataScope::class)->applyOwnership($query, $this->getLoginUser());
+        })->getList();
     }
 
     public function store(Request $request)
@@ -51,27 +37,57 @@ class JobsController extends Controller
 
     public function show($id)
     {
-        return $this->model->firstBy($id);
+        return $this->findVisibleJob($id);
     }
 
     public function update($id, Request $request)
     {
-        $this->findVisibleJob($id);
+        $this->findOwnedJob($id);
 
         return $this->model->updateBy($id, $request->all());
     }
 
     public function destroy($id)
     {
-        $this->findVisibleJob($id);
+        $this->findOwnedJob($id);
 
         return $this->model->deleteBy($id);
     }
 
     public function enable($id)
     {
-        $this->findVisibleJob($id);
+        $this->findOwnedJob($id);
 
         return $this->model->toggleBy($id);
+    }
+
+    /**
+     * 读：落在归属链内即可（无主数据按配置兜底）
+     */
+    protected function findVisibleJob($id): Jobs
+    {
+        $job = $this->model->firstBy($id);
+
+        if (! app(DataScope::class)->inOwnershipChain($job, $this->getLoginUser())) {
+            throw new FailedException('岗位不存在或无权访问');
+        }
+
+        return $job;
+    }
+
+    /**
+     * 写：只能改归属链内的（本人 + 下级建的），超管的岗位动不了
+     */
+    protected function findOwnedJob($id): Jobs
+    {
+        $job = $this->findVisibleJob($id);
+
+        app(DataScope::class)->assertInOwnershipChain(
+            $job,
+            $this->getLoginUser(),
+            '只能修改自己及下级创建的岗位'
+        );
+
+        return $job;
     }
 }

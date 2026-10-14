@@ -123,6 +123,128 @@ class DataScope
     }
 
     /**
+     * 归属链：本人 + 全部下级用户（users.creator_id 递归）的 creator_id 集合
+     *
+     * 和 visibleCreatorIds() 的区别：这里只看「谁创建的谁」，不叠加角色的
+     * data_range（本部门 / 本部门及以下 / 全部数据）。
+     * 权限体系自身的数据（角色 / 部门 / 岗位 / 账号）必须走这条链：
+     * data_range 是按 users.department_id 反查可见用户的，而管理员所属部门、
+     * 被授予的角色往往正是超管建好之后分配给他的，一展开就顺着部门回溯到超管
+     * 本人，等于管理员又看到了超管的东西。
+     *
+     * 方向是单向向下的：上级看得到下级建的，下级看不到上级建的。
+     *
+     * @return array|null null 表示不限制（超管 / 无登录用户）
+     */
+    public function ownershipCreatorIds(mixed $user = null): ?array
+    {
+        $user = $user ?: $this->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+            return null;
+        }
+
+        $cacheKey = 'ownership_'.$user->id;
+
+        if (array_key_exists($cacheKey, static::$cache)) {
+            return static::$cache[$cacheKey];
+        }
+
+        return static::$cache[$cacheKey] = Collection::make($this->subordinateIds($user))
+            ->push($user->id)
+            ->filter(fn ($id) => ! empty($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * 记录是否落在归属链内
+     *
+     * @param bool|null $includeUnowned 无主数据（creator_id 为空 / 0）算不算可见，
+     *                                  不传则按 catch.data_scope_include_unowned
+     */
+    public function inOwnershipChain(Model $model, mixed $user = null, ?bool $includeUnowned = null): bool
+    {
+        $user = $user ?: $this->user();
+
+        if (! $user) {
+            return true;
+        }
+
+        if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+            return true;
+        }
+
+        $userIds = $this->ownershipCreatorIds($user);
+
+        if ($userIds === null) {
+            return true;
+        }
+
+        $creatorId = (int) $model->getAttribute('creator_id');
+
+        if (empty($creatorId)) {
+            return (bool) ($includeUnowned ?? config('catch.data_scope_include_unowned', true));
+        }
+
+        return in_array($creatorId, $userIds, true);
+    }
+
+    /**
+     * 写操作越权拦截：只能改自己、以及自己（递归）创建的账号建的数据
+     *
+     * @throws FailedException
+     */
+    public function assertInOwnershipChain(Model $model, mixed $user = null, string $message = '无权操作该数据'): void
+    {
+        if (! $this->inOwnershipChain($model, $user, false)) {
+            throw new FailedException($message);
+        }
+    }
+
+    /**
+     * 给查询构造器套上归属链范围
+     *
+     * @param bool|null $includeUnowned 是否把无主数据一并放出来，不传则按配置
+     */
+    public function applyOwnership(mixed $query, mixed $user = null, ?string $field = null, ?bool $includeUnowned = null): mixed
+    {
+        $user = $user ?: $this->user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+            return $query;
+        }
+
+        $userIds = $this->ownershipCreatorIds($user);
+
+        if ($userIds === null) {
+            return $query;
+        }
+
+        $field = $field ?: 'creator_id';
+
+        $includeUnowned = $includeUnowned ?? config('catch.data_scope_include_unowned', true);
+
+        return $query->where(function ($query) use ($userIds, $field, $includeUnowned) {
+            $query->whereIn($field, $userIds);
+
+            if ($includeUnowned) {
+                $query->orWhere($field, 0)->orWhereNull($field);
+            }
+        });
+    }
+
+    /**
      * 单条记录是否在当前用户可见范围内
      */
     public function isVisible(Model $model, mixed $user = null): bool

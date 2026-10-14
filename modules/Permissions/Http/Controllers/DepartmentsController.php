@@ -7,6 +7,8 @@ namespace Modules\Permissions\Http\Controllers;
 use Catch\Base\CatchController as Controller;
 use Catch\Exceptions\FailedException;
 use Modules\Permissions\Models\Departments;
+use Modules\Permissions\Support\DataScope;
+use Modules\Permissions\Support\HierarchyScope;
 use Illuminate\Http\Request;
 
 class DepartmentsController extends Controller
@@ -41,28 +43,15 @@ class DepartmentsController extends Controller
     /**
      * 当前登录用户可见的部门 id 集合；null 表示不限制（超管）
      *
-     * 两部分取并集：
-     *   1. 本部门 + 其所有子部门（按 parent_id 往下）；
-     *   2. 自己创建的部门（creator_id = 本人）——否则他用 parent_id=0
-     *      新建的部门不在本部门子树里，建完就看不见。
+     * 层级 = creator_id 归属链 + parent_id 子树，详见 HierarchyScope：
+     *   - 看得见自己建的、以及自己建的账号（递归）建的部门；
+     *   - 这些部门下面的整棵子树也看得见；
+     *   - 看不见上级（超管）建的部门，哪怕本人就隶属于这个部门——
+     *     「被分配进去」不等于「归他管」，否则管理员一登录又看到超管的部门。
      */
     protected function visibleDepartmentIds(): ?array
     {
-        if ($this->getLoginUser()->isSuperAdmin()) {
-            return null;
-        }
-
-        $user = $this->getLoginUser();
-
-        $departmentId = (int) $user->department_id;
-
-        $ids = $departmentId
-            ? array_merge($this->model->findFollowDepartments($departmentId), [$departmentId])
-            : [];
-
-        $ids = array_merge($ids, $this->model->where('creator_id', $user->id)->pluck('id')->all());
-
-        return array_map('intval', array_unique($ids));
+        return app(HierarchyScope::class)->visibleIds($this->model, $this->getLoginUser());
     }
 
     /**
@@ -85,20 +74,22 @@ class DepartmentsController extends Controller
     }
 
     /**
-     * 写操作（改/删/启停）取出「自己创建的」部门
+     * 写操作（改/删/启停）取出「归属链内」的部门
      *
-     * 可见 ≠ 可改：本部门可能是超管建好再把账号丢进去的，按层级能看到，
-     * 但改它就是"编辑超管设置的部门"。读走 findVisibleDepartment，写走这里。
-     * 需要在自己部门下细分（如客服组/财务组）用 store，parent_id 允许落在可见范围内。
+     * 可见 ≠ 可改，可改也不等于「只能改自己建的」：
+     *   - 超管建的部门：看都看不到，更不该改；
+     *   - 下级建的部门：上级看得到，也归上级管。
+     * 所以写权限按归属链判：creator_id ∈ {本人} ∪ {本人创建的账号，递归}。
      */
     protected function findOwnedDepartment($id): Departments
     {
         $department = $this->findVisibleDepartment($id);
 
-        if (! $this->getLoginUser()->isSuperAdmin()
-            && (int) $department->getAttribute('creator_id') !== (int) $this->getLoginUser()->id) {
-            throw new FailedException('只能修改自己创建的部门');
-        }
+        app(DataScope::class)->assertInOwnershipChain(
+            $department,
+            $this->getLoginUser(),
+            '只能修改自己及下级创建的部门'
+        );
 
         return $department;
     }

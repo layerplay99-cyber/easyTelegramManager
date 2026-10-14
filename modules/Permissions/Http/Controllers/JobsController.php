@@ -15,19 +15,15 @@ class JobsController extends Controller
     }
 
     /**
-     * 给查询套上数据范围
+     * 岗位是「组织字典」而不是部门私有数据
      *
-     * 岗位原来 index() 是裸 getList()，部门管理员能看到全平台岗位；
-     * show/update/destroy/enable 也完全不校验，可以改别人的岗位。
-     * 这里统一按 creator_id 收窄（与其它模块一致：本人 + 下级创建的数据）。
-     */
-    protected function scopeQuery($query): mixed
-    {
-        return app(DataScope::class)->apply($query, null, null, 'creator_id');
-    }
-
-    /**
-     * 取出可见范围内的岗位（越权直接抛异常）
+     * 之前按 creator_id 收窄列表，结果部门A管理员列表直接空了——
+     * 超管预置的岗位（creator_id=1）看不到，自己又一个都没建，
+     * 导致给他创建的账号分配不了岗位。
+     *
+     * 所以这里区分读和写：
+     *   - 读（index / show）：全员可见，岗位是共享字典；
+     *   - 写（update / destroy / enable）：只能改自己创建的，超管可改全部。
      */
     protected function findVisibleJob($id): Jobs
     {
@@ -44,7 +40,7 @@ class JobsController extends Controller
      */
     public function index(Request $request): mixed
     {
-        return $this->model->setBeforeGetList(fn ($query) => $this->scopeQuery($query))->getList();
+        return $this->model->getList();
     }
 
     public function store(Request $request)
@@ -55,7 +51,7 @@ class JobsController extends Controller
 
     public function show($id)
     {
-        return $this->findVisibleJob($id);
+        return $this->model->firstBy($id);
     }
 
     public function update($id, Request $request)

@@ -8,6 +8,7 @@ use Catch\Base\CatchController as Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Models\ThirdConfigEndpoint;
@@ -32,6 +33,12 @@ class ThirdConfigEndpointsController extends Controller
         $config = ThirdApiConfig::query()->find($thirdConfigId);
 
         if (! $config) {
+            return response()->json(['message' => '上游配置不存在'], 404);
+        }
+
+        // 上游配置是按 creator_id 隔离的：这里原来只按主键查，
+        // 任意登录用户传别人的 id 就能读到（并改写）其接口映射。
+        if (! app(DataScope::class)->isVisible($config)) {
             return response()->json(['message' => '上游配置不存在'], 404);
         }
 
@@ -81,6 +88,11 @@ class ThirdConfigEndpointsController extends Controller
         $config = ThirdApiConfig::query()->find($thirdConfigId);
 
         if (! $config) {
+            return response()->json(['message' => '上游配置不存在'], 404);
+        }
+
+        // 同上：不可见的上游一律按「不存在」处理，不暴露 id 是否存在
+        if (! app(DataScope::class)->isVisible($config)) {
             return response()->json(['message' => '上游配置不存在'], 404);
         }
 

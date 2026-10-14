@@ -72,7 +72,22 @@ class RolesController extends Controller
             }
         }
 
+        $this->assertDataRangeAllowed($data['data_range']);
+
         return $this->model->storeBy($data);
+    }
+
+    /**
+     * 数据权限上限：只有超级管理员能发「全部数据」。
+     *
+     * DataScope 里任一角色为全部数据就直接放开全部，部门管理员若能自建
+     * 「全部数据」角色，部门隔离就失效了，所以在入口按死。
+     */
+    protected function assertDataRangeAllowed(int $dataRange): void
+    {
+        if ($dataRange === DataRange::All_Data->value() && ! $this->getLoginUser()->isSuperAdmin()) {
+            throw new FailedException('无权设置全部数据权限');
+        }
     }
 
     /**
@@ -109,6 +124,8 @@ class RolesController extends Controller
         if (!DataRange::Personal_Choose->assert($data['data_range'])) {
             $data['departments'] = [];
         }
+
+        $this->assertDataRangeAllowed($data['data_range']);
 
         return $this->model->updateBy($id, $data);
     }

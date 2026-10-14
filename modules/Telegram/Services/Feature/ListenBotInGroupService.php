@@ -255,6 +255,15 @@ class ListenBotInGroupService
             }
 
             // 必须把 bot_id 放进匹配条件，否则同一个群里多个机器人会互相覆盖归属
+            //
+            // creator_id 继承「所属机器人」的归属人：
+            // 群列表是跟着机器人走的，机器人归属部门 A，群就该只对部门 A 可见。
+            // 这里跑在 webhook / 队列里，没有登录用户，不显式写就是 0；
+            // 而 creator_id = 0 属于「无主数据」，在 catch.data_scope_include_unowned=true
+            // 时对所有后台用户可见 —— 部门管理员会看到超管机器人的群。
+            $botCreatorId = (int) (($this->bot?->creator_id)
+                ?: (Bots::query()->whereKey($botId)->value('creator_id') ?: 0));
+
             BotGroups::updateOrCreate(
                 [
                     'chat_id' => $chatId,
@@ -267,6 +276,7 @@ class ListenBotInGroupService
                     'description' => $chatData->description ?? '',
                     'invite_link' => $chatData->inviteLink ?? '',
                     'enabled' => 1,
+                    'creator_id' => $botCreatorId,
                 ]
             );
 

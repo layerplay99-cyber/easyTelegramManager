@@ -6,6 +6,7 @@ namespace Modules\Telegram\Http\Controllers;
 use Catch\Base\CatchController as Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Models\Features;
@@ -149,8 +150,14 @@ class FeaturesController extends Controller
                 ['value' => 'Markdown', 'label' => 'Markdown'],
                 ['value' => 'MarkdownV2', 'label' => 'MarkdownV2'],
             ],
-            'bot_groups' => BotGroups::query()
-                ->where('enabled', true)
+            // 群下拉同样要按数据范围收窄：否则部门管理员在配功能时
+            // 能把功能绑到（并看到）别的部门的群。
+            'bot_groups' => app(DataScope::class)->apply(
+                BotGroups::query()->where('enabled', true),
+                null,
+                'telegram',
+                'creator_id'
+            )
                 ->get(['id', 'name', 'chat_id'])
                 ->map(fn ($g) => [
                     'value' => $g->chat_id,

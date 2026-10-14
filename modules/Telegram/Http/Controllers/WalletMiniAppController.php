@@ -36,12 +36,34 @@ class WalletMiniAppController extends BaseController
     }
 
     /**
+     * 归属人：本次校验用的是哪个机器人（由中间件解析），取其 creator_id。
+     *
+     * 取不到时为 0（无主数据）——与历史行为一致，但不主动制造新的无主会员。
+     */
+    protected function ownerId(Request $request): int
+    {
+        return (int) $request->attributes->get('telegram_owner_id', 0);
+    }
+
+    /**
+     * 取会员（没有则按机器人归属开户）
+     */
+    protected function member(Request $request): \Modules\Telegram\Models\Member
+    {
+        return $this->walletService->resolveMember(
+            $this->telegramUserId($request),
+            [],
+            $this->ownerId($request)
+        );
+    }
+
+    /**
      * 余额
      */
     public function balance(Request $request): JsonResponse
     {
         try {
-            $member = $this->walletService->resolveMember($this->telegramUserId($request));
+            $member = $this->member($request);
 
             return $this->jsonSuccess(
                 $this->walletService->balance($member, (string) $request->input('currency', 'CNY'))
@@ -66,7 +88,7 @@ class WalletMiniAppController extends BaseController
         ]);
 
         try {
-            $member = $this->walletService->resolveMember($this->telegramUserId($request));
+            $member = $this->member($request);
             $upstream = $this->walletService->upstreamFor($data['feature']);
 
             return $this->jsonSuccess($this->walletService->createRecharge(
@@ -98,7 +120,7 @@ class WalletMiniAppController extends BaseController
         ]);
 
         try {
-            $member = $this->walletService->resolveMember($this->telegramUserId($request));
+            $member = $this->member($request);
             $upstream = $this->walletService->upstreamFor($data['feature']);
 
             return $this->jsonSuccess($this->walletService->createWithdraw(
@@ -119,7 +141,7 @@ class WalletMiniAppController extends BaseController
     public function orders(Request $request): JsonResponse
     {
         try {
-            $member = $this->walletService->resolveMember($this->telegramUserId($request));
+            $member = $this->member($request);
             $orderNo = $request->input('order_no');
 
             if ($orderNo) {

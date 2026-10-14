@@ -2,6 +2,7 @@
 
 namespace Modules\Telegram\Http\Controllers;
 
+use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\TransactionLimit;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Http\Requests\TransactionLimit\CreateTransactionLimitRequest;
@@ -19,11 +20,31 @@ class TransactionLimitController extends BaseController
     }
 
     /**
+     * 套上数据范围的查询（裸 paginate 会绕过 getList() 的 DataRange）
+     */
+    protected function scopedQuery(): mixed
+    {
+        return app(DataScope::class)->apply($this->model->newQuery(), null, 'telegram', 'creator_id');
+    }
+
+    /**
+     * 按 id 取记录，并校验越权
+     */
+    protected function findVisible($id): TransactionLimit
+    {
+        $limit = $this->model->findOrFail($id);
+
+        app(DataScope::class)->assertVisible($limit);
+
+        return $limit;
+    }
+
+    /**
      * 交易限额列表
      */
     public function index(Request $request)
     {
-        $query = $this->model->newQuery();
+        $query = $this->scopedQuery();
 
         if ($request->has('type')) {
             $query->where('type', $request->type);
@@ -69,7 +90,7 @@ class TransactionLimitController extends BaseController
      */
     public function update(UpdateTransactionLimitRequest $request, $id)
     {
-        $limit = $this->model->findOrFail($id);
+        $limit = $this->findVisible($id);
         $limit->update($request->validated());
 
         // 记录操作日志
@@ -90,7 +111,7 @@ class TransactionLimitController extends BaseController
      */
     public function destroy($id)
     {
-        $limit = $this->model->findOrFail($id);
+        $limit = $this->findVisible($id);
         $limit->delete();
 
         // 记录操作日志
@@ -110,7 +131,7 @@ class TransactionLimitController extends BaseController
      */
     public function toggleStatus(ToggleStatusRequest $request, $id)
     {
-        $limit = $this->model->findOrFail($id);
+        $limit = $this->findVisible($id);
         $limit->status = $request->status;
         $limit->save();
 

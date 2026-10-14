@@ -3,6 +3,7 @@
 namespace Modules\Telegram\Http\Controllers;
 
 use Catch\CatchAdmin;
+use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\WithdrawOrder;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Services\WithdrawService;
@@ -24,11 +25,34 @@ class WithdrawOrderController extends BaseController
     }
 
     /**
+     * 套上数据范围的查询
+     *
+     * 这些订单控制器原来是裸 ->paginate()/->count()，绕过了 getList() 的 DataRange，
+     * 部门管理员能看到所有部门的订单。这里统一显式收窄。
+     */
+    protected function scopedQuery(): mixed
+    {
+        return app(DataScope::class)->apply($this->model->newQuery(), null, 'telegram', 'creator_id');
+    }
+
+    /**
+     * 按 id 取订单，并校验越权
+     */
+    protected function findVisibleOrder($id): WithdrawOrder
+    {
+        $order = $this->model->findOrFail($id);
+
+        app(DataScope::class)->assertVisible($order);
+
+        return $order;
+    }
+
+    /**
      * 提现订单列表
      */
     public function index(WithdrawOrderIndexRequest $request)
     {
-        $query = $this->model->with(['member', 'channel']);
+        $query = $this->scopedQuery()->with(['member', 'channel']);
 
         // 搜索条件
         if ($request->has('order_no')) {
@@ -76,7 +100,7 @@ class WithdrawOrderController extends BaseController
      */
     public function show($id)
     {
-        $order = $this->model->with(['member', 'channel'])->findOrFail($id);
+        $order = $this->findVisibleOrder($id)->load(['member', 'channel']);
 
         return $this->success($order);
     }
@@ -87,7 +111,7 @@ class WithdrawOrderController extends BaseController
     public function complete(CompleteOrderRequest $request, $id)
     {
         try {
-            $order = $this->model->findOrFail($id);
+            $order = $this->findVisibleOrder($id);
 
             if (!in_array($order->status, [WithdrawOrder::STATUS_PENDING, WithdrawOrder::STATUS_PROCESSING])) {
                 return $this->failed('订单状态不允许操作');
@@ -121,7 +145,7 @@ class WithdrawOrderController extends BaseController
     public function cancel(CancelOrderRequest $request, $id)
     {
         try {
-            $order = $this->model->findOrFail($id);
+            $order = $this->findVisibleOrder($id);
 
             if (!$order->canCancel()) {
                 return $this->failed('订单状态不允许取消');
@@ -151,7 +175,7 @@ class WithdrawOrderController extends BaseController
      */
     public function processing(Request $request, $id)
     {
-        $order = $this->model->findOrFail($id);
+        $order = $this->findVisibleOrder($id);
 
         if ($order->status !== WithdrawOrder::STATUS_PENDING) {
             return $this->failed('订单状态不允许操作');
@@ -178,7 +202,7 @@ class WithdrawOrderController extends BaseController
      */
     public function statistics(Request $request)
     {
-        $query = $this->model->newQuery();
+        $query = $this->scopedQuery();
 
         // 时间筛选
         if ($request->has('date_range')) {
@@ -213,7 +237,7 @@ class WithdrawOrderController extends BaseController
 
         foreach ($request->ids as $id) {
             try {
-                $order = $this->model->findOrFail($id);
+                $order = $this->findVisibleOrder($id);
 
                 switch ($request->action) {
                     case 'complete':

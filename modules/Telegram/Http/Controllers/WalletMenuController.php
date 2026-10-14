@@ -180,13 +180,15 @@ class WalletMenuController
                 $message .= "   余额：{$wallet->balance}\n";
             }
         } else {
-            // 创建默认CNY钱包
-            $member->wallets()->create([
+            // 创建默认CNY钱包（creator_id 继承会员，随部门数据范围收窄）
+            $wallet = new \Modules\Telegram\Models\Wallet([
+                'member_id' => $member->id,
                 'currency' => 'CNY',
                 'balance' => 0,
                 'frozen_balance' => 0,
                 'status' => 1,
             ]);
+            $wallet->forceFill(['creator_id' => (int) ($member->creator_id ?: 0)])->save();
 
             $message = "🎉 账户创建成功！\n\n";
             $message .= "💰 已为您创建 CNY 钱包\n";

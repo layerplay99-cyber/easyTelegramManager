@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Telegram\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\Ledger;
 
 /**
@@ -17,7 +18,8 @@ class LedgerController extends BaseController
 {
     public function index(Request $request)
     {
-        $query = Ledger::query()
+        // 原来是裸查询，部门管理员能看到所有部门的流水
+        $query = app(DataScope::class)->apply(Ledger::query(), null, 'telegram', 'creator_id')
             ->with(['member:id,telegram_user_id,telegram_username'])
             ->when($request->get('member_id'), fn ($q, $v) => $q->where('member_id', $v))
             ->when($request->get('telegram_user_id'), function ($q, $v) {

@@ -7,6 +7,7 @@ use Catch\Support\Module\ModuleRepository;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Modules\Permissions\Models\Departments;
+use Modules\Permissions\Support\DataScope;
 use Modules\User\Models\LogLogin;
 use Modules\User\Models\LogOperate;
 use Modules\User\Models\User;
@@ -54,7 +55,18 @@ class UserController extends Controller
      */
     public function store(UserRequest $request)
     {
-        return $this->user->storeBy($request->all());
+        $data = $request->all();
+
+        $loginUser = $this->getLoginUser();
+
+        // 部门管理员建号必须落在自己部门里：
+        // 数据范围（本部门 / 本部门及以下）是按 users.department_id 反推可见用户的，
+        // 允许自选部门就等于能自选数据范围，直接把隔离打穿。
+        if (! $loginUser->isSuperAdmin()) {
+            $data['department_id'] = $loginUser->department_id;
+        }
+
+        return $this->user->storeBy($data);
     }
 
     /**
@@ -91,7 +103,16 @@ class UserController extends Controller
      */
     public function update($id, UserRequest $request)
     {
-        return $this->user->updateBy($id, $request->all());
+        $data = $request->all();
+
+        $loginUser = $this->getLoginUser();
+
+        if (! $loginUser->isSuperAdmin()) {
+            // 同上：不允许把账号（自己或下级）挪到别的部门
+            $data['department_id'] = $loginUser->department_id;
+        }
+
+        return $this->user->updateBy($id, $data);
     }
 
     /**
@@ -202,10 +223,15 @@ class UserController extends Controller
      */
     public function export()
     {
-        return User::query()
+        $query = User::query()
                     ->select('id', 'username', 'email', 'created_at')
-                    ->without('roles')
-                    ->get()
-                    ->download(['id', '昵称', '邮箱', '创建时间']);
+                    ->without('roles');
+
+        // 导出原来完全不过滤，任意登录用户可导出全平台账号
+        if (! $this->getLoginUser()->isSuperAdmin()) {
+            app(DataScope::class)->apply($query, null, null, 'creator_id');
+        }
+
+        return $query->get()->download(['id', '昵称', '邮箱', '创建时间']);
     }
 }

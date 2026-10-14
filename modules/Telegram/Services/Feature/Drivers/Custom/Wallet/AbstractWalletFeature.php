@@ -84,6 +84,9 @@ abstract class AbstractWalletFeature extends BaseCustomFeature
 
     /**
      * 当前 Telegram 用户对应的会员（没有则自动开户）
+     *
+     * 归属人取「触发本次指令的机器人」的 creator_id：
+     * 会员/钱包跟着机器人走，部门数据范围才能把整个钱包域一起收窄。
      */
     protected function member(FeatureContext $context): Member
     {
@@ -95,7 +98,7 @@ abstract class AbstractWalletFeature extends BaseCustomFeature
 
         return app(WalletService::class)->resolveMember($userId, [
             'telegram_username' => data_get($context->payload, 'from.username'),
-        ]);
+        ], (int) ($context->bot?->creator_id ?: 0));
     }
 
     /**

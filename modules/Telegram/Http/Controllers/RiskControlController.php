@@ -2,6 +2,7 @@
 
 namespace Modules\Telegram\Http\Controllers;
 
+use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\RiskControlRule;
 use Modules\Telegram\Models\RiskControlLog;
 use Modules\Telegram\Models\OperationLog;
@@ -24,11 +25,19 @@ class RiskControlController extends BaseController
     }
 
     /**
+     * 套上数据范围的查询（裸 paginate/count 会绕过 getList() 的 DataRange）
+     */
+    protected function scopedQuery($model): mixed
+    {
+        return app(DataScope::class)->apply($model->newQuery(), null, 'telegram', 'creator_id');
+    }
+
+    /**
      * 风控规则列表
      */
     public function rules(Request $request)
     {
-        $query = $this->ruleModel->newQuery();
+        $query = $this->scopedQuery($this->ruleModel);
 
         if ($request->has('type')) {
             $query->where('type', $request->type);
@@ -71,6 +80,7 @@ class RiskControlController extends BaseController
     public function updateRule(UpdateRiskRuleRequest $request, $id)
     {
         $rule = $this->ruleModel->findOrFail($id);
+        app(DataScope::class)->assertVisible($rule);
         $rule->update($request->validated());
 
         // 记录操作日志
@@ -112,6 +122,7 @@ class RiskControlController extends BaseController
     public function toggleRuleStatus(ToggleStatusRequest $request, $id)
     {
         $rule = $this->ruleModel->findOrFail($id);
+        app(DataScope::class)->assertVisible($rule);
         $rule->status = $request->status;
         $rule->save();
 
@@ -123,7 +134,7 @@ class RiskControlController extends BaseController
      */
     public function logs(RiskLogIndexRequest $request)
     {
-        $query = $this->logModel->with(['member', 'rule']);
+        $query = $this->scopedQuery($this->logModel)->with(['member', 'rule']);
 
         if ($request->has('member_id')) {
             $query->where('member_id', $request->member_id);
@@ -158,6 +169,7 @@ class RiskControlController extends BaseController
     public function handleLog(HandleRiskLogRequest $request, $id)
     {
         $log = $this->logModel->findOrFail($id);
+        app(DataScope::class)->assertVisible($log);
 
         if ($log->status !== RiskControlLog::STATUS_PENDING) {
             return $this->failed('该日志已处理');
@@ -189,7 +201,7 @@ class RiskControlController extends BaseController
      */
     public function statistics(Request $request)
     {
-        $query = $this->logModel->newQuery();
+        $query = $this->scopedQuery($this->logModel);
 
         if ($request->has('date_range')) {
             $query->whereBetween('created_at', $request->date_range);

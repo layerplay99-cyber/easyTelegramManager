@@ -6,6 +6,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Modules\Telegram\Models\Bots;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -80,6 +81,16 @@ class ValidateTelegramInitData
 
         $request->attributes->set('telegram_user_id', $userId);
         $request->attributes->set('telegram_user', $user);
+
+        // 顺带把「这次是用哪个机器人校验的」解析出来。
+        // MiniApp 入口拿不到机器人上下文，而会员/钱包的部门归属要靠它：
+        // 会员跟着机器人走，部门数据范围才能把整个钱包域一起收窄。
+        $bot = Bots::query()->where('api_token', $token)->first();
+
+        if ($bot) {
+            $request->attributes->set('telegram_bot_id', (int) $bot->id);
+            $request->attributes->set('telegram_owner_id', (int) $bot->creator_id);
+        }
 
         return $next($request);
     }

@@ -2,6 +2,7 @@
 
 namespace Modules\Telegram\Http\Controllers;
 
+use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\RechargeOrder;
 use Modules\Telegram\Models\OperationLog;
 use Modules\Telegram\Services\RechargeService;
@@ -22,11 +23,31 @@ class RechargeOrderController extends BaseController
     }
 
     /**
+     * 套上数据范围的查询（裸 paginate/count 会绕过 getList() 的 DataRange）
+     */
+    protected function scopedQuery(): mixed
+    {
+        return app(DataScope::class)->apply($this->model->newQuery(), null, 'telegram', 'creator_id');
+    }
+
+    /**
+     * 按 id 取订单，并校验越权
+     */
+    protected function findVisibleOrder($id): RechargeOrder
+    {
+        $order = $this->model->findOrFail($id);
+
+        app(DataScope::class)->assertVisible($order);
+
+        return $order;
+    }
+
+    /**
      * 充值订单列表
      */
     public function index(RechargeOrderIndexRequest $request)
     {
-        $query = $this->model->with(['member', 'channel']);
+        $query = $this->scopedQuery()->with(['member', 'channel']);
 
         // 搜索条件
         if ($request->has('order_no')) {
@@ -74,7 +95,7 @@ class RechargeOrderController extends BaseController
      */
     public function show($id)
     {
-        $order = $this->model->with(['member', 'channel'])->findOrFail($id);
+        $order = $this->findVisibleOrder($id)->load(['member', 'channel']);
 
         return $this->success($order);
     }
@@ -85,7 +106,7 @@ class RechargeOrderController extends BaseController
     public function complete(CompleteOrderRequest $request, $id)
     {
         try {
-            $order = $this->model->findOrFail($id);
+            $order = $this->findVisibleOrder($id);
 
             if ($order->status !== RechargeOrder::STATUS_PENDING && $order->status !== RechargeOrder::STATUS_PAID) {
                 return $this->failed('订单状态不允许操作');
@@ -118,7 +139,7 @@ class RechargeOrderController extends BaseController
      */
     public function cancel(CancelOrderRequest $request, $id)
     {
-        $order = $this->model->findOrFail($id);
+        $order = $this->findVisibleOrder($id);
 
         if (!in_array($order->status, [RechargeOrder::STATUS_PENDING, RechargeOrder::STATUS_PAID])) {
             return $this->failed('订单状态不允许取消');
@@ -146,7 +167,7 @@ class RechargeOrderController extends BaseController
      */
     public function statistics(Request $request)
     {
-        $query = $this->model->newQuery();
+        $query = $this->scopedQuery();
 
         // 时间筛选
         if ($request->has('date_range')) {

@@ -53,7 +53,15 @@ class WalletService
     /**
      * 按 telegram 用户取会员，没有就开户（机器人指令/MiniApp 入口）
      */
-    public function resolveMember(int $telegramUserId, array $attributes = []): Member
+    /**
+     * 按 telegram 用户取会员，没有就开户（机器人指令/MiniApp 入口）
+     *
+     * @param int $telegramUserId
+     * @param array $attributes
+     * @param int|null $ownerId 归属人（传机器人的 creator_id）：会员跟着机器人走，
+     *                          部门数据范围才能把「会员/钱包/账本」一起收窄
+     */
+    public function resolveMember(int $telegramUserId, array $attributes = [], ?int $ownerId = null): Member
     {
         $member = Member::query()->where('telegram_user_id', $telegramUserId)->first();
 
@@ -61,23 +69,42 @@ class WalletService
             return $member;
         }
 
-        return Member::query()->create(array_merge([
+        $member = new Member(array_merge([
             'telegram_user_id' => $telegramUserId,
             'status' => Member::STATUS_NORMAL,
             'register_ip' => request()->ip(),
         ], $attributes));
+
+        // creator_id 刻意不在 Member 的 fillable 里（否则后台 storeBy 会按登录用户覆盖归属），
+        // 而 create() 又不走 filterData() 的自动填充，所以用 forceFill 显式写。
+        // 不写就是 0 → 「无主数据」→ 在 data_scope_include_unowned=true 时对所有后台用户可见。
+        $member->forceFill(['creator_id' => (int) ($ownerId ?: 0)])->save();
+
+        return $member;
     }
 
     /**
      * 取（或建）钱包
+     *
+     * 新建钱包继承会员的归属人，保证钱包与会员在同一数据范围内。
      */
     public function wallet(int $memberId, string $currency): Wallet
     {
         // 余额字段不在 fillable 里（防批量赋值改钱），这里只给状态，金额走表默认值
-        return Wallet::query()->firstOrCreate(
+        $wallet = Wallet::query()->firstOrCreate(
             ['member_id' => $memberId, 'currency' => $currency],
             ['status' => Wallet::STATUS_NORMAL]
         );
+
+        if ($wallet->wasRecentlyCreated && empty($wallet->creator_id)) {
+            $ownerId = (int) (Member::query()->whereKey($memberId)->value('creator_id') ?: 0);
+
+            if ($ownerId > 0) {
+                $wallet->forceFill(['creator_id' => $ownerId])->save();
+            }
+        }
+
+        return $wallet;
     }
 
     /**
@@ -138,7 +165,7 @@ class WalletService
         $order = null;
 
         DB::transaction(function () use (&$order, $member, $currency, $amount, $upstream, $extra, $idempotencyKey) {
-            $order = RechargeOrder::create([
+            $order = new RechargeOrder([
                 'order_no' => RechargeOrder::generateOrderNo(),
                 'member_id' => $member->id,
                 'channel_id' => null,
@@ -155,6 +182,10 @@ class WalletService
                 'timestamp' => $extra['timestamp'] ?? time(),
                 'idempotency_key' => $idempotencyKey,
             ]);
+
+            // creator_id 不在订单的 fillable 里，create() 不会自动填，
+            // 不写就是 0（无主数据 → 所有后台管理员可见）。继承会员归属人。
+            $order->forceFill(['creator_id' => (int) ($member->creator_id ?: 0)])->save();
         });
 
         // 向上游拉单：拿支付链接
@@ -223,7 +254,7 @@ class WalletService
             $locked = Wallet::query()->where('id', $wallet->id)->lockForUpdate()->first();
             $locked->freeze($amount);
 
-            return WithdrawOrder::create([
+            $order = new WithdrawOrder([
                 'order_no' => WithdrawOrder::generateOrderNo(),
                 'member_id' => $member->id,
                 'channel_id' => null,
@@ -240,6 +271,11 @@ class WalletService
                 'timestamp' => $extra['timestamp'] ?? time(),
                 'idempotency_key' => $idempotencyKey,
             ]);
+
+            // 同上：订单继承会员归属人，否则无主数据对所有管理员可见
+            $order->forceFill(['creator_id' => (int) ($member->creator_id ?: 0)])->save();
+
+            return $order;
         });
 
         $result = $this->gateway()->createWithdraw($upstream, [

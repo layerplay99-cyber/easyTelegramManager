@@ -215,13 +215,19 @@ class RechargeService
                 ->first();
 
             if (! $wallet) {
-                $wallet = Wallet::create([
+                $wallet = new Wallet([
                     'member_id' => $locked->member_id,
                     'currency' => $locked->currency,
                     'balance' => 0,
                     'frozen_balance' => 0,
                     'status' => Wallet::STATUS_NORMAL,
                 ]);
+
+                // 回调链路没有登录用户，不写 creator_id 就是 0（无主数据 → 全员可见），
+                // 继承会员归属人，保证钱包与会员同一数据范围。
+                $wallet->forceFill([
+                    'creator_id' => (int) (Member::query()->whereKey($locked->member_id)->value('creator_id') ?: 0),
+                ])->save();
             }
 
             // 3. 增加余额

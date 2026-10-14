@@ -22,6 +22,21 @@ class PermissionsController extends Controller
     }
 
     /**
+     * 菜单结构的写操作仅限超级管理员
+     *
+     * 列表（index）刻意保持全量不过滤：角色分配权限时需要看到完整的菜单树，
+     * RolesController::index 的 from=role 分支也依赖它。
+     * 但增删改 / 启停会让部门管理员改到别人正在使用的菜单结构，
+     * 所以在写入口统一按死，读入口放开。
+     */
+    protected function assertSuperAdmin(): void
+    {
+        if (! $this->getLoginUser()->isSuperAdmin()) {
+            throw new FailedException('仅超级管理员可操作菜单');
+        }
+    }
+
+    /**
      * @param Request $request
      * @return mixed
      */
@@ -46,6 +61,8 @@ class PermissionsController extends Controller
      */
     public function store(Request $request)
     {
+        $this->assertSuperAdmin();
+
         return $this->model->storeBy($request->all());
     }
 
@@ -67,6 +84,8 @@ class PermissionsController extends Controller
      */
     public function update($id, Request $request): mixed
     {
+        $this->assertSuperAdmin();
+
         return $this->model->updateBy($id, $request->all());
     }
 
@@ -77,6 +96,8 @@ class PermissionsController extends Controller
      */
     public function destroy($id)
     {
+        $this->assertSuperAdmin();
+
         if ($this->model->where($this->model->getParentIdColumn(), $id)->first()) {
             throw new FailedException('无法进行删除，请先删除子级');
         }
@@ -92,6 +113,8 @@ class PermissionsController extends Controller
      */
     public function enable($id): bool
     {
+        $this->assertSuperAdmin();
+
         return $this->model->toggleBy($id, 'hidden');
     }
 }

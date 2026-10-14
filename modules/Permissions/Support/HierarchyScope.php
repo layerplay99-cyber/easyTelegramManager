@@ -19,8 +19,10 @@ use Illuminate\Database\Eloquent\Model;
  *   - 「本人拥有的角色」：角色同理，是超管授予的，不是他建的。
  * 之前就是因为把这两样算进可见范围，管理员一登录又能看到、改到超管的角色和部门。
  *
- * 无主节点（creator_id = 0，系统预置）按配置兜底显示，但不作为向下展开的种子——
- * 否则挂在预置根节点下面的超管数据又会被子树带出来。
+ * 「无主」节点（creator_id = 0）**不参与可见性判断**：
+ * 角色 / 部门 / 岗位是权限体系自身的数据，creator_id = 0 只可能是系统预置或历史遗留，
+ * 按 catch.data_scope_include_unowned 兜底放给所有管理员，等于给隔离开了后门——
+ * 管理员一登录就又看到一堆「不知道谁建的」角色。需要共享就给它指定归属人。
  */
 class HierarchyScope
 {
@@ -55,20 +57,7 @@ class HierarchyScope
             ->all();
 
         // 第二维：这些节点的整棵子树
-        $ids = $this->withDescendants($model, $seeds, $parentColumn);
-
-        // 系统预置的无主节点本身仍然可见
-        if (config('catch.data_scope_include_unowned', true)) {
-            $unowned = $model->newQuery()
-                ->where('creator_id', 0)
-                ->pluck($keyName)
-                ->map(fn ($id) => (int) $id)
-                ->all();
-
-            $ids = array_merge($ids, $unowned);
-        }
-
-        return array_values(array_unique(array_filter($ids)));
+        return $this->withDescendants($model, $seeds, $parentColumn);
     }
 
     /**

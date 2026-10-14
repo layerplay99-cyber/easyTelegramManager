@@ -25,7 +25,8 @@ class JobsController extends Controller
     public function index(Request $request): mixed
     {
         return $this->model->setBeforeGetList(function ($query) {
-            return app(DataScope::class)->applyOwnership($query, $this->getLoginUser());
+            // 最后 false：不看「无主」岗位，系统预置的也不能兜底放给所有管理员
+            return app(DataScope::class)->applyOwnership($query, $this->getLoginUser(), null, false);
         })->getList();
     }
 
@@ -62,13 +63,13 @@ class JobsController extends Controller
     }
 
     /**
-     * 读：落在归属链内即可（无主数据按配置兜底）
+     * 读：落在归属链内（无主岗位同样不放行）
      */
     protected function findVisibleJob($id): Jobs
     {
         $job = $this->model->firstBy($id);
 
-        if (! app(DataScope::class)->inOwnershipChain($job, $this->getLoginUser())) {
+        if (! app(DataScope::class)->inOwnershipChain($job, $this->getLoginUser(), false)) {
             throw new FailedException('岗位不存在或无权访问');
         }
 

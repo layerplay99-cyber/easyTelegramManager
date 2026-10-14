@@ -22,7 +22,9 @@ use Modules\User\Models\User;
  * 权限体系数据（角色 / 部门 / 岗位）的可见范围 = creator_id 归属链 + parent_id 子树：
  *   - 自己建的、自己建的账号（递归）建的 → 可见、可改；
  *   - 这些节点的整棵子树 → 可见（子节点是下级建的，上级可改）；
- *   - 上级（含超管）建的 → 不可见，哪怕正被授予 / 分配给本人。
+ *   - 上级（含超管）建的 → 不可见，哪怕正被授予 / 分配给本人；
+ *   - creator_id = 0 的无主数据 → 同样不可见（权限体系不走
+ *     catch.data_scope_include_unowned 的兜底，需要共享就给它指定归属人）。
  *
  * 用法：
  *   php artisan permissions:check-data-scope <用户ID或用户名>
@@ -97,7 +99,7 @@ class CheckDataScope extends Command
         $this->info('可见部门（归属链 + parent_id 子树）：' . $this->formatIds($visibleDeptIds));
 
         $jobQuery = Jobs::query();
-        $scope->applyOwnership($jobQuery, $user);
+        $scope->applyOwnership($jobQuery, $user, null, false);
         $visibleJobIds = $jobQuery->pluck('id')->map(fn ($id) => (int) $id)->all();
         $this->info('可见岗位（归属链）：' . ($visibleJobIds ? implode(', ', $visibleJobIds) : '(无)'));
 
@@ -150,7 +152,7 @@ class CheckDataScope extends Command
         $creatorId = (int) $row->creator_id;
 
         if ($creatorId === 0) {
-            return '无主数据（预置，不能改）';
+            return '无主数据（creator_id=0，权限体系内不算可见，需要指定归属人）';
         }
 
         if ($creatorId === (int) $user->id) {

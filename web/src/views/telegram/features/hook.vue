@@ -49,6 +49,30 @@
         <el-switch v-model="hook.check_timestamp" :active-value="1" :inactive-value="0" />
       </el-form-item>
 
+      <!-- 消息处理 -->
+      <el-divider content-position="left">{{ $t('feature.transformer.label') }}</el-divider>
+
+      <el-form-item :label="$t('feature.transformer.label')">
+        <el-select
+          v-model="transformer.current"
+          :placeholder="$t('system.pleaseSelect')"
+          :disabled="!transformer.can_edit"
+          filterable
+          clearable
+          class="w-full"
+        >
+          <el-option v-for="o in transformer.options" :key="o.value" :label="o.label" :value="o.value">
+            <span>{{ o.label }}</span>
+            <span class="text-xs text-gray-400 ml-2">{{ o.description }}</span>
+          </el-option>
+        </el-select>
+        <div class="text-xs text-gray-400">{{ $t('feature.transformer.hint') }}</div>
+        <div v-if="transformer.missing" class="text-xs text-red-500">{{ $t('feature.transformer.missing') }}</div>
+        <div v-if="!transformer.can_edit" class="text-xs text-red-500">
+          {{ $t('feature.transformer.noPermission') }}
+        </div>
+      </el-form-item>
+
       <!-- 多机器人路由 -->
       <el-divider content-position="left">{{ $t('feature.hook.route') }}</el-divider>
 
@@ -148,6 +172,14 @@ const bots = ref<any[]>([])
 const groups = ref<any[]>([])
 const routes = ref<any[]>([])
 
+// 消息处理：转换器是全局代码资产，列表所有人可见，但「能不能改」由后端按归属链判定
+const transformer = reactive<{ current: string; options: any[]; can_edit: boolean; missing: boolean }>({
+  current: '',
+  options: [],
+  can_edit: true,
+  missing: false,
+})
+
 // 回调入口：没有 token 就是还没建
 const hook = reactive<any>({
   id: null,
@@ -178,6 +210,22 @@ const loadOptions = async () => {
     groups.value = data.data || []
   } catch {
     groups.value = []
+  }
+}
+
+// 每次打开都重新拉：转换器是扫描目录动态读的，开发者新增/删掉一个类，
+// 重新打开功能就能看到最新的
+const loadTransformer = async () => {
+  try {
+    const { data } = await http.get(`telegram/features/${props.primary}/transformer`)
+    const row = data.data || {}
+
+    transformer.current = row.current ?? ''
+    transformer.options = row.options || []
+    transformer.can_edit = !!row.can_edit
+    transformer.missing = !!row.missing
+  } catch {
+    transformer.options = []
   }
 }
 
@@ -296,6 +344,15 @@ const save = async () => {
       })),
     })
 
+    // 再存消息处理：没有权限时后端会拒绝，这里先判一下省得弹一堆错
+    if (transformer.can_edit) {
+      await http.put(`telegram/features/${props.primary}/transformer`, {
+        transformer: transformer.current,
+      })
+
+      await loadTransformer()
+    }
+
     await loadRoutes()
 
     Message.success(t('feature.hook.saved'))
@@ -309,6 +366,7 @@ const save = async () => {
 onMounted(async () => {
   await loadOptions()
   await loadHook()
+  await loadTransformer()
   await loadRoutes()
 })
 </script>

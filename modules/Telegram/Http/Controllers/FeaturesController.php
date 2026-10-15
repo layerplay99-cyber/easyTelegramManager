@@ -13,6 +13,7 @@ use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Models\FeatureHookRoutes;
 use Modules\Telegram\Models\FeatureHooks;
+use Modules\Telegram\Services\Callback\TransformerRegistry;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
@@ -178,6 +179,9 @@ class FeaturesController extends Controller
                     'label' => "{$b->username}（#{$b->id}）",
                 ])
                 ->toArray(),
+            // 回调消息转换器：全局代码资产，所有人都能看到有哪些，
+            // 但「能不能给这个功能换」由归属链说了算（见 transformer / saveTransformer）
+            'transformers' => TransformerRegistry::options(),
             default => [],
         };
 
@@ -225,6 +229,92 @@ class FeaturesController extends Controller
                 ->get()
                 ->toArray(),
         ]);
+    }
+
+    /**
+     * 该功能的回调消息转换器
+     *
+     * 转换器是全局代码资产（所有人都能看到列表），
+     * 但「能不能给这个功能换」按归属链判：只有功能的创建者 + 他创建的账号（递归）、
+     * 以及超管能改，跟角色/部门/岗位的层级规则一致。
+     */
+    public function transformer(int|string $id): JsonResponse
+    {
+        $feature = Features::query()->findOrFail($id);
+
+        $current = (string) data_get($feature->config, 'transformer', '');
+
+        return response()->json([
+            'code' => 10000,
+            'message' => 'success',
+            'data' => [
+                'current' => $current,
+                'options' => TransformerRegistry::options(),
+                'can_edit' => $this->canEditFeature($feature),
+                // 配着的转换器已经被删掉了：当前实际在跑的是默认
+                'missing' => $current !== '' && ! TransformerRegistry::has($current),
+            ],
+        ]);
+    }
+
+    /**
+     * 保存该功能的回调消息转换器
+     *
+     * 走独立接口而不是复用 update：只改一个字段、鉴权范围最小，
+     * 不动现有「编辑功能」的权限语义。
+     */
+    public function saveTransformer(Request $request, int|string $id): JsonResponse
+    {
+        $data = $request->validate([
+            'transformer' => 'nullable|string|max:64',
+        ]);
+
+        $feature = Features::query()->findOrFail($id);
+
+        $key = trim((string) ($data['transformer'] ?? ''));
+
+        if ($key !== '' && ! TransformerRegistry::has($key)) {
+            return response()->json([
+                'code' => 10002,
+                'message' => '转换器不存在：' . $key . '（可能已被删除，请重新选择）',
+                'data' => null,
+            ]);
+        }
+
+        app(DataScope::class)->assertInOwnershipChain(
+            $feature,
+            $this->getLoginUser(),
+            '只能修改自己及下级创建的功能'
+        );
+
+        $config = is_array($feature->config) ? $feature->config : [];
+
+        if ($key === '') {
+            unset($config['transformer']);
+        } else {
+            $config['transformer'] = $key;
+        }
+
+        $feature->config = $config;
+        $feature->save();
+
+        return response()->json([
+            'code' => 10000,
+            'message' => '已保存',
+            'data' => [
+                'current' => $key,
+                'can_edit' => $this->canEditFeature($feature),
+                'missing' => false,
+            ],
+        ]);
+    }
+
+    /**
+     * 当前登录用户能不能改这个功能
+     */
+    protected function canEditFeature(Features $feature): bool
+    {
+        return app(DataScope::class)->inOwnershipChain($feature, $this->getLoginUser(), false);
     }
 
     /**

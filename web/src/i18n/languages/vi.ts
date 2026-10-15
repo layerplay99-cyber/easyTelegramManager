@@ -927,6 +927,13 @@ const vi = {
       saveFailed: 'Lưu thất bại: ',
       routeHint: 'Mỗi dòng một merchant: ID merchant trong payload quyết định bot nào gửi tới nhóm nào',
     },
+    transformer: {
+      label: 'Xử lý tin nhắn',
+      hint: 'Quyết định payload biến thành tin nhắn trong nhóm thế nào (văn bản / nút); để trống = Mặc định',
+      missing: 'Bộ chuyển đổi đã bị xóa, hiện đang dùng Mặc định — vui lòng chọn lại',
+      noPermission: 'Không có quyền: chỉ sửa được chức năng do bạn hoặc tài khoản cấp dưới tạo',
+      saved: 'Đã lưu xử lý tin nhắn',
+    },
     field: {
       name: 'Tên tính năng',
       category: 'Phân loại tính năng',

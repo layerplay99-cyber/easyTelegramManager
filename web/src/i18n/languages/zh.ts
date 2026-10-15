@@ -927,6 +927,13 @@ const zh = {
       saveFailed: '保存失败：',
       routeHint: '每行一个商户：回调报文里的商户ID 命中哪行，就用那行的机器人发到那行的群',
     },
+    transformer: {
+      label: '消息处理',
+      hint: '决定回调报文怎么变成群里的消息（文本 / 按钮）；留空就是「默认」',
+      missing: '当前选的转换器已被删除，实际在用「默认」，请重新选择',
+      noPermission: '无权修改：只能修改自己及下级创建的功能',
+      saved: '消息处理已保存',
+    },
     field: {
       name: '功能名称',
       category: '功能分类',

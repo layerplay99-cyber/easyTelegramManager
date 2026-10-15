@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Services\Feature\Drivers;
 
+use Modules\Telegram\Contracts\CallbackMessage;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureDriver;
 use Modules\Telegram\Contracts\FeatureResult;
 use Modules\Telegram\Models\BotGroups;
-use Modules\Telegram\Services\Feature\TemplateRenderer;
+use Modules\Telegram\Services\Callback\TransformerContext;
+use Modules\Telegram\Services\Callback\TransformerRegistry;
+use Modules\Telegram\Services\Callback\Transformers\DefaultTransformer;
 
 /**
  * 第三方推送驱动（第三块：三方主动推送 → 发到群里）
@@ -90,34 +93,22 @@ class HookReceiveDriver implements FeatureDriver
 
     public function execute(FeatureContext $context): FeatureResult
     {
-        $renderer = app(TemplateRenderer::class);
-
         $chatIds = $this->resolveTargetChatIds($context);
 
         if (! $chatIds) {
             return FeatureResult::fail('未找到推送目标：既未配置固定群ID，也没有已绑定的群');
         }
 
-        $payload = $context->payload;
-        $text = $renderer->render(
-            (string) $context->config('reply_template', '{{_raw}}'),
-            $payload,
-            $context->stored
-        );
-
-        $parseMode = (string) $context->config('parse_mode', '');
-        $extra = $parseMode !== '' ? ['parse_mode' => $parseMode] : [];
+        // 报文 → 群消息这一段交给转换器：
+        // 同一个回调功能，A 的机器人要打码、B 的机器人原样发，就靠选不同的转换器。
+        $message = $this->transform($context);
 
         $sent = [];
         $failed = [];
 
         foreach ($chatIds as $chatId) {
             try {
-                $context->telegram?->sendMessage([
-                    'chat_id' => $chatId,
-                    'text' => $text,
-                    ...$extra,
-                ]);
+                $context->telegram?->sendMessage($message->toParams($chatId));
                 $sent[] = $chatId;
             } catch (\Throwable $e) {
                 $failed[] = ['chat_id' => $chatId, 'error' => $e->getMessage()];
@@ -126,8 +117,44 @@ class HookReceiveDriver implements FeatureDriver
 
         return FeatureResult::ok(
             ['sent' => $sent],
-            ['sent_count' => count($sent), 'failed' => $failed]
+            [
+                'sent_count' => count($sent),
+                'failed' => $failed,
+                'transformer' => $this->transformerKey($context),
+                'has_buttons' => $message->hasButtons(),
+            ]
         );
+    }
+
+    /**
+     * 按配置取转换器并产出消息
+     *
+     * key 在 features.config.transformer（功能默认），
+     * 绑定上的 features_binds.config.transformer 会覆盖它（mergeConfig 已合并）。
+     * 类被删掉时自动回退到默认，不会让整条回调发不出去。
+     */
+    protected function transform(FeatureContext $context): CallbackMessage
+    {
+        $transformer = app(TransformerRegistry::class)->resolve(
+            (string) $context->config('transformer', '')
+        );
+
+        return $transformer->transform(new TransformerContext(
+            payload: $context->payload,
+            feature: $context->feature,
+            bot: $context->bot,
+            chatId: $context->targetChatId ?? $context->chatId,
+            routeValue: $context->routeValue,
+            config: $context->config,
+            stored: $context->stored,
+        ));
+    }
+
+    protected function transformerKey(FeatureContext $context): string
+    {
+        $key = (string) $context->config('transformer', '');
+
+        return $key !== '' && TransformerRegistry::has($key) ? $key : DefaultTransformer::key();
     }
 
     /**

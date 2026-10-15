@@ -38,6 +38,8 @@ class FeatureContext
          * 不能再按「功能绑定的所有群」群发——多机器人时那会把 A 的回调发到 B 的群。
          */
         public readonly int|string|null $targetChatId = null,
+        /** 回调命中的路由键值（商户ID），转换器建会话时要用 */
+        public readonly string $routeValue = '',
     ) {
     }
 

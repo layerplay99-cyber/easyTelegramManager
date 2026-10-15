@@ -71,6 +71,10 @@ Route::prefix('telegram')->group(function(){
     Route::get('features/{id}/commands', [FeaturesController::class, 'commands']);
     Route::post('features/{id}/commands', [FeaturesController::class, 'saveCommands']);
 
+    // 回调消息转换器（报文 → 群里的文本 + 按钮），按归属链控制谁能改
+    Route::get('features/{id}/transformer', [FeaturesController::class, 'transformer']);
+    Route::put('features/{id}/transformer', [FeaturesController::class, 'saveTransformer']);
+
     // 三方推送回调入口 + 路由表（商户ID → 机器人 + 群）
     Route::get('features/{id}/hook', [FeaturesController::class, 'hook']);
     Route::put('features/{id}/hook', [FeaturesController::class, 'saveHook']);

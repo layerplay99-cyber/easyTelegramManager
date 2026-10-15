@@ -129,6 +129,8 @@ class HookController extends CatchController
                 'send' => false,
                 // 让驱动严格发到路由表算出的群，而不是「功能绑定的所有群」
                 'target_chat_id' => $chatId,
+                // 命中的路由键值（商户ID），转换器建会话时要用
+                'route_value' => $this->routeValue($hook, $payload) ?? '',
             ],
             $bot,
             $this->botApiFactory->forBot($bot),

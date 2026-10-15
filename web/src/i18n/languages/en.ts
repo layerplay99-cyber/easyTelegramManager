@@ -928,6 +928,13 @@ const en = {
       saveFailed: 'Save failed: ',
       routeHint: 'One merchant per row: the merchant ID in the payload decides which bot sends to which group',
     },
+    transformer: {
+      label: 'Message Transformer',
+      hint: 'Decides how the callback payload becomes the group message (text / buttons); empty = Default',
+      missing: 'The selected transformer no longer exists, falling back to Default — please select again',
+      noPermission: 'No permission: you can only edit features created by you or your sub-accounts',
+      saved: 'Message transformer saved',
+    },
     field: {
       name: 'Feature Name',
       category: 'Category',

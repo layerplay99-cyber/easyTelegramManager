@@ -28,6 +28,68 @@ use Modules\Telegram\Services\OperatorPolicy;
  *
  * 需要二次确认时：按钮配置里带 confirm，第一次点击只把消息改成确认界面，
  * 再点「确认」才真正发请求。
+ *
+ * ---------------------------------------------------------------------------
+ * 后台怎么配（代码里搜不到谁在 new 这个类，它是配置驱动的）
+ * ---------------------------------------------------------------------------
+ *
+ * 一、建功能
+ *   功能列表 → 新建
+ *     执行器   ：交互按钮点击处理
+ *     触发方式 ：callback_query
+ *
+ * 二、绑定（漏了这步点了没反应）
+ *   把这个功能绑定到「机器人 + 群」。分发是按 bot_id + chat_id 找绑定的，
+ *   没绑就进不到这里；而且本驱动对不是自家前缀的按钮是静默忽略的，不会报错。
+ *
+ * 三、配套的发按钮那头
+ *   回调功能（执行器「接收三方推送」）+ 消息处理选转换器
+ *   （内置的 trade_confirm 就是发「确认 / 驳回」按钮的参考实现）。
+ *   两边动作码要对上：转换器发 confirm / reject，下面的 branches 就得写
+ *   confirm / reject 作为 key。
+ *
+ * 四、上游（提交给谁）
+ *   会话上的 third_config_id → 功能绑定上的 → 机器人上的，取第一个有值的。
+ *   一般配在机器人上就够了：A 商户的机器人提交到甲上游，B 商户的到乙上游。
+ *
+ * 五、动作分支 branches（完整示例，直接抄改）
+ * {
+ *   "confirm": {
+ *     "mode": "submit",
+ *     "endpoint_code": "merchant.trade.submit",
+ *     "method": "POST",
+ *     "sign": true,
+ *     "sign_algo": "hmac_sha256",
+ *     "params": {
+ *       "merchant_id": "{{session.merchant_id}}",
+ *       "trade_no": "{{payload.trade_no}}",
+ *       "action": "confirm"
+ *     },
+ *     "success_template": "✅ 已提交：{{payload.trade_no}}",
+ *     "fail_template": "❌ 提交失败：{{error}}（可重试）",
+ *     "confirm": {
+ *       "text": "确认提交？",
+ *       "buttons": [{"text": "确认", "act": "yes"}, {"text": "取消", "act": "no"}]
+ *     }
+ *   },
+ *   "reject": {"mode": "cancel", "reply_template": "已驳回 {{payload.trade_no}}"},
+ *   "note":   {"mode": "reply",  "reply_template": "已记录备注"}
+ * }
+ *
+ * mode 三种：
+ *   submit  调上游（要 endpoint_code，接口在后台「平台接口」里配）
+ *   reply   只回群消息，不调上游
+ *   cancel  作废会话，不调上游
+ *
+ * 模板变量：
+ *   {{payload.xxx}}        回调原文（会话里存的那份）
+ *   {{payload.trade_no}}
+ *   {{session.code}} {{session.merchant_id}} {{session.chat_id}} {{session.step}}
+ *   {{merchant_id}} {{trade_no}} {{act}}
+ *   {{operator.id}} {{operator.username}}   谁点的
+ *   {{response.xxx}} {{error}}              提交后才有的上游返回 / 错误信息
+ *
+ * 提交失败时会 release 会话锁（允许重试，重试次数累加），成功才置 DONE 并撤按钮。
  */
 class InteractiveClickDriver implements FeatureDriver
 {
@@ -67,17 +129,19 @@ class InteractiveClickDriver implements FeatureDriver
                 'label' => '动作分支',
                 'type' => 'textarea',
                 'required' => true,
-                'hint' => 'JSON：{"ok":{"mode":"submit","endpoint_code":"merchant.trade.submit",'
-                    . '"params":{"merchant_id":"{{session.merchant_id}}","trade_no":"{{payload.trade_no}}","action":"ok"},'
-                    . '"reply_template":"✅ 提交成功","confirm":{"text":"确认提交？"}},"no":{"mode":"cancel","reply_template":"已驳回"}}。'
-                    . 'mode 可选 submit（调上游）/ reply（只回复）/ cancel（作废）',
-            ],
-            [
-                'key' => 'default_reply',
-                'label' => '未匹配时回复',
-                'type' => 'template',
-                'required' => false,
-                'default' => '未知操作',
+                'hint' => 'JSON，key 是按钮的动作码（act）。示例：'
+                    . '{"confirm":{"mode":"submit","endpoint_code":"merchant.trade.submit","method":"POST",'
+                    . '"sign":true,"sign_algo":"hmac_sha256",'
+                    . '"params":{"merchant_id":"{{session.merchant_id}}","trade_no":"{{payload.trade_no}}","action":"confirm"},'
+                    . '"success_template":"✅ 已提交：{{payload.trade_no}}","fail_template":"❌ 提交失败：{{error}}",'
+                    . '"confirm":{"text":"确认提交？","buttons":[{"text":"确认","act":"yes"},{"text":"取消","act":"no"}]}},'
+                    . '"reject":{"mode":"cancel","reply_template":"已驳回 {{payload.trade_no}"}},'
+                    . '"note":{"mode":"reply","reply_template":"已记录备注"}}。'
+                    . 'mode：submit（调上游，需 endpoint_code）/ reply（只回复）/ cancel（作废）；'
+                    . 'method 留空用接口自带的；sign=false 可关闭签名；'
+                    . 'success_template / fail_template 优先于 reply_template；'
+                    . 'confirm 为二次确认，第一次点只改消息，再点「确认」才提交。'
+                    . '模板变量见类注释：{{payload.xxx}} / {{session.merchant_id}} / {{trade_no}} / {{act}} / {{operator.username}} / {{error}}',
             ],
             [
                 'key' => 'remove_buttons',

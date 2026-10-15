@@ -11,8 +11,13 @@ use Modules\Telegram\Services\Callback\TransformerContext;
 /**
  * 【示例】带确认按钮的通知
  *
- * 上游回调回来 → 群里发一条带「确认 / 驳回」按钮的消息，点按钮走
- * InteractiveClickDriver（就是原来「支付二次确认」那套）。
+ * 上游回调回来 → 群里发一条带「确认 / 驳回」按钮的消息。
+ *
+ * 点按钮之后的事不在这里，在另一个「交互按钮点击处理」功能里
+ * （执行器 interactive.click，见 InteractiveClickDriver 类注释）：
+ *   - 那个功能要绑定到同一个机器人 + 同一个群，否则点了没反应
+ *   - 它的 branches 配置的 key 必须和这里的动作码对上（confirm / reject）
+ *   - 提交给哪个上游：会话 → 功能绑定 → 机器人，取第一个有值的
  *
  * 这是给开发者抄的骨架：按钮文案和动作码在 BUTTONS 里改，
  * 消息内容在 config 的 reply_template 里配。

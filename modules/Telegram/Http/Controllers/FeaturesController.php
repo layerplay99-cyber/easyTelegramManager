@@ -6,9 +6,13 @@ namespace Modules\Telegram\Http\Controllers;
 use Catch\Base\CatchController as Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\BotGroups;
+use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\FeatureCommands;
+use Modules\Telegram\Models\FeatureHookRoutes;
+use Modules\Telegram\Models\FeatureHooks;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
@@ -164,6 +168,16 @@ class FeaturesController extends Controller
                     'label' => "{$g->name}（{$g->chat_id}）",
                 ])
                 ->toArray(),
+            // 机器人下拉同样按数据范围收窄：裸 query() 不会触发 DataRange，
+            // 必须显式套一次，否则部门管理员能选到别的部门的机器人。
+            'bots' => app(DataScope::class)
+                ->apply(Bots::query(), null, 'telegram', 'creator_id')
+                ->get(['id', 'username'])
+                ->map(fn ($b) => [
+                    'value' => $b->id,
+                    'label' => "{$b->username}（#{$b->id}）",
+                ])
+                ->toArray(),
             default => [],
         };
 
@@ -211,6 +225,167 @@ class FeaturesController extends Controller
                 ->get()
                 ->toArray(),
         ]);
+    }
+
+    /**
+     * 该功能的回调入口（三方推送）
+     *
+     * 一个功能一个入口；没有则返回 null，由后台点「创建回调入口」生成。
+     */
+    public function hook(int|string $id): JsonResponse
+    {
+        $hook = FeatureHooks::query()->where('feature_id', $id)->first();
+
+        return response()->json([
+            'code' => 10000,
+            'message' => 'success',
+            'data' => $hook ? $hook->toArray() + ['url' => $this->hookUrl($hook)] : null,
+        ]);
+    }
+
+    /**
+     * 创建 / 更新回调入口
+     *
+     * token 只在首次创建时生成，之后不再变动——上游已经配好了回调地址，
+     * 中途换 token 等于把线上回调全部打断。
+     */
+    public function saveHook(Request $request, int|string $id): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => 'nullable|string|max:255',
+            'enabled' => 'nullable|boolean',
+            'dedup_field' => 'nullable|string|max:128',
+            'secret' => 'nullable|string|max:255',
+            'sign_field' => 'nullable|string|max:64',
+            'sign_algo' => 'nullable|string|max:32',
+            'check_timestamp' => 'nullable|boolean',
+            // 多机器人：默认用哪个机器人发
+            'bot_id' => 'nullable|integer',
+            // 从报文里取哪个字段做路由键（商户ID）
+            'route_field' => 'nullable|string|max:128',
+            // 未命中路由表时的兜底群
+            'default_chat_id' => 'nullable|string|max:64',
+        ]);
+
+        $hook = FeatureHooks::query()->where('feature_id', $id)->first();
+
+        if (! $hook) {
+            $data['feature_id'] = (int) $id;
+            $data['token'] = Str::random(32);
+            $data['enabled'] = (bool) ($data['enabled'] ?? true);
+
+            $hook = FeatureHooks::query()->create($data);
+        } else {
+            $hook->fill($data)->save();
+        }
+
+        return response()->json([
+            'code' => 10000,
+            'message' => '回调入口已保存',
+            'data' => $hook->toArray() + ['url' => $this->hookUrl($hook)],
+        ]);
+    }
+
+    /**
+     * 回调路由表：路由键值（商户ID）→ 机器人 + 群
+     */
+    public function hookRoutes(int|string $id): JsonResponse
+    {
+        $hook = FeatureHooks::query()->where('feature_id', $id)->first();
+
+        return response()->json([
+            'code' => 10000,
+            'message' => 'success',
+            'data' => $hook
+                ? FeatureHookRoutes::query()->where('hook_id', $hook->id)->orderByDesc('id')->get()->toArray()
+                : [],
+        ]);
+    }
+
+    /**
+     * 批量保存回调路由表（提交什么就是什么，未提交的删除）
+     *
+     * 逐条校验「群属于机器人」：配错了宁可当场报错，
+     * 也好过回调来时才发现要发到别人的群。
+     */
+    public function saveHookRoutes(Request $request, int|string $id): JsonResponse
+    {
+        $rows = $request->validate([
+            'routes' => 'nullable|array',
+            'routes.*.route_value' => 'required|string|max:128',
+            'routes.*.bot_id' => 'required|integer',
+            'routes.*.chat_id' => 'required|string|max:64',
+            'routes.*.remark' => 'nullable|string|max:255',
+            'routes.*.enabled' => 'nullable|boolean',
+        ])['routes'] ?? [];
+
+        $hook = FeatureHooks::query()->where('feature_id', $id)->first();
+
+        if (! $hook) {
+            return response()->json([
+                'code' => 10001,
+                'message' => '请先创建回调入口',
+                'data' => null,
+            ]);
+        }
+
+        $errors = [];
+
+        foreach ($rows as $i => $row) {
+            $belongs = BotGroups::query()
+                ->where('bot_id', (int) $row['bot_id'])
+                ->where('chat_id', (string) $row['chat_id'])
+                ->exists();
+
+            if (! $belongs) {
+                $errors[] = sprintf(
+                    '第 %d 行：群 %s 不属于所选机器人（请确认群已同步、且机器人确实在该群里）',
+                    $i + 1,
+                    $row['chat_id']
+                );
+            }
+        }
+
+        if ($errors) {
+            return response()->json([
+                'code' => 10002,
+                'message' => implode('；', $errors),
+                'data' => null,
+            ]);
+        }
+
+        $keep = collect($rows)->pluck('route_value')->filter()->unique()->all();
+
+        FeatureHookRoutes::query()
+            ->where('hook_id', $hook->id)
+            ->when($keep, fn ($q) => $q->whereNotIn('route_value', $keep))
+            ->delete();
+
+        foreach ($rows as $row) {
+            FeatureHookRoutes::query()->updateOrCreate(
+                ['hook_id' => $hook->id, 'route_value' => $row['route_value']],
+                [
+                    'bot_id' => (int) $row['bot_id'],
+                    'chat_id' => (string) $row['chat_id'],
+                    'remark' => $row['remark'] ?? null,
+                    'enabled' => (bool) ($row['enabled'] ?? true),
+                ]
+            );
+        }
+
+        return response()->json([
+            'code' => 10000,
+            'message' => '路由表已保存',
+            'data' => FeatureHookRoutes::query()->where('hook_id', $hook->id)->orderByDesc('id')->get()->toArray(),
+        ]);
+    }
+
+    /**
+     * 上游要填的回调地址
+     */
+    protected function hookUrl(FeatureHooks $hook): string
+    {
+        return rtrim((string) config('app.url'), '/') . '/api/hooks/' . $hook->token;
     }
 
     /**

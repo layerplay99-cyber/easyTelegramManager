@@ -69,9 +69,19 @@
                 </el-table-column>
                 <el-table-column prop="created_at" :label="$t('system.createTime')" />
                 <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
-                <el-table-column :label="$t('system.operation')" width="200">
+                <el-table-column :label="$t('system.operation')" width="260">
                     <template #default="scope">
                         <Update @click="open(scope.row.id)" />
+                        <!-- 只有「接收三方推送」这类功能才有回调入口 -->
+                        <el-button
+                            v-if="scope.row.driver === 'hook.receive'"
+                            type="primary"
+                            link
+                            size="small"
+                            @click="openHook(scope.row.id)"
+                        >
+                            {{ $t('feature.hook.title') }}
+                        </el-button>
                         <Destroy @click="destroy(api, scope.row.id)" />
                     </template>
                 </el-table-column>
@@ -87,6 +97,11 @@
         <Dialog v-model="visible" :title="title" destroy-on-close>
             <Create v-if="visible" :key="id" @close="close(search)" :primary="id" :api="api" />
         </Dialog>
+
+        <!-- 回调设置：同样用 v-if + key 强制销毁，避免复用上一次的记录 -->
+        <Dialog v-model="hookVisible" :title="$t('feature.hook.title')" width="900px" destroy-on-close>
+            <Hook v-if="hookVisible" :key="hookFeatureId" :primary="hookFeatureId" :api="api" />
+        </Dialog>
     </div>
 </template>
 
@@ -94,6 +109,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Create from './create.vue'
+import Hook from './hook.vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
@@ -163,6 +179,15 @@ const handleEnabledChange = async (row: any) => {
     } finally {
         row.switchLoading = false
     }
+}
+
+// 回调设置弹窗
+const hookVisible = ref(false)
+const hookFeatureId = ref<number | string>('')
+
+const openHook = (featureId: number | string) => {
+  hookFeatureId.value = featureId
+  hookVisible.value = true
 }
 
 const triggerLabel = (key: string) => {

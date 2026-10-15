@@ -165,6 +165,7 @@ class FeatureExecutor
             command: (string) ($options['command'] ?? ''),
             requestId: $requestId,
             bind: $bind,
+            targetChatId: $options['target_chat_id'] ?? null,
         );
 
         $driver = DriverRegistry::resolve((string) $feature->driver);

@@ -31,6 +31,13 @@ class FeatureContext
         public readonly string $command = '',
         public readonly string $requestId = '',
         public readonly ?FeaturesBinds $bind = null,
+        /**
+         * 本次回调明确指定的投递群
+         *
+         * 三方推送场景由路由表（商户ID → 机器人 + 群）算出，驱动必须发到这个群，
+         * 不能再按「功能绑定的所有群」群发——多机器人时那会把 A 的回调发到 B 的群。
+         */
+        public readonly int|string|null $targetChatId = null,
     ) {
     }
 

@@ -71,6 +71,12 @@ Route::prefix('telegram')->group(function(){
     Route::get('features/{id}/commands', [FeaturesController::class, 'commands']);
     Route::post('features/{id}/commands', [FeaturesController::class, 'saveCommands']);
 
+    // 三方推送回调入口 + 路由表（商户ID → 机器人 + 群）
+    Route::get('features/{id}/hook', [FeaturesController::class, 'hook']);
+    Route::put('features/{id}/hook', [FeaturesController::class, 'saveHook']);
+    Route::get('features/{id}/hook/routes', [FeaturesController::class, 'hookRoutes']);
+    Route::post('features/{id}/hook/routes', [FeaturesController::class, 'saveHookRoutes']);
+
     // 群发进度（send_id 由 POST bots/...sendToGroup 返回）
     Route::get('message/send/{sendId}', [BotsController::class, 'sendStatus']);
 

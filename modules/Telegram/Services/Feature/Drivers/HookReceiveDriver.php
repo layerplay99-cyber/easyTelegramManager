@@ -137,6 +137,14 @@ class HookReceiveDriver implements FeatureDriver
      */
     private function resolveTargetChatIds(FeatureContext $context): array
     {
+        // 路由表已经算出「用哪个机器人、发到哪个群」，必须严格照发。
+        // 优先级高于下面任何兜底，否则多机器人时会群发到别的机器人的群。
+        $target = $context->targetChatId;
+
+        if ($target !== null && $target !== '') {
+            return [(string) $target];
+        }
+
         $configured = $context->config('target_chat_ids', []);
 
         if (is_array($configured) && $configured) {

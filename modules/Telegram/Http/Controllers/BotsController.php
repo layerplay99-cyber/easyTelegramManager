@@ -182,6 +182,13 @@ class BotsController extends Controller
             default => is_array($data['chatIds']) ? $data['chatIds'] : []
         };
 
+        // 归属校验：调用方传的群必须是这个机器人自己的群。
+        // 这条路由只验平台 Api-Key，不验归属，不收窄的话拿到 Key 的人可以
+        // 拿 A 的机器人指定 B 的群发消息（机器人恰好也在那个群时就串了）。
+        if ($bot) {
+            $chatIds = $this->filterChatIdsByBot($chatIds, $bot);
+        }
+
         // 去重 + 过滤空值 + 统一转成字符串（chat_id 可能是 -100xxxxxxxxxx）
         $chatIds = array_values(array_unique(array_filter(
             array_map(static fn ($chatId) => (string) $chatId, $chatIds),
@@ -376,6 +383,38 @@ class BotsController extends Controller
         }
 
         return ['queued' => $queued, 'failed' => $failed, 'errors' => $errors];
+    }
+
+    /**
+     * 只保留属于该机器人的群
+     *
+     * 该机器人一个群都没同步上来时无从判断，原样放行，
+     * 避免把「刚拉进群、还没收到过消息」的新群误杀。
+     */
+    private function filterChatIdsByBot(array $chatIds, $bot): array
+    {
+        if (empty($chatIds)) {
+            return [];
+        }
+
+        $owned = $bot->botGroups()->pluck('chat_id')->map(static fn ($id) => (string) $id)->all();
+
+        if (empty($owned)) {
+            return $chatIds;
+        }
+
+        $requested = array_map(static fn ($id) => (string) $id, $chatIds);
+
+        $rejected = array_values(array_diff($requested, $owned));
+
+        if ($rejected) {
+            logger()->warning('群发目标群不属于该机器人，已过滤', [
+                'bot_id' => $bot->id,
+                'rejected' => $rejected,
+            ]);
+        }
+
+        return array_values(array_intersect($requested, $owned));
     }
 
     private function getChatIdsByGroupId(array $chatIds, int $groupId, int $botId): array

@@ -215,7 +215,11 @@ class TelegramMessageService
         array $logContext,
         string $logTag
     ): bool {
-        $url = "https://api.telegram.org/bot{$botToken}/{$method}";
+        // 走 config('telegram.base_bot_url')：部署本地 Bot API Server 时
+        // 改 .env 的 TELEGRAM_BASE_BOT_URL 即可，见 docs/telegram-bot-api-server.md
+        // 注意 base 以 /bot 结尾，token 要紧跟在 /bot 后面，中间不能有斜杠
+        $url = rtrim((string) config('telegram.base_bot_url', 'https://api.telegram.org/bot'), '/')
+            . $botToken . '/' . $method;
         $maxAttempts = 3;
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {

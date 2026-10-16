@@ -53,14 +53,14 @@ class BaseService
 
     // ===== 媒体方法（委托 TelegramMediaService）=====
 
-    public function putImage($message): string|false
+    public function putImage($message, ?string $token = null): string|false
     {
-        return $this->telegramMediaService->putImage($message);
+        return $this->telegramMediaService->putImage($message, $token);
     }
 
-    public function getImageUrl($message): string
+    public function getImageUrl($message, ?string $token = null): string
     {
-        return $this->telegramMediaService->getImageUrl($message);
+        return $this->telegramMediaService->getImageUrl($message, $token);
     }
 
     public function storeImageFromBase64Code(string $base64Image, ?string $customPath = null): array

@@ -22,6 +22,10 @@ use Telegram\Bot\Api;
  *   app(BotApiFactory::class)->default();                     // config('telegram.bot_token')
  *
  * 新增 Bot 侧功能时，直接注入/解析本工厂即可拿到可用的 $api，不用再关心 token 来源。
+ *
+ * base url 统一读 config('telegram.base_bot_url')：部署了本地 Telegram Bot API
+ * Server（TDLib）时只要改 .env 的 TELEGRAM_BASE_BOT_URL，全项目一起切换，
+ * 不用改代码。详见 docs/telegram-bot-api-server.md。
  */
 class BotApiFactory
 {
@@ -36,13 +40,27 @@ class BotApiFactory
             throw new \InvalidArgumentException('Telegram bot token is empty');
         }
 
-        return new Api($token);
+        return new Api($token, false, null, $this->baseBotUrl());
     }
 
     public function default(): ?Api
     {
         $token = config('telegram.bot_token');
 
-        return $token ? new Api($token) : null;
+        return $token ? new Api($token, false, null, $this->baseBotUrl()) : null;
+    }
+
+    /**
+     * Bot API 基础地址（要写到 /bot 这一级）
+     *
+     * ⚠️ 不能只依赖 config('telegram.base_bot_url') 生效：SDK 的 Api 只有在走
+     * BotsManager（Telegram::bot()）时才会读这个配置，直接 new Api() 是读不到的，
+     * 所以这里显式作为第 4 个参数传进去。取不到配置时返回 null，让 SDK 用官方地址。
+     */
+    protected function baseBotUrl(): ?string
+    {
+        $url = trim((string) config('telegram.base_bot_url', ''));
+
+        return $url !== '' ? $url : null;
     }
 }

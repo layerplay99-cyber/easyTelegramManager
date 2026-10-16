@@ -131,9 +131,9 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
     public static function defaultConfig(): array
     {
         return [
-      'endpoint_code' => 'merchant.balance',
-  'not_bound_tip' => '本群还没有绑定商户号，请先执行 /bm <商户号>',
-     'reply_template' => '余额：{{data.balance}} 元',
+            'endpoint_code' => 'merchant.balance',
+            'not_bound_tip' => '本群还没有绑定商户号，请先执行 /bm <商户号>',
+            'reply_template' => '余额：{{data.balance}} 元',
         ];
     }
 

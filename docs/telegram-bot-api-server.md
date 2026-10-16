@@ -158,23 +158,17 @@ systemctl status telegram-bot-api
 
 ### 4.1 主路径：给 SDK 配 base url（一处配置，全部生效）
 
-项目里所有 `BotApiFactory::forBot()` → `new Api($token)` → SDK 的 `TelegramClient`，
-它的 base url 来自 Laravel 配置 **`telegram.base_bot_url`**。项目目前没有发布这个配置文件，
-补一个 `config/telegram.php`：
+`config/telegram.php`（项目级配置，已随代码提交）：
 
 ```php
 <?php
 
 return [
-    // 后台每个机器人自带 token，这里只是 SDK 的占位默认值
-    'bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
-
-    // ★ 指向本地 Bot API Server。注意要写到 /bot 这一级，
-    //   SDK 会在后面自己拼 <token>/<method> 和 /file/bot<token>/<path>
+    // ★ 指向本地 Bot API Server；不配则走官方 https://api.telegram.org/bot
     'base_bot_url' => env('TELEGRAM_BASE_BOT_URL', 'https://api.telegram.org/bot'),
 
-    'async' => false,
-    'http_client_handler' => null,
+    // 仅供 SDK 全局 BotManager / Facade 用；后台每个机器人的 token 在 bmbots.api_token
+    'bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
 ];
 ```
 
@@ -192,30 +186,35 @@ TELEGRAM_BASE_BOT_URL=http://telegram-bot-api:8083/bot
 php artisan config:clear          # 用了 config:cache 的话重新 cache 一次
 ```
 
+**⚠️ 为什么光有配置不够，还得改代码**：SDK 的 `Api` 只有在走 `BotsManager`
+（`Telegram::bot()`）时才会读 `telegram.base_bot_url`；本项目的 `BotApiFactory`
+是直接 `new Api($token)`，这条路**读不到配置**。所以工厂里显式把配置作为
+第 4 个参数传给 `Api`：
+
+```php
+// modules/Telegram/Services/Bot/BotApiFactory.php
+return new Api($token, false, null, $this->baseBotUrl());
+```
+
 SDK 的文件下载地址（`TelegramClient::getFileUrl()`）是从同一个 base 推导的，
 所以**下载文件也自动走本地服务**，大图、表情、头像一起受益。
 
-### 4.2 两处硬编码也要改，否则只用上一半
+> 只放 `base_bot_url` / `bot_token` 两个键是有意的：其余键由 SDK 自带配置兜底
+> （`mergeConfigFrom` 会用本文件的同名键覆盖它）。没有用
+> `vendor:publish --tag=telegram-config` 把整份 SDK 配置发布进来——那只会带来与 SDK 版本的漂移。
 
-| 文件 | 用途 | 现状 |
+### 4.2 已改掉的三处硬编码
+
+| 文件 | 用途 | 改法 |
 |---|---|---|
-| `modules/Telegram/Services/TelegramMessageService.php:218` | 群发消息（文本 / 图片） | 硬编码 `https://api.telegram.org/bot{token}/{method}` |
-| `modules/Telegram/Services/TelegramMediaService.php:15` | 下载图片 / 头像（`putImage`） | 常量 `TELEGRAM_API_URL = 'https://api.telegram.org'` |
+| `Services/Bot/BotApiFactory.php` | 所有 `forBot()` / `forToken()` / `default()` | 读 `config('telegram.base_bot_url')`，作为 `new Api()` 第 4 个参数 |
+| `Services/TelegramMessageService.php`（`callTelegramApi`） | 群发消息（文本 / 图片） | 原硬编码 `https://api.telegram.org/bot{token}/{method}`，改为读同一配置 |
+| `Services/TelegramMediaService.php` | 下载图片 / 头像（`putImage` / `getImageUrl`） | 删掉 `TELEGRAM_API_URL` 常量，改为读同一配置；并支持传入对应机器人的 token（多机器人下 `file_path` 只有所属机器人的 token 才下载得到） |
 
-这两处是**群发**和**媒体下载**的主路径，不改的话本地服务对这两个最耗时的场景没有收益。
-改成读同一个配置即可：
-
-```php
-// TelegramMessageService::callTelegramApi()
-$url = rtrim((string) config('telegram.base_bot_url', 'https://api.telegram.org/bot'), '/')
-     . "/{$botToken}/{$method}";
-
-// TelegramMediaService：删掉 TELEGRAM_API_URL 常量，取文件时用
-$base = rtrim((string) config('telegram.base_bot_url', 'https://api.telegram.org/bot'), '/bot');
-// 下载地址：$base . "/file/bot{$token}/{$filePath}"
-```
-
-> 这两处 + `config/telegram.php` 要我一起提交的话说一声。
+> `TelegramMediaService::getImageUrl()` 里的 `Telegram::getFile()` 走的是 SDK 全局
+> BotManager（`telegram.bots.mybot.token`）。多机器人场景下要拿到正确的 `file_path`，
+> 还得把它换成 `BotApiFactory::forBot($bot)->getFile()`。目前这两个方法在项目里
+> 还没有调用方，真正要用时再改。
 
 ### 4.3 真人客服不适用
 
@@ -280,7 +279,7 @@ docker exec tgbot-bot-api sh -c 'wget -qO- localhost:8083/bot$TOKEN/getMe'
 # —— 接入 ——
 echo 'TELEGRAM_BASE_BOT_URL=http://telegram-bot-api:8083/bot' >> .env
 php artisan config:clear
-# 再按 4.2 改掉两处硬编码（群发 / 媒体下载）
+# 代码侧已无需改动：BotApiFactory / 群发 / 媒体下载都读 config('telegram.base_bot_url')
 
 # —— 宿主机 ——
 sudo systemctl enable --now telegram-bot-api

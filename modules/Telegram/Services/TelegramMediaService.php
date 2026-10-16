@@ -12,7 +12,6 @@ use Telegram\Bot\Laravel\Facades\Telegram;
  */
 class TelegramMediaService
 {
-    private const TELEGRAM_API_URL = 'https://api.telegram.org';
     private const LOG_FILE_LARAVEL = 'laravel';
 
     public function __construct(
@@ -21,22 +20,27 @@ class TelegramMediaService
 
     /**
      * 下载并返回图片内容
+     *
+     * @param string|null $token 该消息所属机器人的 api_token。多机器人部署必须传，
+     *                            file_path 只有所属机器人的 token 才下载得到。
      */
-    public function putImage($message): string|false
+    public function putImage($message, ?string $token = null): string|false
     {
-        $url = $this->getImageUrl($message);
+        $url = $this->getImageUrl($message, $token);
         return $url ? file_get_contents($url) : false;
     }
 
     /**
      * 获取图片 URL
+     *
+     * @param string|null $token 见 putImage()
      */
-    public function getImageUrl($message): string
+    public function getImageUrl($message, ?string $token = null): string
     {
         try {
             $photo = collect($message->getPhoto())->last();
             $file = Telegram::getFile(['file_id' => $photo['file_id']]);
-            return $this->buildDownloadUrl($file['file_path']);
+            return $this->buildDownloadUrl($file['file_path'], $token);
         } catch (\Throwable $e) {
             $this->logMessageService->createLaravelLog(
                 self::LOG_FILE_LARAVEL,
@@ -52,12 +56,29 @@ class TelegramMediaService
     }
 
     /**
-     * 构建 Telegram 文件下载链接
+     * Bot API 基础地址（不带 /bot）
+     *
+     * 部署了本地 Telegram Bot API Server 时由 .env 的 TELEGRAM_BASE_BOT_URL 切换，
+     * 详见 docs/telegram-bot-api-server.md。
      */
-    private function buildDownloadUrl(string $filePath): string
+    private function apiBaseUrl(): string
     {
-        $token = config('telegram.bots.mybot.token');
-        return rtrim(self::TELEGRAM_API_URL, '/') . "/file/bot{$token}/{$filePath}";
+        $base = rtrim((string) config('telegram.base_bot_url', 'https://api.telegram.org/bot'), '/');
+
+        return rtrim(str_replace('/bot', '', $base), '/');
+    }
+
+    /**
+     * 构建 Telegram 文件下载链接
+     *
+     * @param string|null $token 见 putImage()。不传则退回全局 TELEGRAM_BOT_TOKEN，
+     *                           那只在单机器人部署下是准确的。
+     */
+    private function buildDownloadUrl(string $filePath, ?string $token = null): string
+    {
+        $token = $token ?: (string) config('telegram.bot_token', '');
+
+        return $this->apiBaseUrl() . "/file/bot{$token}/{$filePath}";
     }
 
     /**

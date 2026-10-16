@@ -57,7 +57,7 @@ class BindMerchant extends BaseCustomFeature
     {
         return [
             [
-                'command' => 'trbd',
+                'command' => 'bd',
                 'usage' => '/trbd <商户号>',
                 'description' => '绑定/查看本群的商户号',
                 'params' => [

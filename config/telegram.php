@@ -26,11 +26,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | 默认 Bot Token
+    | 兜底 Bot Token
     |--------------------------------------------------------------------------
-    | 后台每个机器人都有自己的 token（bmbots.api_token），运行时一律走
-    | BotApiFactory::forBot()，用不到这个值。它只服务于 SDK 的全局
-    | BotManager /  Facade（Telegram::xxx()）以及 BotApiFactory::default()。
+    | 正常不用配：后台每个机器人都有自己的 token（bmbots.api_token），
+    | 运行时一律走 BotApiFactory::forBot()，和这个值无关。
+    |
+    | 唯一需要它的是 NotificationService（充值 / 提现通知）：它按订单发通知，
+    | 而订单表上没有 bot_id，只能有一个兜底机器人。不配的后果是钱包类通知
+    | 发不出去，且只在日志里记一条 error、不抛异常——所以留空可以，别删这个键。
+    |
+    | ⚠️ 也不能改成在代码里直接 env('TELEGRAM_BOT_TOKEN')：
+    |    config:cache 之后代码里的 env() 对未缓存的键会返回 null，配了也读不到。
     |
     */
     'bot_token' => env('TELEGRAM_BOT_TOKEN', ''),

@@ -167,7 +167,8 @@ return [
     // ★ 指向本地 Bot API Server；不配则走官方 https://api.telegram.org/bot
     'base_bot_url' => env('TELEGRAM_BASE_BOT_URL', 'https://api.telegram.org/bot'),
 
-    // 仅供 SDK 全局 BotManager / Facade 用；后台每个机器人的 token 在 bmbots.api_token
+    // 兜底 bot token：正常不用配，后台每个机器人的 token 在 bmbots.api_token。
+    // 唯一需要它的是 NotificationService（充值/提现通知，订单表没有 bot_id）
     'bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
 ];
 ```

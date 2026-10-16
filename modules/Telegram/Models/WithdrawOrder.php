@@ -18,7 +18,7 @@ class WithdrawOrder extends Model
     protected $table = 'withdraw_orders';
 
     protected $fillable = [
-        'order_no', 'member_id', 'channel_id', 'third_config_id', 'currency', 'amount',
+        'order_no', 'member_id', 'bot_id', 'channel_id', 'third_config_id', 'currency', 'amount',
         'fee', 'actual_amount', 'exchange_rate', 'withdraw_method',
         'withdraw_info', 'third_order_no', 'status', 'processed_at',
         'completed_at', 'request_ip', 'request_sign', 'nonce', 'timestamp', 'remark',

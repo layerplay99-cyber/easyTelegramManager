@@ -19,9 +19,11 @@ use Telegram\Bot\Api;
  * 现在所有「取一个 bot 客户端」的地方都走这里：
  *   app(BotApiFactory::class)->forBot($bot);                  // 从 Bots 模型
  *   app(BotApiFactory::class)->forToken($token);              // 已知 token
- *   app(BotApiFactory::class)->default();                     // config('telegram.bot_token')
  *
  * 新增 Bot 侧功能时，直接注入/解析本工厂即可拿到可用的 $api，不用再关心 token 来源。
+ *
+ * 本项目是多 bot 多商户，**没有也不需要有全局兜底 bot**：每个机器人的 token 都在
+ * bmbots.api_token 上，由调用方按业务场景（订单、绑定、会话）确定用哪个。
  *
  * base url 统一读 config('telegram.base_bot_url')：部署了本地 Telegram Bot API
  * Server（TDLib）时只要改 .env 的 TELEGRAM_BASE_BOT_URL，全项目一起切换，
@@ -41,13 +43,6 @@ class BotApiFactory
         }
 
         return new Api($token, false, null, $this->baseBotUrl());
-    }
-
-    public function default(): ?Api
-    {
-        $token = config('telegram.bot_token');
-
-        return $token ? new Api($token, false, null, $this->baseBotUrl()) : null;
     }
 
     /**

@@ -34,6 +34,11 @@ class TelegramMediaService
      * 获取图片 URL
      *
      * @param string|null $token 见 putImage()
+     *
+     * ⚠️ 下面的 Telegram::getFile() 走的是 SDK 全局 BotManager，需要
+     * config('telegram.bots.mybot.token')；本项目不配全局 token，多 bot 场景应改成
+     * BotApiFactory::forBot($bot)->getFile()。目前这两个方法没有调用方，
+     * 真正要用时一并改掉。
      */
     public function getImageUrl($message, ?string $token = null): string
     {
@@ -71,12 +76,16 @@ class TelegramMediaService
     /**
      * 构建 Telegram 文件下载链接
      *
-     * @param string|null $token 见 putImage()。不传则退回全局 TELEGRAM_BOT_TOKEN，
-     *                           那只在单机器人部署下是准确的。
+     * @param string $token 该消息所属机器人的 api_token，必填——多 bot 下没有全局 token，
+     *                       file_path 只有所属机器人的 token 才下载得到
      */
     private function buildDownloadUrl(string $filePath, ?string $token = null): string
     {
-        $token = $token ?: (string) config('telegram.bot_token', '');
+        if (empty($token)) {
+            Log::warning('下载 Telegram 文件缺少机器人 token，已跳过', ['file_path' => $filePath]);
+
+            return '';
+        }
 
         return $this->apiBaseUrl() . "/file/bot{$token}/{$filePath}";
     }

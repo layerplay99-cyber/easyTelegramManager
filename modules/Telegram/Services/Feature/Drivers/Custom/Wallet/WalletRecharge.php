@@ -69,6 +69,8 @@ class WalletRecharge extends AbstractWalletFeature
             $order = app(WalletService::class)->createRecharge($member, $currency, $amount, $upstream, [
                 // 指令来自 Telegram，身份本身可信，不再要求 nonce
                 'skip_replay_check' => true,
+                // 多 bot 多商户：到账通知要发回当前这个机器人，不能靠全局 bot
+                'bot_id' => (int) ($context->bot?->id ?? 0),
             ]);
         } catch (\Throwable $e) {
             return $this->fail($e->getMessage());

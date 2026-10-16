@@ -166,12 +166,12 @@ systemctl status telegram-bot-api
 return [
     // ★ 指向本地 Bot API Server；不配则走官方 https://api.telegram.org/bot
     'base_bot_url' => env('TELEGRAM_BASE_BOT_URL', 'https://api.telegram.org/bot'),
-
-    // 兜底 bot token：正常不用配，后台每个机器人的 token 在 bmbots.api_token。
-    // 唯一需要它的是 NotificationService（充值/提现通知，订单表没有 bot_id）
-    'bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
 ];
 ```
+
+> 这个配置文件里**只有 base url，没有 bot token**：本项目是多 bot 多商户，
+> 每个机器人的 token 都在后台「机器人管理」（`bmbots.api_token`），
+> 业务侧按订单 / 绑定 / 会话确定用哪个机器人，不设全局兜底 bot。
 
 `.env`：
 

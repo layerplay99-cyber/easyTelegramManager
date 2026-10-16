@@ -103,8 +103,8 @@
 |---|---|
 | `bmwallets` | 钱包：`member_id` + `currency`、`balance`、`frozen_balance`、累计充值/提现 |
 | `bmledgers` | 账务流水：`type`、`amount`、`balance_before/after`、`related_type`/`related_id` |
-| `bmrecharge_orders` | 充值订单：`order_no`、`channel_id`、`idempotency_key`、`third_order_no`、`status`、`request_sign` |
-| `bmwithdraw_orders` | 提现订单：`exchange_rate`、`withdraw_method`、`withdraw_info` |
+| `bmrecharge_orders` | 充值订单：`order_no`、`bot_id`（发起该订单的机器人，通知靠它发回去）、`channel_id`、`idempotency_key`、`third_order_no`、`status`、`request_sign` |
+| `bmwithdraw_orders` | 提现订单：`bot_id`（同上）、`exchange_rate`、`withdraw_method`、`withdraw_info` |
 | `bmpayment_channels` | 支付渠道：`code`、`submit_api`/`query_api`、`secret_key`、费率与限额 |
 | `bmrisk_control_rules` / `bmrisk_control_logs` | 风控规则 / 风控命中记录 |
 | `bmtransaction_limits` | 交易限额（按 `type` + `level`） |

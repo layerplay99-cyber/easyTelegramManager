@@ -6,6 +6,7 @@ use Modules\Telegram\Models\Member;
 use Modules\Telegram\Models\RechargeOrder;
 use Modules\Telegram\Models\WithdrawOrder;
 use Modules\Telegram\Models\Notification;
+use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Services\Bot\BotApiFactory;
 use Telegram\Bot\Api;
 use Telegram\Bot\Keyboard\Keyboard;
@@ -13,19 +14,16 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * 通知服务类
+ *
+ * 多 bot 多商户：通知一律发回「该订单所属的机器人」，没有全局兜底 bot。
+ * 机器人来自订单上的 bot_id（建单时由功能驱动 / MiniApp 按 feature 记下来），
+ * 取不到就记日志跳过——宁可发不出去，也不能用别的机器人的 token 往用户群里发。
  */
 class NotificationService
 {
-    protected ?Api $telegram = null;
-
-    public function __construct()
-    {
-        // 统一通过 BotApiFactory 获取客户端（token 来自 config('telegram.bot_token')）
-        try {
-            $this->telegram = app(BotApiFactory::class)->default();
-        } catch (\Exception $e) {
-            Log::error('Telegram Bot 初始化失败: ' . $e->getMessage());
-        }
+    public function __construct(
+        protected BotApiFactory $botApiFactory
+    ) {
     }
 
     /**
@@ -41,7 +39,8 @@ class NotificationService
         $message .= "👤 会员：{$member->username}\n";
         $message .= "💵 金额：{$order->actual_amount} {$order->currency}\n";
         $message .= "📝 订单号：{$order->order_no}\n";
-        $message .= "⏰ 时间：" . date('Y-m-d H:i:s', $order->created_at) . "\n";
+        // ⚠️ created_at 是 Carbon，不能直接丢给 date()（PHP 8 会抛 TypeError）
+        $message .= "⏰ 时间：" . ($order->created_at?->format('Y-m-d H:i:s') ?? '') . "\n";
 
         // 保存通知记录
         $this->saveNotification(
@@ -54,7 +53,7 @@ class NotificationService
         );
 
         // 发送到Telegram
-        return $this->sendToTelegram($member->telegram_user_id, $message);
+        return $this->sendOrderNotification($order, $member->telegram_user_id, $message);
     }
 
     /**
@@ -71,7 +70,7 @@ class NotificationService
         $message .= "💵 金额：{$order->amount} {$order->currency}\n";
         $message .= "💰 到账金额：{$order->actual_amount}\n";
         $message .= "📝 订单号：{$order->order_no}\n";
-        $message .= "⏰ 时间：" . date('Y-m-d H:i:s', $order->created_at) . "\n";
+        $message .= "⏰ 时间：" . ($order->created_at?->format('Y-m-d H:i:s') ?? '') . "\n";
         $message .= "\n正在处理中，请耐心等待。";
 
         $this->saveNotification(
@@ -83,7 +82,7 @@ class NotificationService
             $order->id
         );
 
-        return $this->sendToTelegram($member->telegram_user_id, $message);
+        return $this->sendOrderNotification($order, $member->telegram_user_id, $message);
     }
 
     /**
@@ -112,20 +111,54 @@ class NotificationService
             $order->id
         );
 
-        return $this->sendToTelegram($member->telegram_user_id, $message);
+        return $this->sendOrderNotification($order, $member->telegram_user_id, $message);
+    }
+
+    /**
+     * 按订单所属机器人发送通知
+     *
+     * 多 bot 多商户下没有全局 bot：机器人来自订单的 bot_id，
+     * 取不到（历史订单 / 建单时没传）就记日志跳过——
+     * 绝不退回「随便找个 bot 发」，那会把 A 商户的到账通知发到 B 的机器人上。
+     */
+    protected function sendOrderNotification(RechargeOrder|WithdrawOrder $order, int $chatId, string $message): bool
+    {
+        $botId = (int) ($order->bot_id ?? 0);
+
+        if ($botId <= 0) {
+            Log::warning('订单没有记录机器人，通知跳过', [
+                'order_no' => $order->order_no,
+                'order_id' => $order->id,
+            ]);
+
+            return false;
+        }
+
+        $bot = Bots::query()->find($botId);
+
+        if (! $bot || empty($bot->api_token)) {
+            Log::warning('订单记录的机器人不存在或没有 token，通知跳过', [
+                'order_no' => $order->order_no,
+                'bot_id' => $botId,
+            ]);
+
+            return false;
+        }
+
+        return $this->sendToTelegram($this->botApiFactory->forBot($bot), $chatId, $message);
     }
 
     /**
      * 发送到Telegram群或私聊
-     * @param int $chatId 聊天ID或用户ID
-     * @param string $message 消息内容
-     * @param array $keyboard 键盘（可选）
-     * @return bool
+     *
+     * @param Api|null $telegram 必须显式传机器人客户端——调用方要知道这条消息由哪个 bot 发出；
+     *                           传 null 表示没有可用机器人，记日志后跳过
      */
-    public function sendToTelegram(int $chatId, string $message, array $keyboard = []): bool
+    public function sendToTelegram(?Api $telegram, int $chatId, string $message, array $keyboard = []): bool
     {
-        if (!$this->telegram) {
-            Log::warning('Telegram Bot 未初始化，无法发送消息');
+        if (! $telegram) {
+            Log::warning('没有可用的机器人，通知跳过', ['chat_id' => $chatId]);
+
             return false;
         }
 
@@ -142,7 +175,7 @@ class NotificationService
                 ]);
             }
 
-            $this->telegram->sendMessage($params);
+            $telegram->sendMessage($params);
 
             return true;
         } catch (\Exception $e) {
@@ -182,9 +215,10 @@ class NotificationService
      * @param Member $member
      * @param string $period 周期（today, date）
      * @param string $date 日期
+     * @param int|null $botId 用哪个机器人发；不传则跳过并记日志
      * @return bool
      */
-    public function sendBillNotification(Member $member, string $period, string $date = ''): bool
+    public function sendBillNotification(Member $member, string $period, string $date = '', ?int $botId = null): bool
     {
         $ledgerService = app(LedgerService::class);
 
@@ -214,15 +248,16 @@ class NotificationService
             }
         }
 
-        return $this->sendToTelegram($member->telegram_user_id, $message);
+        return $this->sendToTelegram($this->apiFor($botId), $member->telegram_user_id, $message);
     }
 
     /**
      * 发送余额通知
      * @param Member $member
+     * @param int|null $botId 用哪个机器人发；不传则跳过并记日志
      * @return bool
      */
-    public function sendBalanceNotification(Member $member): bool
+    public function sendBalanceNotification(Member $member, ?int $botId = null): bool
     {
         $wallets = $member->wallets()->where('status', 1)->get();
 
@@ -241,6 +276,26 @@ class NotificationService
             }
         }
 
-        return $this->sendToTelegram($member->telegram_user_id, $message);
+        return $this->sendToTelegram($this->apiFor($botId), $member->telegram_user_id, $message);
+    }
+
+    /**
+     * 按 bot_id 取客户端；取不到返回 null（发送方据此跳过并记日志）
+     */
+    protected function apiFor(?int $botId): ?Api
+    {
+        if (! $botId) {
+            return null;
+        }
+
+        $bot = Bots::query()->find($botId);
+
+        if (! $bot || empty($bot->api_token)) {
+            Log::warning('指定的机器人不存在或没有 token', ['bot_id' => $botId]);
+
+            return null;
+        }
+
+        return $this->botApiFactory->forBot($bot);
     }
 }

@@ -18,7 +18,7 @@ class RechargeOrder extends Model
     protected $table = 'recharge_orders';
 
     protected $fillable = [
-        'order_no', 'member_id', 'channel_id', 'third_config_id', 'currency', 'amount',
+        'order_no', 'member_id', 'bot_id', 'channel_id', 'third_config_id', 'currency', 'amount',
         'fee', 'actual_amount', 'pay_method', 'third_order_no', 'pay_info',
         'callback_url', 'status', 'paid_at', 'completed_at', 'expired_at',
         'request_ip', 'request_sign', 'nonce', 'timestamp', 'remark', 'idempotency_key',

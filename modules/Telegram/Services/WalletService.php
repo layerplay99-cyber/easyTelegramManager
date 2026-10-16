@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Telegram\Contracts\WalletGateway;
 use Modules\Telegram\Models\Features;
+use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Models\Member;
 use Modules\Telegram\Models\RechargeOrder;
 use Modules\Telegram\Models\ThirdApiConfig;
@@ -126,7 +127,8 @@ class WalletService
     /**
      * 充值下单
      *
-     * @param array $extra 可选：channel_id（覆盖上游默认）、notify_url、idempotency_key、nonce、timestamp
+     * @param array $extra 可选：channel_id（覆盖上游默认）、notify_url、idempotency_key、nonce、timestamp、
+     *                      bot_id（发起该订单的机器人，到账通知要发回它）
      * @return array{order_no: string, pay_url: ?string, amount: float, expired_at: mixed}
      */
     public function createRecharge(
@@ -168,6 +170,8 @@ class WalletService
             $order = new RechargeOrder([
                 'order_no' => RechargeOrder::generateOrderNo(),
                 'member_id' => $member->id,
+                // 多 bot 多商户：记下是哪个机器人的业务，到账通知要发回它
+                'bot_id' => (int) ($extra['bot_id'] ?? 0),
                 'channel_id' => null,
                 'third_config_id' => $upstream->id,
                 'currency' => $currency,
@@ -257,6 +261,8 @@ class WalletService
             $order = new WithdrawOrder([
                 'order_no' => WithdrawOrder::generateOrderNo(),
                 'member_id' => $member->id,
+                // 多 bot 多商户：记下是哪个机器人的业务，完成通知要发回它
+                'bot_id' => (int) ($extra['bot_id'] ?? 0),
                 'channel_id' => null,
                 'third_config_id' => $upstream->id,
                 'currency' => $currency,
@@ -390,6 +396,29 @@ class WalletService
         }
 
         return $upstream;
+    }
+
+    /**
+     * 按功能标识找「该业务属于哪个机器人」
+     *
+     * MiniApp（H5）下单时没有 Telegram 会话上下文，但功能在后台是绑到具体机器人上的，
+     * 取该功能第一个启用绑定的 bot_id，充值 / 提现通知才能发回正确的机器人。
+     * 取不到返回 0 —— 通知侧会记日志跳过，不会静默用别的 bot。
+     */
+    public function botFor(string $featureKey): int
+    {
+        $feature = $this->findFeature($featureKey);
+
+        if (! $feature) {
+            return 0;
+        }
+
+        return (int) FeaturesBinds::query()
+            ->where('feature_id', $feature->id)
+            ->where('enabled', 1)
+            ->whereNotNull('bot_id')
+            ->orderByDesc('id')
+            ->value('bot_id');
     }
 
     /**

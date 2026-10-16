@@ -96,7 +96,8 @@ class WalletMiniAppController extends BaseController
                 $data['currency'] ?? 'CNY',
                 (float) $data['amount'],
                 $upstream,
-                $data
+                // 到账通知要发回该功能绑定的机器人（MiniApp 没有会话上下文）
+                $data + ['bot_id' => $this->walletService->botFor($data['feature'])]
             ));
         } catch (Throwable $e) {
             return $this->jsonError($e->getMessage());
@@ -128,7 +129,8 @@ class WalletMiniAppController extends BaseController
                 $data['currency'] ?? 'CNY',
                 (float) $data['amount'],
                 $upstream,
-                $data
+                // 完成通知要发回该功能绑定的机器人（MiniApp 没有会话上下文）
+                $data + ['bot_id' => $this->walletService->botFor($data['feature'])]
             ));
         } catch (Throwable $e) {
             return $this->jsonError($e->getMessage());

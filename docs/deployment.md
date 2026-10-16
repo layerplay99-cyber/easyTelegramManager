@@ -80,6 +80,7 @@ cd telegram-bot
 | `tgbot-reverb` | `telegram-bot-php:8.4` | WebSocket（`reverb:start`，8080） |
 | `tgbot-telethon` | `telegram-bot-telethon`（本地构建） | Python Telethon 服务，8081 |
 | `tgbot-telegram` | 同 php | **默认不启动**（`profiles: ["madeline-legacy"]`），旧 MadelineProto 监听，避免事件双处理 |
+| `tgbot-bot-api` | `aiogram/telegram-bot-api` | **可选**：本地 TDLib Bot API 服务，降延迟 + 突破文件大小限制，见 [telegram-bot-api-server.md](telegram-bot-api-server.md) |
 | `tgbot-redis` | `redis:7-alpine` | 项目自带 Redis（与共享栈的 redis 解耦） |
 | `tgbot-mysql` | `mysql:8.0` | 本机测试库（容器名以实际部署为准） |
 

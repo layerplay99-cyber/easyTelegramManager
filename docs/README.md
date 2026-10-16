@@ -6,7 +6,8 @@
 |---|---|
 | [部署文档](deployment.md) | 环境要求、Docker 方式（共享栈 + 项目容器）、普通方式（宿主机 LNMP）、`.env` / 前端 / Nginx / Supervisor / 升级、上线检查清单 |
 | [Telegram 模块开发文档](telegram-module.md) | 功能（Features）体系、消息链路、**上游回调接入**（验签 / 幂等 / 路由表 / 消息转换器）、按钮交互、外部 API、数据隔离、新增功能的步骤、排错 |
-| [数据库说明](database.md) | 命名约定、76 张表按业务域清单、核心关联关系、`creator_id` 隔离怎么落库、建表注意事项、常用查询 |
+| [本地 Telegram Bot API Server](telegram-bot-api-server.md) | 自建 TDLib Bot API 服务（降延迟 + 突破 20MB/50MB 文件限制）、Docker / 源码 / systemd 三种部署、接入本项目的配置与待改点、运维与排错 |
+| [数据库说明](database.md) | 命名约定、68 张表按业务域清单、核心关联关系、`creator_id` 隔离怎么落库、建表注意事项、常用查询 |
 
 ## 其它位置的文档
 

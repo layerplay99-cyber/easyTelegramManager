@@ -363,6 +363,10 @@ const vi = {
     endpointConfig: 'Cấu hình endpoint',
     upstreamPathConfig: 'Cấu hình đường dẫn endpoint upstream',
     upstreamPathTip: 'Cùng một tính năng có thể có đường dẫn khác nhau ở các upstream. Cấu hình riêng cho từng「upstream + endpoint」; để trống nghĩa là theo đường dẫn mặc định của nền tảng. Nếu đường dẫn bắt đầu bằng http(s):// sẽ được coi là địa chỉ tuyệt đối, bỏ qua base_url.',
+    // Lưu ý: không dùng ngoặc nhọn theo nghĩa đen ở đây — vue-i18n sẽ coi {xxx} là placeholder và hiển thị rỗng.
+    // Ví dụ được hardcode trong thirdConfigEndpoint/index.vue.
+    pathParamTip: 'Đường dẫn hỗ trợ tham số: bao tên tham số bằng một cặp ngoặc nhọn, sẽ được thay bằng giá trị khi gửi yêu cầu. Tên phải khớp với tham số mà tính năng thực sự truyền vào — sai tên sẽ bị thay bằng chuỗi rỗng, khiến đường dẫn thừa một dấu gạch chéo (upstream trả 404 mà không báo lỗi).',
+    pathExample: 'Ví dụ',
     selectUpstream: 'Chọn upstream',
     platformCode: 'Mã nền tảng',
     platformDefaultPath: 'Đường dẫn mặc định nền tảng',

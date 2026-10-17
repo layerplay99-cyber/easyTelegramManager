@@ -14,7 +14,15 @@
 
         <el-alert type="info" show-icon :closable="false" class="mb-4">
           <template #title>
-            {{ $t('third.upstreamPathTip') }}
+            <div class="leading-6">
+              <div>{{ $t('third.upstreamPathTip') }}</div>
+              <div class="mt-2">{{ $t('third.pathParamTip') }}</div>
+              <!-- 示例里的花括号必须硬编码：走 $t 会被 vue-i18n 当占位符插值成空串 -->
+              <div class="mt-1">
+                <span class="text-gray-500">{{ $t('third.pathExample') }}：</span>
+                <code class="px-1 bg-white rounded text-red-600">api/merchants/{merchant_id}/balance</code>
+              </div>
+            </div>
           </template>
         </el-alert>
 
@@ -46,6 +54,11 @@
           </template>
         </el-table-column>
         <el-table-column :label="$t('third.upstreamPath')" min-width="260">
+          <!-- 表头标注占位写法：花括号是语法记号，硬编码（不走 $t），各语言通用 -->
+          <template #header>
+            <span>{{ $t('third.upstreamPath') }}</span>
+            <code class="ml-1 text-xs text-gray-400 font-normal">{参数名}</code>
+          </template>
           <template #default="scope">
             <el-input
               v-model="scope.row.path"

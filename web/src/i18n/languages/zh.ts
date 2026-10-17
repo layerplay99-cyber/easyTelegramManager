@@ -363,6 +363,10 @@ const zh = {
     endpointConfig: '接口配置',
     upstreamPathConfig: '上游接口路径配置',
     upstreamPathTip: '同一个功能在不同上游的路径可能不同。这里为每个「上游 + 接口」单独配置路径；留空表示跟随平台默认路径。若路径以 http(s):// 开头则视为绝对地址，忽略上游 base_url。',
+    // 注意：这里的文案不能出现字面花括号 —— vue-i18n 会把 {xxx} 当占位符插值成空串，
+    // 示例写法放在模板里硬编码（见 thirdConfigEndpoint/index.vue）。
+    pathParamTip: '路径支持参数占位：用一对花括号把参数名包起来，请求时会替换为该参数的值。参数名必须与功能实际传入的参数一致，写错会被替换成空串，导致路径多出一个斜杠（上游会 404，且不报错）。',
+    pathExample: '示例',
     selectUpstream: '请选择上游',
     platformCode: '平台标识',
     platformDefaultPath: '平台默认路径',

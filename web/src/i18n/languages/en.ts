@@ -364,6 +364,10 @@ const en = {
     endpointConfig: 'Endpoint Config',
     upstreamPathConfig: 'Upstream Endpoint Path Config',
     upstreamPathTip: 'The same feature may have different paths on different upstreams. Configure the path per "upstream + endpoint"; leave empty to follow the platform default path. Paths starting with http(s):// are treated as absolute and ignore upstream base_url.',
+    // NOTE: no literal braces here — vue-i18n interpolates {xxx} as a placeholder and renders it empty.
+    // The example itself is hardcoded in thirdConfigEndpoint/index.vue.
+    pathParamTip: 'Paths support parameter placeholders: wrap a parameter name in braces and it is replaced with the value at request time. The name must match the parameter the feature actually passes — a wrong name is silently replaced with an empty string, leaving a double slash (upstream 404s with no error).',
+    pathExample: 'Example',
     selectUpstream: 'Select upstream',
     platformCode: 'Platform Code',
     platformDefaultPath: 'Platform Default Path',

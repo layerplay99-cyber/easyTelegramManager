@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Services\Feature\Drivers\Custom\Merchant;
 
+use Modules\Telegram\Contracts\EndpointProvider;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
@@ -11,7 +12,7 @@ use Modules\Telegram\Services\MerchantRouteService;
 use Modules\Telegram\Services\OperatorPolicy;
 
 /**
- * /trbd <商户号> —— 把当前群绑定到商户号
+ * /bd <商户号> —— 把当前群绑定到商户号
  *
  * 旧实现是 Cache::forever('mid', chat_id)：单机单商户勉强能用，多商户多 bot 下
  * 互相覆盖、清缓存即丢、也无法审计。现在落在 merchant_routes 表：
@@ -21,11 +22,38 @@ use Modules\Telegram\Services\OperatorPolicy;
  *
  * 不带参数 = 查看本群当前绑定。
  */
-class BindMerchant extends BaseCustomFeature
+class BindMerchant extends BaseCustomFeature implements EndpointProvider
 {
     public static function key(): string
     {
         return 'custom.bind_merchant';
+    }
+
+    /**
+     * 本功能要用到的上游接口
+     *
+     * 与 GetMerchantBalance 一样：接口规范跟着「用它的那个类」走。
+     * 写了这里，刷新后台「功能列表」后接口就会进 third_api_endpoints，
+     * 之后在「上游接口配置」里可以按每个上游单独改这条路径
+     * （路径支持 {merchant_id} 占位，例如 api/merchants/{merchant_id}/info）。
+     */
+    public static function endpoints(): array
+    {
+        return [
+            'merchant.check' => [
+                'name' => '校验商户是否存在',
+                'method' => 'GET',
+                'path_template' => 'api/merchant/check',
+                'params_schema' => [
+                    ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
+                ],
+                'response_schema' => [
+                    'exists' => '是否存在',
+                    'name' => '商户名称',
+                ],
+                'remark' => '绑定前先向上游确认商户号是否存在，不存在则拒绝绑定',
+            ],
+        ];
     }
 
     public static function label(): string
@@ -73,6 +101,9 @@ class BindMerchant extends BaseCustomFeature
         return [
             'require_admin' => true,
             'allow_overwrite' => true,
+            'upstream_id' => null,
+            'endpoint_code' => 'merchant.check',
+            'not_exists_tip' => '该商户不存在',
             'reply_template' => '✅ 本群已绑定商户号：{{merchant_id}}',
         ];
     }
@@ -94,6 +125,30 @@ class BindMerchant extends BaseCustomFeature
                 'required' => false,
                 'default' => true,
                 'hint' => '关闭后，已被其它群绑定的商户号不能再绑到本群',
+            ],
+            [
+                'key' => 'upstream_id',
+                'label' => '承接上游',
+                'type' => 'select',
+                'source' => 'third_api_configs',
+                'required' => false,
+                'hint' => '留空则依次用「功能绑定上的上游 → 机器人默认上游」',
+            ],
+            [
+                'key' => 'endpoint_code',
+                'label' => '平台接口',
+                'type' => 'select',
+                'source' => 'platform_endpoints',
+                'required' => true,
+                'default' => 'merchant.check',
+                'hint' => '绑定前用它向该上游确认商户号是否存在',
+            ],
+            [
+                'key' => 'not_exists_tip',
+                'label' => '商户不存在时的提示',
+                'type' => 'text',
+                'required' => false,
+                'default' => '该商户不存在',
             ],
             [
                 'key' => 'reply_template',
@@ -127,10 +182,28 @@ class BindMerchant extends BaseCustomFeature
                 : $this->reply('本群还没有绑定商户号，用法：/bd <商户号>');
         }
 
-        // 上游：绑定级 > 机器人级 > 功能配置
-        $thirdConfigId = $context->bind?->third_config_id
-            ?: $context->bot?->third_config_id
-            ?: $context->config('upstream_id');
+        // 先向上游确认这个商户号是否真的存在（用后台选的接口 + 上游）
+        // 请求返回里判存在的字段名各家不同，这里按常见的几种兜一下，
+        // 具体怎么判交给上游约定：拿到响应后照自己的返回结构改这段即可。
+        $check = $this->callEndpoint(
+            (string) $context->config('endpoint_code', 'merchant.check'),
+            ['merchant_id' => $merchantId],
+            $context
+        );
+
+        if (isset($check['_error'])) {
+            return $this->fail('校验商户失败：' . $check['_error']);
+        }
+
+        if (! $this->merchantExists($check)) {
+            return $this->fail((string) $context->config('not_exists_tip', '该商户不存在'));
+        }
+
+        // 上游：功能配置 > 绑定级 > 机器人级（与 callEndpoint 一致，
+        // 保证校验商户和记录路由用的是同一个上游）
+        $thirdConfigId = $context->config('upstream_id')
+            ?: $context->bind?->third_config_id
+            ?: $context->bot?->third_config_id;
 
         try {
             $routes->bind(
@@ -153,5 +226,41 @@ class BindMerchant extends BaseCustomFeature
             ['merchant_id' => $merchantId],
             $context
         ));
+    }
+
+    /**
+     * 从上游响应里判断商户是否存在
+     *
+     * 各家上游返回的字段名不一样，这里按常见的几种写法兜一下：
+     *   {"exists": true} / {"exist": 1} / {"code": 0} / {"success": true}
+     * 你的上游是别的结构（比如 {"data": {...}} 或直接返回商户对象），
+     * 直接改这个方法里的判断即可，不用动 handle()。
+     *
+     * 判不出来时返回 true（放行）——宁可让真正存在的商户绑上，也不要因为
+     * 上游返回了个没见过的结构就把正常商户拦在外面。
+     *
+     * @param array<string, mixed> $response
+     */
+    protected function merchantExists(array $response): bool
+    {
+        $response = (array) ($response['data'] ?? $response);
+
+        foreach (['exists', 'exist', 'valid', 'found'] as $key) {
+            if (array_key_exists($key, $response)) {
+                return (bool) $response[$key];
+            }
+        }
+
+        // 有些上游用 code：0 表示成功
+        if (array_key_exists('code', $response)) {
+            return (int) $response['code'] === 0;
+        }
+
+        if (array_key_exists('success', $response)) {
+            return (bool) $response['success'];
+        }
+
+        // 返回了内容但没有任何可判字段，视为存在
+        return $response !== [] && ! isset($response['_raw']);
     }
 }

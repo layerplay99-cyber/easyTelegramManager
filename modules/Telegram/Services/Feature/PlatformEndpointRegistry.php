@@ -92,6 +92,34 @@ class PlatformEndpointRegistry
     }
 
     /**
+     * 接口声明内容的指纹
+     *
+     * 用途同 CustomFeatureRegistry::fingerprint()：接口以前只在跑
+     * php artisan telegram:sync-features 时才进库，自己写了 endpoints()
+     * 却没跑命令，后台「上游接口配置」里就看不到。靠指纹变化自动同步后，
+     * 声明改了刷新后台即可见。
+     */
+    public static function fingerprint(): string
+    {
+        $data = [];
+
+        foreach (self::definitions() as $code => $definition) {
+            $data[$code] = [
+                'name' => $definition['name'] ?? null,
+                'method' => $definition['method'] ?? null,
+                'path_template' => $definition['path_template'] ?? null,
+                'params_schema' => $definition['params_schema'] ?? null,
+                'response_schema' => $definition['response_schema'] ?? null,
+                'remark' => $definition['remark'] ?? null,
+            ];
+        }
+
+        ksort($data);
+
+        return md5((string) json_encode($data, JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
      * 清空缓存（扫描结果按请求缓存，新增接口后调用）
      */
     public static function flush(): void

@@ -64,6 +64,29 @@ class FeaturesController extends Controller
             }
         }
 
+        // 平台接口也要一起自动扫描：接口以前只在跑
+        // php artisan telegram:sync-features 时才进库，导致自己写了 endpoints()
+        // 却不知道为什么后台「上游接口配置」里没有。逻辑与上面一致——
+        // 指纹变了才写库，缓存挂了也不让列表页 500。
+        $endpointKey = 'telegram.platform_endpoints.fingerprint';
+        $endpointFingerprint = PlatformEndpointRegistry::fingerprint();
+
+        try {
+            $cachedEndpoint = Cache::get($endpointKey);
+        } catch (\Throwable $e) {
+            $cachedEndpoint = null;
+        }
+
+        if ($cachedEndpoint !== $endpointFingerprint) {
+            PlatformEndpointRegistry::sync();
+
+            try {
+                Cache::forever($endpointKey, $endpointFingerprint);
+            } catch (\Throwable $e) {
+                // 忽略：本次已同步成功
+            }
+        }
+
         return $this->model->setBeforeGetList(function ($query) use ($request) {
             if ($category = $request->input('category')) {
                 $query->where('category', $category);
@@ -235,22 +258,16 @@ class FeaturesController extends Controller
                 $map[(string) $featureId] = $rows->toArray();
             }
 
-            return response()->json([
-                'code' => 10000,
-                'message' => 'success',
-                'data' => $map,
-            ]);
+            return response()->json($map);
         }
 
-        return response()->json([
-            'code' => 10000,
-            'message' => 'success',
-            'data' => FeatureCommands::query()
+        return response()->json(
+            FeatureCommands::query()
                 ->where('feature_id', $id)
                 ->orderByDesc('id')
                 ->get()
-                ->toArray(),
-        ]);
+                ->toArray()
+        );
     }
 
     /**
@@ -505,6 +522,12 @@ class FeaturesController extends Controller
      */
     public function saveCommands(Request $request, int|string $id): JsonResponse
     {
+        // 没带 commands 字段 = 客户端没提交这块，直接拒绝。
+        // 否则前端加载命令失败时会提交空数组，下面的删除逻辑会把该功能的命令全部清空。
+        if (! $request->has('commands')) {
+            return response()->json(['message' => '缺少 commands 参数，未做任何改动'], 400);
+        }
+
         $commands = (array) $request->input('commands', []);
 
         // 先删掉该功能下未被提交的命令，实现「删改」语义
@@ -520,8 +543,10 @@ class FeaturesController extends Controller
                 continue;
             }
 
+            // 必须带 feature_id 一起匹配：只按 command 名匹配会把别的功能的
+            // 同名命令行抢过来（连带把它的 feature_id 改成当前功能）。
             FeatureCommands::query()->updateOrCreate(
-                ['command' => $command['command']],
+                ['feature_id' => $id, 'command' => $command['command']],
                 [
                     'feature_id' => $id,
                     'command' => $command['command'],

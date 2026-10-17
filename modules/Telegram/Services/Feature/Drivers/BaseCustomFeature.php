@@ -307,12 +307,22 @@ abstract class BaseCustomFeature implements FeatureDriver
             return ['_error' => "平台接口不存在：{$endpointCode}"];
         }
 
-        // 上游优先级：绑定级（(实体,功能)）> 实体级默认（机器人）
-        $thirdConfigId = $context?->bind?->third_config_id ?? $context?->bot?->third_config_id;
+        // 上游优先级：功能配置（后台在该功能配置里选的「承接上游」）
+        //             > 绑定级（(实体,功能)）> 实体级默认（机器人）
+        //
+        // 与 WalletService::upstreamFor() 保持一致：后台显式选的优先。
+        // 功能配置为空时退回后面两级，所以没配过的功能行为完全不变。
+        //
+        // 注意：features.config 是全局的（功能本身全局唯一），这里选的上游对所有
+        // 用这个功能的用户生效；要按用户分开，就在该功能绑定上单独指定上游。
+        $thirdConfigId = ($context ? $context->config('upstream_id') : null)
+            ?: ($context?->bind?->third_config_id ?? null)
+            ?: ($context?->bot?->third_config_id ?? null);
+
         $third = $thirdConfigId ? ThirdApiConfig::query()->find($thirdConfigId) : null;
 
         if (! $third) {
-            return ['_error' => '尚未指定三方上游：请在「机器人列表」的上游列设置默认值，或在该机器人的「功能配置」里为当前功能单独指定'];
+            return ['_error' => '尚未指定三方上游：请在该功能的配置里选择「承接上游」，或在功能绑定 / 机器人列表的上游列设置'];
         }
 
         // 取「该上游 + 该接口」最终生效的配置：上游专属路径优先，回退平台默认

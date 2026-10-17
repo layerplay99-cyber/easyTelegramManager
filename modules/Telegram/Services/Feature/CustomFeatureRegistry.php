@@ -74,6 +74,38 @@ class CustomFeatureRegistry
     }
 
     /**
+     * 代码声明内容的指纹
+     *
+     * hasPending() 只能发现「库里还没有的新类」。改了已有功能的描述/名称/分类/
+     * 命令，是发现不了的——而后台列表正是靠 hasPending() 触发自动同步，所以
+     * 这类改动刷新页面永远看不到（改了代码却显示旧内容）。
+     *
+     * 指纹用来补这个缺口：声明内容变了就重新同步，没变就不动库。
+     *
+     * 注意：命令只比对名字。命令内容（用法/说明/模板）是后台可自定义的，
+     * syncCommand() 刻意不覆盖已有命令，所以改名之外的命令改动不会自动生效。
+     */
+    public function fingerprint(): string
+    {
+        $data = [];
+
+        foreach (self::discover() as $class) {
+            $data[$class::featureKey()] = [
+                'name' => $class::featureName(),
+                'description' => $class::featureDescription(),
+                'category' => $class::category(),
+                'trigger' => $class::triggerName(),
+                'driver' => $class::driver(),
+                'commands' => array_column($class::commands(), 'command'),
+            ];
+        }
+
+        ksort($data);
+
+        return md5((string) json_encode($data, JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
      * 同步到数据库
      *
      * @return array<int, string> 同步的功能名称列表

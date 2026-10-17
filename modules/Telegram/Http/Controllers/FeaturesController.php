@@ -6,6 +6,7 @@ namespace Modules\Telegram\Http\Controllers;
 use Catch\Base\CatchController as Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\BotGroups;
@@ -35,11 +36,32 @@ class FeaturesController extends Controller
     public function index(Request $request): mixed
     {
         // 自动扫描：Drivers/Custom/ 下新写的功能代码在此自动同步进数据库，
-        // 后台「功能列表」打开即可见（仅在发现未登记的功能时才写库）。
+        // 后台「功能列表」打开即可见。
+        //
+        // 两种情况都要触发，否则「改了代码但刷新后台还是旧内容」：
+        //   1) hasPending()   —— 库里还没有的新功能类
+        //   2) 指纹变化       —— 已登记的功能改了声明（描述/名称/分类/命令名）
+        // 指纹没变就不写库，避免每次打开列表都同步一遍。
         $custom = app(CustomFeatureRegistry::class);
+        $fingerprintKey = 'telegram.custom_features.fingerprint';
 
-        if ($custom->hasPending()) {
+        // 这个列表页以前不碰缓存，现在依赖它判断要不要同步。缓存（线上是 Redis）
+        // 抖动时不能让页面 500：读不到指纹就按「需要同步」处理，写不进去也只是
+        // 下次打开再同步一次——sync() 是幂等的，两条路都安全。
+        try {
+            $cached = Cache::get($fingerprintKey);
+        } catch (\Throwable $e) {
+            $cached = null;
+        }
+
+        if ($custom->hasPending() || $cached !== $custom->fingerprint()) {
             $custom->sync();
+
+            try {
+                Cache::forever($fingerprintKey, $custom->fingerprint());
+            } catch (\Throwable $e) {
+                // 忽略：本次已同步成功
+            }
         }
 
         return $this->model->setBeforeGetList(function ($query) use ($request) {

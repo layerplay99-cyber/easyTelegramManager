@@ -124,7 +124,7 @@ class BindMerchant extends BaseCustomFeature
 
             return $bound
                 ? $this->reply('本群已绑定商户号：' . implode('、', $bound))
-                : $this->reply('本群还没有绑定商户号，用法：/trbd <商户号>');
+                : $this->reply('本群还没有绑定商户号，用法：/bd <商户号>');
         }
 
         // 上游：绑定级 > 机器人级 > 功能配置

@@ -9,7 +9,7 @@ namespace Modules\Telegram\Services\Feature\Drivers\Custom\RealMan;
  */
 class CollectEmojiFromGroup extends AbstractRealManFeature
 {
-    public static function featureKey(): string
+    public static function uuid(): string
     {
         return 'collectEmoji';
     }

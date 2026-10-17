@@ -23,7 +23,7 @@ class WalletBill extends AbstractWalletFeature
         return '钱包·我的账单';
     }
 
-    public static function featureKey(): string
+    public static function uuid(): string
     {
         return 'walletBill';
     }

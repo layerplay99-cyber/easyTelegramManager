@@ -9,7 +9,7 @@ namespace Modules\Telegram\Services\Feature\Drivers\Custom\RealMan;
  */
 class FastReplayMsg extends AbstractRealManFeature
 {
-    public static function featureKey(): string
+    public static function uuid(): string
     {
         return 'fastReplayMsg';
     }

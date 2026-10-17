@@ -19,7 +19,7 @@ use Modules\Telegram\Services\Feature\Drivers\TelegramApiDriver;
  * 不需要为每个动作新建一个执行器。
  *
  * 子类只需声明：
- *   - featureKey() 功能标识（入库为 custom:{featureKey}）
+ *   - uuid() 功能唯一标识（入库为 custom:{uuid}）
  *   - featureName() 功能名称（后台功能列表显示）
  *   - method()     真人操作（TelegramApiDriver::METHODS 的键）
  *

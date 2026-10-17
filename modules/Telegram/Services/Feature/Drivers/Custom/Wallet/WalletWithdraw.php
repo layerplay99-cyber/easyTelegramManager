@@ -27,7 +27,7 @@ class WalletWithdraw extends AbstractWalletFeature
         return '钱包·提现';
     }
 
-    public static function featureKey(): string
+    public static function uuid(): string
     {
         return 'walletWithdraw';
     }

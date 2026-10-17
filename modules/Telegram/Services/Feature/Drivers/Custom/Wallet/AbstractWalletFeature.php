@@ -107,7 +107,7 @@ abstract class AbstractWalletFeature extends BaseCustomFeature
     protected function upstream(FeatureContext $context): ThirdApiConfig
     {
         return app(WalletService::class)->upstreamFor(
-            'custom:' . static::featureKey(),
+            'custom:' . static::uuid(),
             (int) ($context->bind?->third_config_id ?: $context->bot?->third_config_id ?: 0)
         );
     }

@@ -65,7 +65,7 @@ class CustomFeatureRegistry
     public function hasPending(): bool
     {
         foreach (self::discover() as $class) {
-            if (! Features::query()->where('feature', 'custom:' . $class::featureKey())->exists()) {
+            if (! Features::query()->where('feature', 'custom:' . $class::uuid())->exists()) {
                 return true;
             }
         }
@@ -90,7 +90,7 @@ class CustomFeatureRegistry
         $data = [];
 
         foreach (self::discover() as $class) {
-            $data[$class::featureKey()] = [
+            $data[$class::uuid()] = [
                 'name' => $class::featureName(),
                 'description' => $class::featureDescription(),
                 'category' => $class::category(),
@@ -132,10 +132,10 @@ class CustomFeatureRegistry
      */
     protected function syncFeature(string $class): Features
     {
-        $key = 'custom:' . $class::featureKey();
+        $key = 'custom:' . $class::uuid();
 
-        // 兼容旧数据：早期 featureKey 默认返回完整类名，标识很长且暴露目录结构。
-        // 先按新（短）标识找，找不到再按旧的完整类名找，找到就把它迁移到短标识，
+        // 兼容旧数据：早期标识默认取完整类名，很长且暴露目录结构。
+        // 先按当前 uuid 找，找不到再按旧的完整类名找，找到就把它迁移到 uuid，
         // 避免产生两条重复功能记录。
         $existing = Features::query()->where('feature', $key)->first();
 
@@ -219,7 +219,7 @@ class CustomFeatureRegistry
         foreach (self::discover() as $class) {
             $list[] = [
                 'key' => $class::key(),
-                'feature_key' => $class::featureKey(),
+                'uuid' => $class::uuid(),
                 'name' => $class::featureName(),
                 'description' => $class::featureDescription(),
                 'category' => $class::category(),

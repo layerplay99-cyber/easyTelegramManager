@@ -25,7 +25,7 @@ class WalletBalance extends AbstractWalletFeature
         return '钱包·查询余额';
     }
 
-    public static function featureKey(): string
+    public static function uuid(): string
     {
         return 'walletBalance';
     }

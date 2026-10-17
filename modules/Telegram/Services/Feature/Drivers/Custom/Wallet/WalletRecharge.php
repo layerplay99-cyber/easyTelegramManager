@@ -28,7 +28,7 @@ class WalletRecharge extends AbstractWalletFeature
         return '钱包·充值';
     }
 
-    public static function featureKey(): string
+    public static function uuid(): string
     {
         return 'walletRecharge';
     }

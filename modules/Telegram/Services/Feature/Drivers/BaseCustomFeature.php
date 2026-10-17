@@ -23,7 +23,7 @@ use Modules\Telegram\Services\Feature\ThirdEndpointResolver;
  *
  * 该类会自动：
  *   - 被驱动注册表发现（后台「功能列表」出现该执行器）
- *   - 按 featureKey() 幂等写入 features 表
+ *   - 按 uuid() 幂等写入 features 表
  *   - 按 commands() 声明写入 feature_commands 表
  *   - 命令分发时自动路由到 handle()
  *
@@ -101,14 +101,28 @@ abstract class BaseCustomFeature implements FeatureDriver
     // ------------------------------------------------------------------
 
     /**
-     * 功能唯一标识，用于幂等 upsert
+     * 功能唯一标识（UUID），用于幂等 upsert
      *
-     * 默认用「短类名」（不含命名空间），避免出现
+     * 这是功能在整个系统里的「身份证」，决定 features 表里是哪一行
+     * （入库为 custom:{uuid}）。后台配置——启用开关、绑定的机器人/群、
+     * 命令内容、执行器配置——全都挂在那一行的 id 上，所以它必须稳定。
+     *
+     * 【什么时候不要动】
+     *   改描述、改功能名称、改业务逻辑、改命令内容，都不需要也不应该改 uuid。
+     *   功能代码是要长期维护的，uuid 只用来认人，不承载业务含义。
+     *
+     * 【什么时候必须显式覆盖】
+     *   只有一种情况：重命名了类，或把它挪到别的命名空间。
+     *   默认取短类名，一旦改名就等于换了个新功能——features 表会新建一行，
+     *   后台原来配的东西（开关、绑定、命令）全都留在旧行上，等于丢了。
+     *   这时把 uuid() 覆盖成**原来的值**即可接回去。
+     *
+     * 默认取短类名（不含命名空间），避免出现
      * Modules\Telegram\Services\Feature\Drivers\Custom\Xxx 这种把代码目录结构
-     * 暴露到数据库里的长标识。需要更语义化的标识时覆盖本方法即可，
+     * 暴露到数据库里的长标识。想要更语义化的标识就直接覆盖，
      * 例如 return 'merchant_balance';
      */
-    public static function featureKey(): string
+    public static function uuid(): string
     {
         return class_basename(static::class);
     }

@@ -40,7 +40,7 @@ class BindMerchant extends BaseCustomFeature
 
     public static function featureDescription(): string
     {
-        return '把当前群绑定到商户号，该商户的交易通知才会发到本群（/trbd <商户号>）';
+        return '把当前群绑定到商户号（/bd <商户号>）';
     }
 
     public static function category(): string
@@ -58,7 +58,7 @@ class BindMerchant extends BaseCustomFeature
         return [
             [
                 'command' => 'bd',
-                'usage' => '/trbd <商户号>',
+                'usage' => '/bd <商户号>',
                 'description' => '绑定/查看本群的商户号',
                 'params' => [
                     ['name' => 'merchant_id', 'required' => false, 'desc' => '商户号，留空表示查看'],

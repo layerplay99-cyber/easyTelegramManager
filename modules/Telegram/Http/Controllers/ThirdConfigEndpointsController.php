@@ -106,10 +106,22 @@ class ThirdConfigEndpointsController extends Controller
         ]);
 
         $submitted = collect($validated['endpoints'] ?? []);
-        $codes = $submitted->pluck('code')->filter()->unique()->all();
         $creatorId = $this->getLoginUserId();
 
-        DB::transaction(function () use ($thirdConfigId, $submitted, $codes, $creatorId) {
+        DB::transaction(function () use ($thirdConfigId, $submitted, $creatorId) {
+            // 先物理清空该上游的全部旧映射（含软删除残留），再按本次提交重建。
+            //
+            // 用 withTrashed()->forceDelete() 而不是 delete()，有两个原因：
+            //   1) 本表 (third_config_id, endpoint_code) 有唯一索引，而模型带软删除 ——
+            //      软删除的行仍然占着这个唯一键，「清空某接口后再配置它」时
+            //      updateOrCreate 查不到（被作用域排除）却插不进（唯一键冲突），
+            //      整批保存直接失败。
+            //   2) 本接口是「整批替换」语义，旧映射没有保留价值。
+            ThirdConfigEndpoint::query()
+                ->withTrashed()
+                ->where('third_config_id', $thirdConfigId)
+                ->forceDelete();
+
             foreach ($submitted as $item) {
                 $code = trim((string) $item['code']);
                 if ($code === '') {
@@ -121,35 +133,21 @@ class ThirdConfigEndpointsController extends Controller
                 $remark = trim((string) ($item['remark'] ?? ''));
                 $enabled = array_key_exists('enabled', $item) ? (bool) $item['enabled'] : true;
 
-                // 没有任何实质内容（既无路径也无方法，且未禁用）→ 删除映射，回退平台默认
+                // 没有任何实质内容（既无路径也无方法，且未禁用）→ 不建映射，回退平台默认
                 if ($path === '' && $method === '' && $remark === '' && $enabled) {
-                    ThirdConfigEndpoint::query()
-                        ->where('third_config_id', $thirdConfigId)
-                        ->where('endpoint_code', $code)
-                        ->delete();
                     continue;
                 }
 
-                ThirdConfigEndpoint::query()->updateOrCreate(
-                    [
-                        'third_config_id' => $thirdConfigId,
-                        'endpoint_code' => $code,
-                    ],
-                    [
-                        'path' => $path !== '' ? $path : null,
-                        'method' => $method !== '' ? strtoupper($method) : null,
-                        'enabled' => $enabled,
-                        'remark' => $remark !== '' ? $remark : null,
-                        'creator_id' => $creatorId,
-                    ]
-                );
+                ThirdConfigEndpoint::query()->create([
+                    'third_config_id' => $thirdConfigId,
+                    'endpoint_code' => $code,
+                    'path' => $path !== '' ? $path : null,
+                    'method' => $method !== '' ? strtoupper($method) : null,
+                    'enabled' => $enabled,
+                    'remark' => $remark !== '' ? $remark : null,
+                    'creator_id' => $creatorId,
+                ]);
             }
-
-            // 本次未提交的旧映射一并清理，避免残留失效配置
-            ThirdConfigEndpoint::query()
-                ->where('third_config_id', $thirdConfigId)
-                ->whereNotIn('endpoint_code', $codes)
-                ->delete();
         });
 
         return response()->json(['message' => '保存成功']);

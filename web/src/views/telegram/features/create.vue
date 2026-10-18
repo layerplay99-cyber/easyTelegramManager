@@ -282,6 +282,16 @@ const removeParam = (cmd: any, index: number) => cmd.params.splice(index, 1)
 const dynamicOptions = ref<Record<string, any[]>>({})
 
 /**
+ * 选项版本号：每次动态选项拉取完成后 +1
+ *
+ * 不能直接依赖「dynamicOptions 新增一个 key 会不会触发更新」——
+ * 首帧渲染时该 key 往往还不存在，读到的就是 undefined，
+ * 之后异步把 key 补上，Vue 不保证能追踪到这个新增，下拉就会一直停在旧列表。
+ * 让 optionsFor() 读一下这个版本号，就能确定性地触发重新渲染。
+ */
+const optionsVersion = ref(0)
+
+/**
  * 平台接口类下拉：括号里显示的是「该上游实际生效」的 method + path。
  * 后台在「上游接口配置」里定制过之后，下拉要跟着变，不能还显示平台默认的示例值。
  */
@@ -295,6 +305,8 @@ const ENDPOINT_SOURCES = ['platform_endpoints', 'third_api_endpoints']
  * 所以这里对 ENDPOINT_SOURCES 反过来优先取动态拉取的结果，静态的只作兜底。
  */
 const optionsFor = (field: any) => {
+  void optionsVersion.value
+
   if (ENDPOINT_SOURCES.includes(field.source)) {
     const dynamic = dynamicOptions.value[field.source]
     if (dynamic && dynamic.length) return dynamic
@@ -312,8 +324,14 @@ const optionsFor = (field: any) => {
 const loadDynamicOptions = async (sources: string[], force = false) => {
   const uniq = [...new Set(sources.filter(Boolean))]
 
+  // 先把 key 建出来（同步执行，首帧渲染前就位），避免渲染时读到不存在的 key
+  uniq.forEach((source) => {
+    if (!Array.isArray(dynamicOptions.value[source])) dynamicOptions.value[source] = []
+  })
+
   await Promise.all(uniq.map(async (source) => {
-    if (!force && dynamicOptions.value[source]) return
+    // 判断「已加载过」要看长度而不是真值：上面预建的占位是 []，它是真值
+    if (!force && dynamicOptions.value[source]?.length) return
 
     try {
       const params: Record<string, any> = { source }
@@ -330,6 +348,9 @@ const loadDynamicOptions = async (sources: string[], force = false) => {
       dynamicOptions.value[source] = []
     }
   }))
+
+  // 确定性触发重新渲染
+  optionsVersion.value++
 }
 
 // ---------- 表单 ----------

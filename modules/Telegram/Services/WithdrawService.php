@@ -7,6 +7,7 @@ use Modules\Telegram\Models\Wallet;
 use Modules\Telegram\Models\WithdrawOrder;
 use Modules\Telegram\Models\PaymentChannel;
 use Modules\Telegram\Models\ExchangeRate;
+use Modules\Telegram\Jobs\SendOrderNotificationJob;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -204,7 +205,9 @@ class WithdrawService
         // 状态校验原来在事务外：两个并发请求会同时通过校验，
         // 然后各自 deductFrozen 一次 → 重复扣减冻结余额。
         // 改为在事务内用行锁重新取一次订单再判断。
-        return DB::transaction(function () use ($order, $options) {
+        // 同 RechargeService::completeOrder：事务内只做必须原子的账务动作，
+        // 通知（外部 HTTP）与操作日志移到事务外，避免持锁做网络 I/O 把并发串行化。
+        $completed = DB::transaction(function () use ($order, $options) {
             $locked = WithdrawOrder::where('id', $order->id)->lockForUpdate()->first();
 
             if (! $locked) {
@@ -216,7 +219,7 @@ class WithdrawService
                     'order_no' => $locked->order_no,
                 ]);
 
-                return true;
+                return null;
             }
 
             if (!in_array($locked->status, [WithdrawOrder::STATUS_PENDING, WithdrawOrder::STATUS_PROCESSING])) {
@@ -253,21 +256,20 @@ class WithdrawService
             }
             $locked->save();
 
-            // 发送通知（网络 I/O 失败不能回滚已完成的账务）
-            try {
-                $this->notificationService->sendWithdrawCompleteNotification($locked);
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('提现完成通知发送失败', [
-                    'order_no' => $locked->order_no,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            // 记录操作日志
-            $this->logOperation($locked->member_id, 'complete', $locked, $options['admin_id'] ?? 0);
-
-            return true;
+            return $locked;
         });
+
+        // 同 RechargeService::completeOrder：通知必须走 DB::afterCommit，
+        // 等最外层事务真正提交、行锁释放后再入队，不能在事务里发网络请求。
+        if ($completed !== null) {
+            DB::afterCommit(function () use ($completed, $options) {
+                SendOrderNotificationJob::dispatch('withdraw', $completed->id);
+
+                $this->logOperation($completed->member_id, 'complete', $completed, $options['admin_id'] ?? 0);
+            });
+        }
+
+        return true;
     }
 
     /**

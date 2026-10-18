@@ -49,8 +49,39 @@ class ThirdEndpointResolver
             'method' => strtoupper(self::pickString($override?->method, (string) $endpoint->method) ?: 'GET'),
             'headers' => self::pickArray($override?->headers, $endpoint->headers),
             'query' => self::pickArray($override?->query, $endpoint->query),
-            'timeout' => (int) ($endpoint->timeout ?: 30),
+            'timeout' => (int) self::normalizeTimeout($endpoint->timeout),
         ];
+    }
+
+    /**
+     * 未显式配置时的默认总超时（秒）
+     */
+    public static function defaultTimeout(): int
+    {
+        return (int) config('telegram.http_client.timeout', 10);
+    }
+
+    /**
+     * 总超时的硬上限（秒）
+     *
+     * 后台「上游接口配置」里把超时调得再大也不会超过它。单个上游卡顿最多只占住
+     * worker 这么久，剩下的靠「按 order_no 查单对账」兜底，而不是让队列干等 30 秒。
+     */
+    public static function maxTimeout(): int
+    {
+        return (int) config('telegram.http_client.max_timeout', 15);
+    }
+
+    /**
+     * 归一化超时：空值走默认值，再统一封顶
+     *
+     * @param mixed $timeout 平台接口表里配的秒数
+     */
+    public static function normalizeTimeout(mixed $timeout): int
+    {
+        $timeout = (int) ($timeout ?: self::defaultTimeout());
+
+        return max(1, min($timeout, self::maxTimeout()));
     }
 
     /**

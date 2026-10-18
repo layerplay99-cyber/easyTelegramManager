@@ -67,7 +67,9 @@ class UpstreamCaller
         $url = ThirdEndpointResolver::buildUrl($third, $path);
 
         try {
-            $request = Http::timeout((int) ($options['timeout'] ?? $resolved['timeout'] ?: 30));
+            $request = Http::timeout(ThirdEndpointResolver::normalizeTimeout(
+                $options['timeout'] ?? $resolved['timeout'] ?? null
+            ));
 
             $headers = $resolved['headers'];
             if ($third->token) {

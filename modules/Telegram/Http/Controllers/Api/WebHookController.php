@@ -31,13 +31,19 @@ class WebHookController extends CatchController
         try {
             $update = $this->telegram->getWebhookUpdate();
 
+            // 全量 update（含 headers、body）默认不落盘：这份 payload 不小，
+            // 每请求序列化 + 写一次磁盘，是 webhook 主链路里唯一的同步 IO，
+            // 高并发下会把磁盘拖成串行瓶颈（表现为 CPU 不满、无慢 SQL、并发越大越慢）。
+            // 排查问题时把 TELEGRAM_LOG_WEBHOOK_UPDATE=true 打开即可。
             $this->logMessageService->createLaravelLog(
                 'telegram_info',
-                [
-                    'update' => $update,
-                    'headers' => $request->headers->all(),
-                    'body' => $request->all(),
-                ],
+                config('telegram.log_webhook_update', false)
+                    ? [
+                        'update' => $update,
+                        'headers' => $request->headers->all(),
+                        'body' => $request->all(),
+                    ]
+                    : ['update_id' => $update->updateId ?? $update->update_id ?? null],
                 'Received Telegram Webhook',
                 'info'
             );

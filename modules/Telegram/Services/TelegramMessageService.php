@@ -224,7 +224,10 @@ class TelegramMessageService
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
-                $response = Http::timeout(30)->post($url, $payload);
+                // Bot API 正常几百毫秒就返回，30 秒只会让 worker 白白干等；
+                // 建连超时由 HttpClientServiceProvider 全局兜底。
+                $response = Http::timeout((int) config('telegram.http_client.timeout', 10))
+                    ->post($url, $payload);
 
                 if ($response->successful()) {
                     return true;

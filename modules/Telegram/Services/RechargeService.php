@@ -6,6 +6,7 @@ use Modules\Telegram\Models\Member;
 use Modules\Telegram\Models\Wallet;
 use Modules\Telegram\Models\RechargeOrder;
 use Modules\Telegram\Models\PaymentChannel;
+use Modules\Telegram\Jobs\SendOrderNotificationJob;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -190,7 +191,11 @@ class RechargeService
      */
     public function completeOrder(RechargeOrder $order, array $options = []): bool
     {
-        return DB::transaction(function () use ($order, $options) {
+        // 事务内只做「必须原子」的账务动作。通知（外部 HTTP）和操作日志必须放在事务外：
+        // 事务期间持有订单行锁 + 钱包行锁，在里面发 Telegram 消息（正常 100~300ms，
+        // 429 限流重试最坏几十秒）会让同一钱包的并发回调全部阻塞在 Wallet::lockForUpdate()
+        // 上被串行化 —— 并发越大排队越久，上游等不到响应就超时、挂单。
+        $completed = DB::transaction(function () use ($order, $options) {
             // 1. 行锁 + 状态校验，保证幂等。
             //    原来直接拿传入的 $order 加钱、不校验状态，
             //    后台补单连点两次 / 并发回调都会重复加余额。
@@ -202,7 +207,7 @@ class RechargeService
 
             if ($locked->status === RechargeOrder::STATUS_COMPLETED) {
                 Log::warning('充值订单已完成，忽略重复入账', ['order_no' => $locked->order_no]);
-                return true;
+                return null;
             }
 
             if (! in_array($locked->status, [RechargeOrder::STATUS_PENDING, RechargeOrder::STATUS_PAID], true)) {
@@ -253,22 +258,25 @@ class RechargeService
             }
             $locked->save();
 
-            // 5. 发送通知到Telegram群
-            //    网络 I/O 不能因为失败就把已经入账的余额回滚掉，这里单独兜住
-            try {
-                $this->notificationService->sendRechargeNotification($locked);
-            } catch (\Throwable $e) {
-                Log::warning('充值通知发送失败', [
-                    'order_no' => $locked->order_no,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            // 6. 记录操作日志
-            $this->logOperation($locked->member_id, 'complete', $locked);
-
-            return true;
+            return $locked;
         });
+
+        // 通知绝不能留在事务里：事务持有订单行锁 + 钱包行锁，
+        // 在里面发 Telegram 消息（正常几百毫秒，429 限流重试最坏几十秒）会把同一钱包的
+        // 并发回调全部串行化 → 排队 → 上游超时 → 状态不对 / 挂单。
+        //
+        // 注意：本方法被 handleCallback 的外层事务包着，这里的 DB::transaction 只是嵌套
+        // savepoint，并不会真正提交。所以必须用 DB::afterCommit —— 它会等到「最外层事务
+        // 提交之后」才执行，锁此时才真正释放；事务回滚则回调不执行，不会误发通知。
+        if ($completed !== null) {
+            DB::afterCommit(function () use ($completed) {
+                SendOrderNotificationJob::dispatch('recharge', $completed->id);
+
+                $this->logOperation($completed->member_id, 'complete', $completed);
+            });
+        }
+
+        return true;
     }
 
     /**

@@ -213,7 +213,7 @@ class UpstreamWalletGateway implements WalletGateway, EndpointProvider
         $method = strtoupper((string) ($resolved['method'] ?: $endpoint->method ?: 'POST'));
 
         try {
-            $response = Http::timeout((int) ($resolved['timeout'] ?: 30))
+            $response = Http::timeout(ThirdEndpointResolver::normalizeTimeout($resolved['timeout'] ?? null))
                 ->withHeaders($resolved['headers'] ?? [])
                 ->{$method === 'GET' ? 'get' : 'post'}($url, $method === 'GET' ? [] : $payload);
         } catch (\Throwable $e) {

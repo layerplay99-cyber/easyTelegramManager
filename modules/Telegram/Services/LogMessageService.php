@@ -131,11 +131,32 @@ class LogMessageService
         $logger->{$method}($msg, $data);
     }
 
+    /**
+     * 按「文件 + 日期」缓存 logger
+     *
+     * Log::build() 每次都要 new 一个 Monolog（含解析通道、打开文件句柄），
+     * 而 webhook 这类每请求都写日志的路径会一秒调几十上百次，纯属浪费。
+     *
+     * 用 static 缓存后：FPM 进程内跨请求复用，队列 worker 内跨 job 复用。
+     * 按日期做 key 是因为 daily 通道的文件名带日期，跨天后必须换一个新的 logger，
+     * 同时也避免长驻进程里缓存无限增长把文件句柄撑爆。
+     */
     private function buildLogger(string $fileName): LoggerInterface
     {
-        return Log::build([
-            'driver' => self::LOG_CHANNEL,
-            'path' => storage_path("logs/{$fileName}.log"),
-        ]);
+        static $loggers = [];
+
+        $today = date('Y-m-d');
+
+        if (! isset($loggers[$fileName]) || $loggers[$fileName]['date'] !== $today) {
+            $loggers[$fileName] = [
+                'date' => $today,
+                'logger' => Log::build([
+                    'driver' => self::LOG_CHANNEL,
+                    'path' => storage_path("logs/{$fileName}.log"),
+                ]),
+            ];
+        }
+
+        return $loggers[$fileName]['logger'];
     }
 }

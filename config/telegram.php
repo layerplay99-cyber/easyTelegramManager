@@ -27,4 +27,41 @@ return [
     */
     'base_bot_url' => env('TELEGRAM_BASE_BOT_URL', 'https://api.telegram.org/bot'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | 出站 HTTP 超时（秒）
+    |--------------------------------------------------------------------------
+    | 并发下最危险的不是「算不动」，而是「进程在干等」。
+    | Guzzle 默认没有连接超时（connect_timeout=0 表示无限等待），本项目原来也只设了
+    | 总超时。一旦对端的 DNS / TCP / TLS 握手卡住，当前进程会空等到总超时才报错，
+    | 队列 worker 就被整条占住几十秒；并发一上来，等待被排队放大，就是雪崩。
+    |
+    |   connect_timeout  只管建连，必须远小于 timeout。建连失败要立刻失败并重试，
+    |                    不能把 worker 的时间耗在一次没希望的连接上。
+    |   timeout          未显式指定时的默认总超时。
+    |   max_timeout      硬上限。后台 / 上游把超时配得再大也不会超过它 ——
+    |                    宁可快速失败后按 order_no 对账，也不要让 worker 干等 30 秒。
+    |
+    | 由 Providers/HttpClientServiceProvider 把 connect_timeout 注入为全局默认值，
+    | 任何调用点显式传的 timeout 仍然优先。
+    |
+    */
+    'http_client' => [
+        'connect_timeout' => (int) env('TELEGRAM_HTTP_CONNECT_TIMEOUT', 3),
+        'timeout'         => (int) env('TELEGRAM_HTTP_TIMEOUT', 10),
+        'max_timeout'     => (int) env('TELEGRAM_HTTP_MAX_TIMEOUT', 15),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Webhook 是否记录完整 update
+    |--------------------------------------------------------------------------
+    | 关闭时只记 update_id。全量 update（含 headers、body）每请求都要序列化并写一份
+    | 大 payload 到磁盘，是 webhook 主链路里唯一的同步 IO，高并发下会把磁盘拖成串行
+    | 瓶颈（表现为：CPU 不满、无慢 SQL、并发越大越慢）。
+    | 排查问题时临时置为 true 即可。
+    |
+    */
+    'log_webhook_update' => (bool) env('TELEGRAM_LOG_WEBHOOK_UPDATE', false),
+
 ];

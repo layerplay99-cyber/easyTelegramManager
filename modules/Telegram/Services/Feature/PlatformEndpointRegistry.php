@@ -216,7 +216,7 @@ class PlatformEndpointRegistry
     }
 
     /**
-     * 后台下拉选项：code + 名称 + 方法路径
+     * 后台下拉选项：code + 名称 + 平台默认的方法路径
      *
      * @return array<int, array<string, mixed>>
      */
@@ -228,6 +228,56 @@ class PlatformEndpointRegistry
             $options[] = [
                 'value' => $definition['code'],
                 'label' => sprintf('%s（%s %s）', $definition['name'], $definition['method'], $definition['path_template']),
+            ];
+        }
+
+        return $options;
+    }
+
+    /**
+     * 后台下拉选项（按上游）：括号里显示该上游实际会请求的 method + path
+     *
+     * 之前用的是 options()，取的是代码声明的平台默认值 —— 后台在「上游接口配置」里
+     * 定制过路径/方法后，下拉里括号仍显示平台默认，看着像「没生效」。
+     *
+     * 这里按 third_config_endpoints 的覆盖算出真正生效的值：
+     *   · 定制过 → 显示该上游的 method + path，并标注「已定制」
+     *   · 未定制 → 显示平台默认（与 options() 一致）
+     *
+     * @param int|null $thirdConfigId 上游配置 id；为空则等同 options()
+     * @return array<int, array<string, mixed>>
+     */
+    public static function optionsForUpstream(?int $thirdConfigId): array
+    {
+        $overrides = [];
+
+        if ($thirdConfigId) {
+            $overrides = \Modules\Telegram\Models\ThirdConfigEndpoint::query()
+                ->where('third_config_id', $thirdConfigId)
+                ->get()
+                ->keyBy('endpoint_code')
+                ->all();
+        }
+
+        $options = [];
+
+        foreach (self::definitions() as $definition) {
+            $override = $overrides[$definition['code']] ?? null;
+
+            $method = $override?->method ?: $definition['method'];
+            $path   = $override?->path ?: $definition['path_template'];
+            $custom = $override !== null
+                && ((string) ($override->path ?? '') !== '' || (string) ($override->method ?? '') !== '');
+
+            $options[] = [
+                'value' => $definition['code'],
+                'label' => sprintf(
+                    '%s（%s %s%s）',
+                    $definition['name'],
+                    $method,
+                    $path,
+                    $custom ? ' ·已定制' : ''
+                ),
             ];
         }
 

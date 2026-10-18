@@ -380,7 +380,9 @@ const th = {
     optional: 'ไม่บังคับ',
     loadFailed: 'โหลดล้มเหลว',
     saveSuccess: 'บันทึกสำเร็จ',
-    saveFailed: 'บันทึกล้มเหลว'
+    saveFailed: 'บันทึกล้มเหลว',
+    codeDefined: 'กำหนดโดยโค้ด (อ่านอย่างเดียว)',
+    platformDefaultTip: 'ที่นี่แก้ไ้ด้เฉพาะค่าเริ่มต้นระดับแพลตฟอร์ม หากต้องการเปลี่ยน path หรือ method ให้ไปที่การตั้งค่า endpoint ตาม upstream'
   },
 
   cms: {

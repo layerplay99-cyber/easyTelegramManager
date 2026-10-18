@@ -381,7 +381,9 @@ const en = {
     optional: 'Optional',
     loadFailed: 'Failed to load',
     saveSuccess: 'Saved successfully',
-    saveFailed: 'Failed to save'
+    saveFailed: 'Failed to save',
+    codeDefined: 'Defined by code (read-only)',
+    platformDefaultTip: 'Only platform-level defaults can be edited here. To change path or method, use the per-upstream endpoint config.'
   },
 
   cms: {

@@ -291,16 +291,32 @@ const optionsFor = (field: any) => {
 }
 
 /**
- * 动态来源（三方配置/接口/群）按 source 向后端拉一次列表
+ * 平台接口类下拉：括号里显示的是「该上游实际生效」的 method + path。
+ * 后台在「上游接口配置」里定制过之后，下拉要跟着变，不能还显示平台默认的示例值。
  */
-const loadDynamicOptions = async (sources: string[]) => {
+const ENDPOINT_SOURCES = ['platform_endpoints', 'third_api_endpoints']
+
+/**
+ * 动态来源（三方配置/接口/群）按 source 向后端拉一次列表
+ *
+ * @param force true = 忽略缓存重拉（切换上游时用）
+ */
+const loadDynamicOptions = async (sources: string[], force = false) => {
   const uniq = [...new Set(sources.filter(Boolean))]
 
   await Promise.all(uniq.map(async (source) => {
-    if (dynamicOptions.value[source]) return
+    if (!force && dynamicOptions.value[source]) return
 
     try {
-      const { data } = await http.get('telegram/features/options', { source })
+      const params: Record<string, any> = { source }
+
+      // 接口类下拉带上当前选中的上游，后端据此算出该上游的生效值
+      if (ENDPOINT_SOURCES.includes(source)) {
+        const id = Number((config as any).upstream_id || 0)
+        if (id > 0) params.third_config_id = id
+      }
+
+      const { data } = await http.get('telegram/features/options', params)
       dynamicOptions.value[source] = data.data || []
     } catch {
       dynamicOptions.value[source] = []
@@ -374,6 +390,18 @@ watch(
     if (sources.length) loadDynamicOptions(sources as string[])
   },
   { immediate: true, deep: true }
+)
+
+// 切换上游后重拉接口下拉：括号里要显示这个上游定制后的实际 method + path
+watch(
+  () => (config as any).upstream_id,
+  () => {
+    const sources = schema.value
+      .map((f: any) => f.source)
+      .filter((s: any) => ENDPOINT_SOURCES.includes(s))
+
+    if (sources.length) loadDynamicOptions(sources as string[], true)
+  }
 )
 
 const onDriverChange = () => {

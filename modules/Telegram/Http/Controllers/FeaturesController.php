@@ -183,13 +183,18 @@ class FeaturesController extends Controller
     {
         $source = (string) $request->query('source', '');
 
+        // 平台接口下拉支持带 third_config_id：带上后括号里显示该上游实际生效的
+        // method + path（含「上游接口配置」里的定制），而不是平台默认的示例值。
+        $thirdConfigId = (int) $request->query('third_config_id', 0);
+
         $options = match ($source) {
             'third_api_configs' => ThirdApiConfig::query()
                 ->get(['id', 'name'])
                 ->map(fn ($c) => ['value' => $c->id, 'label' => $c->name])
                 ->toArray(),
-            'third_api_endpoints' => PlatformEndpointRegistry::options(),
-            'platform_endpoints' => PlatformEndpointRegistry::options(),
+            'third_api_endpoints', 'platform_endpoints' => PlatformEndpointRegistry::optionsForUpstream(
+                $thirdConfigId > 0 ? $thirdConfigId : null
+            ),
             'sign_algos' => [
                 ['value' => 'hmac_sha256', 'label' => 'HMAC-SHA256（推荐）'],
                 ['value' => 'md5', 'label' => 'MD5 + key 后缀（老上游）'],

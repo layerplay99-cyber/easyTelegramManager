@@ -380,7 +380,9 @@ const vi = {
     optional: 'Tùy chọn',
     loadFailed: 'Tải thất bại',
     saveSuccess: 'Lưu thành công',
-    saveFailed: 'Lưu thất bại'
+    saveFailed: 'Lưu thất bại',
+    codeDefined: 'Do code định nghĩa (chỉ đọc)',
+    platformDefaultTip: 'Chỉ có thể sửa giá trị mặc định cấp nền tảng tại đây. Để đổi path hoặc method, dùng cấu hình endpoint theo upstream.'
   },
 
   cms: {

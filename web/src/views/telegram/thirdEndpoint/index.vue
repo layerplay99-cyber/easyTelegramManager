@@ -5,27 +5,31 @@
         <el-form-item :label="$t('third.name')" prop="name">
           <el-input v-model="query.name" name="name" clearable />
         </el-form-item>
-        <el-form-item :label="$t('third.upstreamConfig')" prop="third_config_id">
-          <el-select v-model="query.third_config_id" :placeholder="$t('system.pleaseSelect')" clearable filterable>
-            <el-option v-for="c in configs" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
+        <el-form-item :label="$t('third.code')" prop="code">
+          <el-input v-model="query.code" name="code" :placeholder="$t('third.codePlaceholder')" clearable />
         </el-form-item>
       </template>
     </Search>
 
     <div class="table-default">
-      <Operate :show="open" />
+      <el-alert type="info" show-icon :closable="false" class="mb-3">
+        <template #title>
+          <span>{{ $t('third.platformDefaultTip') }}</span>
+        </template>
+      </el-alert>
+
       <el-table :data="tableData" class="mt-3" v-loading="loading">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column :label="$t('third.upstreamConfig')" width="150">
+        <el-table-column prop="name" :label="$t('third.name')" />
+        <el-table-column prop="code" :label="$t('third.platformCode')" min-width="150" />
+        <!-- 以下两列由功能代码声明，每次同步以代码为准，后台改了也会被覆盖，故只读展示 -->
+        <el-table-column :label="$t('third.method')" width="110">
           <template #default="scope">
-            {{ configName(scope.row.third_config_id) }}
+            <span>{{ scope.row.method }}</span>
+            <el-tag size="small" type="info" class="ml-1">{{ $t('third.codeDefined') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="name" :label="$t('third.name')" />
-        <el-table-column prop="method" :label="$t('third.method')" width="90" />
-        <el-table-column prop="path_template" :label="$t('third.pathTemplate')" min-width="220"
-          show-overflow-tooltip />
+        <el-table-column prop="path_template" :label="$t('third.pathTemplate')" min-width="220" show-overflow-tooltip />
         <el-table-column prop="timeout" :label="$t('third.timeout')" width="100" />
         <el-table-column :label="$t('system.status')" width="90">
           <template #default="scope">
@@ -34,10 +38,9 @@
             </label>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('system.operation')" width="200">
+        <el-table-column :label="$t('system.operation')" width="120">
           <template #default="scope">
             <Update @click="open(scope.row.id)" />
-            <Destroy @click="destroy(api, scope.row.id)" />
           </template>
         </el-table-column>
       </el-table>
@@ -54,39 +57,20 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import Create from './create.vue'
 import { useGetList } from '@/composables/curd/useGetList'
-import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
-import http from '@/support/http'
 
 const api = 'telegram/third/endpoint'
 
 const { data, query, search, reset, loading } = useGetList(api)
-const { destroy, deleted } = useDestroy()
 const { open, close, title, visible, id } = useOpen()
 
 const tableData = computed(() => (data.value as any)?.data)
-
-const configs = ref<any[]>([])
-
-const configName = (idValue: any) =>
-  configs.value.find((c) => c.id === idValue)?.name || idValue || '-'
-
-const loadConfigs = async () => {
-  try {
-    const { data: res } = await http.get('telegram/third/config')
-    configs.value = res.data?.data || res.data || []
-  } catch {
-    configs.value = []
-  }
-}
 
 watch(visible, (v) => {
   if (!v) search()
 })
 
 onMounted(() => {
-  loadConfigs()
   search()
-  deleted(reset)
 })
 </script>

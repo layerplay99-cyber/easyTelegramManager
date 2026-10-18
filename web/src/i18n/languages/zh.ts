@@ -380,7 +380,9 @@ const zh = {
     optional: '可选',
     loadFailed: '加载失败',
     saveSuccess: '保存成功',
-    saveFailed: '保存失败'
+    saveFailed: '保存失败',
+    codeDefined: '代码定义（只读）',
+    platformDefaultTip: '这里只能改平台级默认值（超时 / 启用 / 请求头 / 固定参数）。要改路径或方法，请到「上游接口配置」按上游覆盖。'
   },
 
   cms: {

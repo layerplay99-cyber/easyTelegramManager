@@ -124,25 +124,17 @@ class FeatureExecutor
             return FeatureResult::fail('功能已停用');
         }
 
-        // 绑定记录：两级
-        //   机器人级（chat_id = 0）= 给这个机器人分配了哪些功能（白名单）
-        //   群级（chat_id = 当前群）= 这个群在那份白名单里勾了哪些
+        // 绑定记录：两级，递进关系
+        //   机器人级（chat_id = 0）= 这个机器人开通了哪些功能（可选范围）
+        //   群级（chat_id = 当前群）  = 这个群实际启用哪些
         //
-        // 取法：群里勾过就以群里为准（包括「勾了但关掉」），
-        //      群里一条都没有才继承机器人白名单 —— 与后台「机器人 > 群」的层级一致。
+        // 群里只看自己勾的：机器人配了但群没勾，这个群就是没有这个功能。
+        // 以前往机器人级兜底，结果是「群里什么都没配，却跑着机器人所有的功能」。
+        // 私聊不是群，沿用机器人级白名单（见 FeaturesBinds::bindForSession）。
         $bind = null;
 
         if ($chatId !== null && $bot !== null) {
-            $bind = FeaturesBinds::query()
-                ->where('bot_id', $bot->id)
-                ->where('chat_id', $chatId)
-                ->where('feature_id', $feature->id)
-                ->first()
-                ?? FeaturesBinds::query()
-                    ->where('bot_id', $bot->id)
-                    ->where('chat_id', FeaturesBinds::ENTITY_WIDE_CHAT_ID)
-                    ->where('feature_id', $feature->id)
-                    ->first();
+            $bind = FeaturesBinds::bindForSession($bot->id, $chatId, $feature->id);
 
             // command 触发必须存在绑定；webhook / manual 不强制（可能无绑定直接执行）
             if ($trigger === 'command' && ! $bind) {

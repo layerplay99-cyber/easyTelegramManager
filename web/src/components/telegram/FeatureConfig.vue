@@ -57,28 +57,55 @@
                         <div
                             v-for="feature in selectedFeatures"
                             :key="feature.id"
-                            class="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
+                            class="p-3 border rounded"
                         >
-                            <div class="flex-1">
-                                <div class="font-medium">{{ feature.name }}</div>
-                                <div class="text-sm text-gray-500">{{ getCategoryText(feature.category) }}</div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1">
+                                    <div class="font-medium">{{ feature.name }}</div>
+                                    <div class="text-sm text-gray-500">{{ getCategoryText(feature.category) }}</div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <el-switch
+                                        v-model="feature.enable"
+                                        :active-value="1"
+                                        :inactive-value="0"
+                                        :active-text="$t('system.on')"
+                                        :inactive-text="$t('system.off')"
+                                    />
+                                    <el-button
+                                        type="danger"
+                                        size="small"
+                                        link
+                                        @click="handleRemoveFeature(feature)"
+                                    >
+                                        {{ $t('featureConfig.remove') }}
+                                    </el-button>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <el-switch
-                                    v-model="feature.enable"
-                                    :active-value="1"
-                                    :inactive-value="0"
-                                    :active-text="$t('system.on')"
-                                    :inactive-text="$t('system.off')"
-                                />
-                                <el-button
-                                    type="danger"
+
+                            <!--
+                                机器人维度可以给单个功能单独指定上游。
+                                留空 = 用机器人列表那一列的兜底上游；
+                                选了 = 这个功能走另一个上游（比如 A 功能走甲、B 功能走乙）。
+                                群维度不给：群的上游统一随机器人，再让群自己挑会把串单和账单搞乱。
+                            -->
+                            <div v-if="scope === 'bot'" class="mt-2">
+                                <el-select
+                                    v-model="feature.third_config_id"
+                                    :placeholder="$t('featureConfig.followBotUpstream')"
+                                    clearable
+                                    filterable
                                     size="small"
-                                    link
-                                    @click="handleRemoveFeature(feature)"
+                                    class="w-full"
+                                    :loading="upstreamLoading"
                                 >
-                                    {{ $t('featureConfig.remove') }}
-                                </el-button>
+                                    <el-option
+                                        v-for="c in upstreamOptions"
+                                        :key="c.id"
+                                        :label="c.name"
+                                        :value="c.id"
+                                    />
+                                </el-select>
                             </div>
                         </div>
                         <div v-if="selectedFeatures.length === 0" class="text-center text-gray-400 py-8">
@@ -113,6 +140,7 @@
 import { computed, ref, watch } from 'vue'
 import { useGroup } from '@/stores/modules/telegram/group'
 import Message from '@/support/message'
+import http from '@/support/http'
 import { t } from '@/support/helper'
 
 interface Props {
@@ -155,7 +183,48 @@ const loading = ref(false)
 const saving = ref(false)
 
 const availableFeatures = ref<Array<{ id: number; name: string; category: string }>>([])
-const selectedFeatures = ref<Array<{ id: number; name: string; category: string; enable: number }>>([])
+const selectedFeatures = ref<Array<{
+    id: number
+    name: string
+    category: string
+    enable: number
+    third_config_id: number | null
+}>>([])
+
+// 上游候选：机器人维度可以让单个功能单独走某个上游（留空 = 跟随机器人兜底那个）
+const upstreamOptions = ref<Array<{ id: number; name: string }>>([])
+const upstreamLoading = ref(false)
+
+/**
+ * 上游 id 归一化成 number | null
+ *
+ * 不能直接 Number(value) 判断：Number(null) === 0，
+ * 会话树上没配上游（null）会被算成 id=0，下拉显示成一个 "0"，
+ * 保存时又把 0 写进 third_config_id，指向一个不存在的上游。
+ */
+const normalizeUpstreamId = (value: any): number | null => {
+    if (value === null || value === undefined || value === '') return null
+
+    const n = Number(value)
+
+    return Number.isFinite(n) && n > 0 ? n : null
+}
+
+const loadUpstreams = async () => {
+    // 群维度用不到
+    if (props.scope !== 'bot' || upstreamOptions.value.length) return
+
+    try {
+        upstreamLoading.value = true
+        const { data } = await http.get('telegram/third/config')
+        const list = Array.isArray(data?.data?.data) ? data.data.data : data?.data
+        upstreamOptions.value = Array.isArray(list) ? list : []
+    } catch {
+        upstreamOptions.value = []
+    } finally {
+        upstreamLoading.value = false
+    }
+}
 
 const availablePage = ref(1)
 const availablePageSize = ref(10)
@@ -258,7 +327,8 @@ const loadData = async () => {
                 id: bind.feature_id,
                 name: bind.feature?.name || '',
                 category: bind.feature?.category || '',
-                enable: bind.enabled ? 1 : 0
+                enable: bind.enabled ? 1 : 0,
+                third_config_id: normalizeUpstreamId(bind.third_config_id)
             }))
             selectedTotal.value = props.initialFeatures.length
         } else {
@@ -266,7 +336,7 @@ const loadData = async () => {
             selectedTotal.value = 0
         }
 
-        await loadAvailableFeatures(1)
+        await Promise.all([loadAvailableFeatures(1), loadUpstreams()])
     } catch (error) {
         console.error('获取功能列表失败:', error)
     } finally {
@@ -276,9 +346,15 @@ const loadData = async () => {
 
 // 添加功能（本地操作）
 const handleAddFeature = (feature: any) => {
+    // 挡一下重复：左边列表是异步刷新的，手快连点两次同一个「新增」
+    // 右边会多出一条一样的（v-for 的 key 还撞车），保存时被 keyBy 吃掉了，
+    // 但用户看到的就是「明明加了两条，只存进去一条」。
+    if (selectedFeatures.value.some(f => f.id === feature.id)) return
+
     selectedFeatures.value.push({
         ...feature,
-        enable: 1
+        enable: 1,
+        third_config_id: null
     })
     selectedTotal.value = selectedFeatures.value.length
 
@@ -311,7 +387,9 @@ const handleSave = async () => {
     try {
         const featureIds = selectedFeatures.value.map(f => ({
             feature_id: f.id,
-            enable: f.enable
+            enable: f.enable,
+            // 跟着机器人走就传 null，别把群维度的字段带出去
+            third_config_id: props.scope === 'bot' ? (f.third_config_id || null) : null
         }))
 
         const response = await useGroup().setBindFeatures(

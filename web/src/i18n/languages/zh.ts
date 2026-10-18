@@ -634,8 +634,9 @@ const zh = {
     remove: '移除',
     saveConfig: '保存配置',
     saved: '功能配置已保存',
+    followBotUpstream: '跟随机器人（兜底上游）',
     groupScopeTitle: '只能从机器人已分配的功能里选择',
-    groupScopeTip: '群不单独配置上游，统一用机器人自己的上游；群里没勾任何功能时，继承机器人的全部配置'
+    groupScopeTip: '左边的列表就是这个机器人已分配的功能。必须手动加进右边，这个群才真的能用；机器人那边配了但这里没加，群里就是用不了。上游统一用机器人自己的，这里不单独配置'
   },
 
   error: {

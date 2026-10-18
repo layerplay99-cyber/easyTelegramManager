@@ -635,8 +635,9 @@ const en = {
     remove: 'Remove',
     saveConfig: 'Save Config',
     saved: 'Feature config saved',
+    followBotUpstream: 'Follow bot (fallback upstream)',
     groupScopeTitle: 'Only features assigned to the bot can be picked',
-    groupScopeTip: 'Groups share the bot’s upstream; if a group picks nothing, it inherits all of the bot’s features'
+    groupScopeTip: 'The list on the left is what this bot has been assigned. A feature works in this group only after you move it to the right; bot-level assignment alone does not enable it here. Upstream follows the bot and is not configured per group'
   },
 
   error: {

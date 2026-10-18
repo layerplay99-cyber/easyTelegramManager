@@ -6,6 +6,7 @@ namespace Modules\Telegram\Models;
 use Modules\Permissions\Models\Traits\DataRange;
 
 use Catch\Base\CatchModel as Model;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Telegram\Models\ThirdApiConfig;
 
@@ -108,6 +109,61 @@ class FeaturesBinds extends Model
     public function botGroup(): BelongsTo
     {
         return $this->belongsTo(BotGroups::class, 'chat_id', 'chat_id');
+    }
+
+    /**
+     * 是否群/频道会话
+     *
+     * Telegram 里群和频道的 chat_id 是负数（超级群/频道 -100xxxxxxxxx，
+     * 老式群 -1234567），私聊等于用户 id，恒为正。
+     */
+    public static function isGroupChat(int|string|null $chatId): bool
+    {
+        return is_numeric($chatId) && (int) $chatId < 0;
+    }
+
+    /**
+     * 某个会话真正生效的功能绑定（递进关系的落点）
+     *
+     * 机器人「配置功能」只是「这个机器人开通了哪些」的范围，
+     * 群里必须再勾一遍才真的能用：
+     *   群里勾了 → 只看这个群自己勾的
+     *   群没勾   → 这个群一个功能都没有，不会因为机器人配了就自动全给
+     *
+     * 私聊不是群，没有「给这个用户单独配」的场景，沿用机器人级白名单。
+     *
+     * 以前这里往机器人级兜底，结果就是「群里什么都勾不到，
+     * 但因为机器人配了，两个群实际都跑着全部功能」。
+     */
+    public static function bindsForSession(int $botId, int|string|null $chatId): Collection
+    {
+        if ($chatId === null || $chatId === '') {
+            return static::query()
+                ->where('bot_id', $botId)
+                ->where('chat_id', static::ENTITY_WIDE_CHAT_ID)
+                ->get();
+        }
+
+        if (! static::isGroupChat($chatId)) {
+            return static::query()
+                ->where('bot_id', $botId)
+                ->where('chat_id', static::ENTITY_WIDE_CHAT_ID)
+                ->get();
+        }
+
+        return static::query()
+            ->where('bot_id', $botId)
+            ->where('chat_id', (int) $chatId)
+            ->get();
+    }
+
+    /**
+     * 取会话上某个功能的绑定
+     */
+    public static function bindForSession(int $botId, int|string|null $chatId, int $featureId): ?self
+    {
+        return static::bindsForSession($botId, $chatId)
+            ->firstWhere('feature_id', $featureId);
     }
 
     /**

@@ -200,7 +200,17 @@ const handleEnabledChange = async (row: any) => {
 }
 
 const tableData = computed(() => {
-    return data.value && 'data' in data.value ? (data.value as any).data : []
+    const rows = data.value && 'data' in data.value ? (data.value as any).data : []
+
+    // third_config_id 一律转成数字：有的环境里它被驱动返回成字符串，
+    // 而下拉 option 的 value 是数字 id，两者不全等，el-select 找不到选项，
+    // 结果就是「刚选的上游还在，一刷新/点搜索就变成空」。
+    return rows.map((r: any) => ({
+        ...r,
+        third_config_id: r.third_config_id === null || r.third_config_id === undefined || r.third_config_id === ''
+            ? null
+            : Number(r.third_config_id)
+    }))
 })
 
 // 消息群发对话框相关

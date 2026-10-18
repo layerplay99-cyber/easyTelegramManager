@@ -116,32 +116,35 @@ class UpdateRouter
     {
         $chatId = $intent->chatId;
 
-        // 该会话下已绑定的功能：chat_id 有值为群覆盖，NULL 为实体级默认（对任意群生效）
-        // 关联名是 feature（单数），写成 features 会抛 RelationNotFoundException，
-        // 导致按钮/图片等一切非命令 update 全部分发失败。
-        $raw = FeaturesBinds::query()
-            ->with('feature')
-            ->where('bot_id', $bot->id)
-            ->where(function ($q) use ($chatId) {
-                $q->where('chat_id', $chatId)->orWhereNull('chat_id');
-            })
-            ->where('enabled', true)
-            ->get();
+        // 该会话真正生效的功能：群里只看这个群自己勾的（含「勾了但关掉」）。
+        // 以前这里 orWhereNull('chat_id') 把机器人级的也一起捞出来，
+        // 于是「机器人配了 = 所有群都能用」，群里怎么勾都不影响实际行为。
+        // chat_id 改成 0 之后 orWhereNull 反而一条都匹配不到，
+        // 所以这里统一走 FeaturesBinds::bindsForSession，不在别处重复这套规则。
+        $raw = FeaturesBinds::bindsForSession($bot->id, $chatId);
+        $raw->load('feature');
 
-        // 按 feature_id 去重（群覆盖优先），上游取「群覆盖有则用群覆盖，否则用实体默认」
+        // 上游取第一个有值的（会话内同一功能只有一条绑定，这里只是防御性保留）
         $byFeature = [];
         foreach ($raw as $b) {
             $fid = $b->feature_id;
+
             if (! isset($byFeature[$fid])) {
                 $byFeature[$fid] = $b;
+
                 continue;
             }
+
             $existing = $byFeature[$fid];
             if (empty($existing->third_config_id) && ! empty($b->third_config_id)) {
                 $existing->third_config_id = $b->third_config_id;
             }
         }
-        $bindings = new \Illuminate\Database\Eloquent\Collection(array_values($byFeature));
+
+        // 关掉的不参与分发
+        $bindings = (new \Illuminate\Database\Eloquent\Collection(array_values($byFeature)))
+            ->filter(fn ($b) => (bool) $b->enabled)
+            ->values();
 
         if ($bindings->isEmpty()) {
             return;

@@ -634,8 +634,9 @@ const vi = {
     remove: 'Gỡ bỏ',
     saveConfig: 'Lưu cấu hình',
     saved: 'Đã lưu cấu hình tính năng',
+    followBotUpstream: 'Theo bot (upstream dự phòng)',
     groupScopeTitle: 'Chỉ được chọn trong các tính năng đã gán cho bot',
-    groupScopeTip: 'Nhóm dùng chung upstream của bot; không chọn gì thì kế thừa toàn bộ cấu hình của bot'
+    groupScopeTip: 'Danh sách bên trái là những tính năng đã gán cho bot. Phải thêm sang bên phải thì nhóm này mới dùng được; bot có nhưng nhóm không thêm thì nhóm không dùng được. Nhóm dùng chung upstream của bot'
   },
 
   error: {

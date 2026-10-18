@@ -162,6 +162,21 @@ class PlatformEndpointRegistry
     /**
      * 同步到数据库（幂等：按 code upsert，不覆盖后台改过的启用状态）
      *
+     * 分两类字段处理，这是关键区别：
+     *
+     *   · 代码声明的字段（name / method / path_template / params_schema /
+     *     response_schema / remark）—— 定义在驱动的 endpoint() 里，每次同步都以代码为准。
+     *     代码改了就该同步过去，这是自动同步的意义所在。
+     *
+     *   · 运营可配的字段（headers / query / timeout / enabled）—— 不在 definitions() 里，
+     *     不是代码声明的，而是后台按实际上游配的固定鉴权头、固定参数、超时和启停。
+     *     **只在新建时给默认值，已存在则原样保留。**
+     *
+     * 之前这里用 updateOrCreate 把 headers=null / query=null / timeout=30 /
+     * enabled=true 每次硬写，会把后台配的鉴权头和「已停用」状态静默清掉 ——
+     * 与本方法 docblock 承诺的「不覆盖后台改过的启用状态」正好相反。
+     * 表现就是：后台配好了接口参数，跑一次同步或发一次版就全没了，而且很难排查。
+     *
      * @return array<int, string> 同步的 code 列表
      */
     public static function sync(): array
@@ -169,21 +184,30 @@ class PlatformEndpointRegistry
         $codes = [];
 
         foreach (self::definitions() as $definition) {
-            \Modules\Telegram\Models\ThirdApiEndpoints::query()->updateOrCreate(
-                ['code' => $definition['code']],
-                [
-                    'name' => $definition['name'],
-                    'method' => $definition['method'],
-                    'path_template' => $definition['path_template'],
-                    'params_schema' => $definition['params_schema'],
-                    'response_schema' => $definition['response_schema'],
+            $endpoint = \Modules\Telegram\Models\ThirdApiEndpoints::query()
+                ->firstOrNew(['code' => $definition['code']]);
+
+            // 代码声明的字段：每次都同步
+            $endpoint->fill([
+                'name' => $definition['name'],
+                'method' => $definition['method'],
+                'path_template' => $definition['path_template'],
+                'params_schema' => $definition['params_schema'],
+                'response_schema' => $definition['response_schema'],
+                'remark' => $definition['remark'] ?? null,
+            ]);
+
+            // 运营可配的字段：只在新建时给默认值
+            if (! $endpoint->exists) {
+                $endpoint->fill([
                     'headers' => null,
                     'query' => null,
-                    'timeout' => 30,
+                    'timeout' => ThirdEndpointResolver::defaultTimeout(),
                     'enabled' => true,
-                    'remark' => $definition['remark'] ?? null,
-                ]
-            );
+                ]);
+            }
+
+            $endpoint->save();
 
             $codes[] = $definition['code'];
         }

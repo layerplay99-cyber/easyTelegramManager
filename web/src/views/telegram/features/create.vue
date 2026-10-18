@@ -282,19 +282,27 @@ const removeParam = (cmd: any, index: number) => cmd.params.splice(index, 1)
 const dynamicOptions = ref<Record<string, any[]>>({})
 
 /**
- * 取字段选项：优先用后端返回的 options（静态来源），
- * 动态来源（三方配置/接口）按 source 单独拉取一次。
- */
-const optionsFor = (field: any) => {
-  if (field.options && field.options.length) return field.options
-  return dynamicOptions.value[field.source] || []
-}
-
-/**
  * 平台接口类下拉：括号里显示的是「该上游实际生效」的 method + path。
  * 后台在「上游接口配置」里定制过之后，下拉要跟着变，不能还显示平台默认的示例值。
  */
 const ENDPOINT_SOURCES = ['platform_endpoints', 'third_api_endpoints']
+
+/**
+ * 取字段选项
+ *
+ * 接口类下拉必须走动态来源：后端 DriverRegistry 会把静态 options 直接写进 schema，
+ * 那份是平台默认值，用了就永远不会随上游定制变化。
+ * 所以这里对 ENDPOINT_SOURCES 反过来优先取动态拉取的结果，静态的只作兜底。
+ */
+const optionsFor = (field: any) => {
+  if (ENDPOINT_SOURCES.includes(field.source)) {
+    const dynamic = dynamicOptions.value[field.source]
+    if (dynamic && dynamic.length) return dynamic
+  }
+
+  if (field.options && field.options.length) return field.options
+  return dynamicOptions.value[field.source] || []
+}
 
 /**
  * 动态来源（三方配置/接口/群）按 source 向后端拉一次列表

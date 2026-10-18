@@ -131,6 +131,7 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
     public static function defaultConfig(): array
     {
         return [
+            'upstream_id' => null,
             'endpoint_code' => 'merchant.balance',
             'not_bound_tip' => '本群还没有绑定商户号，请先执行 /bm <商户号>',
             'reply_template' => '余额：{{data.balance}} 元',
@@ -144,12 +145,16 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
     {
         return [
             [
-                'key'      => 'endpoint_code',
-                'label'    => '三方配置',
+                // 原来这个字段的 key 也是 endpoint_code，和下面「平台接口」撞了：
+                // 两个下拉写同一个 key，互相覆盖，且上游 id 被塞进了 endpoint_code，
+                // 于是 BaseCustomFeature::callEndpoint() 里读的 upstream_id 永远取不到
+                // （表现就是「选了上游但不生效」）。这里改成正确的 key。
+                'key'      => 'upstream_id',
+                'label'    => '承接上游',
                 'type'     => 'select',
                 'source'   => 'third_api_configs',
-                'required' => true,
-                'hint'     => '在「三方配置」里维护地址与token',
+                'required' => false,
+                'hint'     => '留空则依次用「功能绑定上的上游 → 机器人默认上游」',
             ],
             [
                 'key'      => 'endpoint_code',
@@ -157,7 +162,7 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                 'type'     => 'select',
                 'source'   => 'platform_endpoints',
                 'required' => true,
-                'hint'     => '平台统一维护的接口规范',
+                'hint'     => '平台统一维护的接口规范；括号内为所选上游实际生效的方法与路径',
             ],
             [
                 'key'      => 'not_bound_tip',

@@ -22,8 +22,10 @@ Route::prefix('telegram')->group(function(){
 	Route::apiResource('phone', PhoneController::class);
 	Route::apiResource('s/can/log', SCanLogController::class);
 	Route::apiResource('bots', BotsController::class);
-    // 单独改「三方上游」：列表页就地改一个字段，不能走 apiResource 的 update
-    // （那边 BotsRequest 要求 username / api_token 必填，只传上游会被 422 拦掉）
+    // 单独改「三方上游」的专用口子。
+    // 前端现在走 apiResource 的 PUT bots/{bot}（BotsRequest 已放开局部更新），
+    // 因为新路由在开了 route:cache 的环境必须重新 cache 才生效，
+    // 没跑就会「route_not_found_or_register」。这条保留给外部调用。
     Route::put('bots/{id}/third-config', [BotsController::class, 'updateThirdConfig']);
     Route::apiResource('bot/groups', BotGroupsController::class);
     Route::apiResource('bot/group/group', BotGroupGroupController::class);

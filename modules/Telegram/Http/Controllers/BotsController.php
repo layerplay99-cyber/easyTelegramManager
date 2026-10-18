@@ -84,17 +84,80 @@ class BotsController extends Controller
             ], 403);
         }
 
+        // 只改「三方上游」（列表页就地改一列）时不能走 updateBy：
+        //   1. 它内部的 filterData 会把 null 转成空串，清空上游直接
+        //      SQLSTATE[HY000] 1366 Incorrect integer value；
+        //   2. 它会顺手把 creator_id 改成当前操作人 —— 改个上游就把机器人换主人。
+        // 这种情况只更新这一个字段。
+        if ($this->isOnlyThirdConfig($request)) {
+            return $this->saveThirdConfigField($id, $request->input('third_config_id'));
+        }
+
+        // 编辑表单里「三方上游」留空（'' 或 null）时必须自己写：
+        // updateBy → filterData 会把 null 转成空串，MySQL 直接报
+        // 1366 Incorrect integer value，整个编辑表单一个字都存不进去。
+        if ($request->has('third_config_id')) {
+            $bot = $this->model->find($id);
+
+            if (! $bot) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Bot not found',
+                ], 404);
+            }
+
+            $bot->forceFill(['third_config_id' => $request->input('third_config_id') ?: null])->save();
+
+            return $this->model->updateBy($id, $request->except('third_config_id'));
+        }
+
         return $this->model->updateBy($id, $request->all());
     }
 
     /**
-     * 只改「三方上游」
+     * 这次请求是不是「只改三方上游」
+     */
+    protected function isOnlyThirdConfig(BotsRequest $request): bool
+    {
+        if (! $request->has('third_config_id')) {
+            return false;
+        }
+
+        return collect($request->keys())
+            ->reject(fn ($key) => in_array($key, ['third_config_id'], true))
+            ->isEmpty();
+    }
+
+    /**
+     * 只写 third_config_id 这一个字段
+     */
+    protected function saveThirdConfigField(int|string $id, mixed $thirdConfigId): JsonResponse
+    {
+        $bot = $this->model->find($id);
+
+        if (! $bot) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Bot not found',
+            ], 404);
+        }
+
+        $bot->forceFill(['third_config_id' => $thirdConfigId === '' ? null : $thirdConfigId])->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'ok',
+            'data' => ['third_config_id' => $bot->third_config_id],
+        ]);
+    }
+
+    /**
+     * 只改「三方上游」（专用口子）
      *
-     * 机器人列表那一列是就地改的：一次只提交一个字段，
-     * 走 update() 会被 BotsRequest 的 username / api_token 必填规则挡掉
-     * （422 The username field is required），表现出来就是「选了上游保存报错」。
-     *
-     * 这里单独开一个口子，只验这一个字段。
+     * 前端现在走的是一直在的 PUT telegram/bots/{id}（BotsRequest 已放开局部更新），
+     * 不依赖这条路由 —— 环境开了 route:cache 又没重新 cache 的话，
+     * 新路由会直接「route_not_found_or_register」。
+     * 这条保留给外部调用 / 以后单独扩展，行为与 update() 里的分支一致。
      */
     public function updateThirdConfig(int|string $id, Request $request): JsonResponse
     {
@@ -109,22 +172,7 @@ class BotsController extends Controller
             'third_config_id' => 'nullable|integer|exists:thirdapi_config,id',
         ]);
 
-        $bot = $this->model->find($id);
-
-        if (! $bot) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Bot not found',
-            ], 404);
-        }
-
-        $bot->forceFill(['third_config_id' => $data['third_config_id'] ?? null])->save();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'ok',
-            'data' => ['third_config_id' => $bot->third_config_id],
-        ]);
+        return $this->saveThirdConfigField($id, $data['third_config_id'] ?? null);
     }
 
     /**

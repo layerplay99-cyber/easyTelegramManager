@@ -184,11 +184,13 @@ export const useGroup = defineStore('telegramGroup', () => {
   /**
    * 只改机器人的三方上游
    *
-   * 列表页就地改一列，不能走 PUT telegram/bots/{id}：
-   * 那边 BotsRequest 要求 username / api_token 必填，只提交上游会被 422 拦下。
+   * 走一直都在的 apiResource 路由 PUT telegram/bots/{id}，不开新路由：
+   * 新路由要生效必须重新 route:cache，没跑的环境会直接
+   * 「route_not_found_or_register」。BotsRequest 已放开局部更新（改的时候
+   * 字段用 sometimes，只有传了才校验/补默认值），只提交一个字段不会被 422。
    */
   const setBotThirdConfig = async (bot_id: number, third_config_id: number|null): Promise<ApiResponse> => {
-    return apiRequest(`telegram/bots/${bot_id}/third-config`, {
+    return apiRequest(`telegram/bots/${bot_id}`, {
       method: 'PUT',
       body: JSON.stringify({third_config_id})
     })

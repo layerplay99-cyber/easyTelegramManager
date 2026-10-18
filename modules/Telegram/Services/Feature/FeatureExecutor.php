@@ -124,22 +124,35 @@ class FeatureExecutor
             return FeatureResult::fail('功能已停用');
         }
 
-        // 绑定记录：chat_id 为 NULL 的绑定视为「实体级默认」，对任意群生效；
-        // chat_id 有值的绑定为「该群覆盖」。
+        // 绑定记录：两级
+        //   机器人级（chat_id = 0）= 给这个机器人分配了哪些功能（白名单）
+        //   群级（chat_id = 当前群）= 这个群在那份白名单里勾了哪些
+        //
+        // 取法：群里勾过就以群里为准（包括「勾了但关掉」），
+        //      群里一条都没有才继承机器人白名单 —— 与后台「机器人 > 群」的层级一致。
         $bind = null;
 
         if ($chatId !== null && $bot !== null) {
             $bind = FeaturesBinds::query()
                 ->where('bot_id', $bot->id)
-                ->where(function ($q) use ($chatId) {
-                    $q->where('chat_id', $chatId)->orWhereNull('chat_id');
-                })
+                ->where('chat_id', $chatId)
                 ->where('feature_id', $feature->id)
-                ->first();
+                ->first()
+                ?? FeaturesBinds::query()
+                    ->where('bot_id', $bot->id)
+                    ->where('chat_id', FeaturesBinds::ENTITY_WIDE_CHAT_ID)
+                    ->where('feature_id', $feature->id)
+                    ->first();
 
             // command 触发必须存在绑定；webhook / manual 不强制（可能无绑定直接执行）
             if ($trigger === 'command' && ! $bind) {
                 return FeatureResult::fail('该功能未绑定到当前会话');
+            }
+
+            // 双开关：功能全局停用 / 本群或本机器人关掉，都不执行。
+            // 以前只判断了绑定「存在」，群级开关关掉照样跑。
+            if ($bind && ! $bind->enabled) {
+                return FeatureResult::fail('该功能在当前会话已关闭');
             }
         }
 

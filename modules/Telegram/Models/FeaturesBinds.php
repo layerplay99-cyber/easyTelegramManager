@@ -31,6 +31,15 @@ class FeaturesBinds extends Model
     use DataRange;
 
     /**
+     * 「不针对具体群」的 chat_id
+     *
+     * 机器人级绑定（给机器人分配功能白名单）用它，等价于以前的 NULL。
+     * 必须是 0 而不是 NULL：(bot_id, chat_id, feature_id) 的唯一索引
+     * 对 NULL 不生效，用 NULL 就能插出一堆重复行。
+     */
+    public const ENTITY_WIDE_CHAT_ID = 0;
+
+    /**
      * 所属模块：当前用户没有该模块的功能权限时，该模块数据不可见
      */
     protected string $dataModule = 'telegram';

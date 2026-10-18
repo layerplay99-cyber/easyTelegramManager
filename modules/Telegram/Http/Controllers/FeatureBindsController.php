@@ -16,22 +16,29 @@ class FeatureBindsController extends CatchController
         protected readonly TelegramFeatureService $telegramFeatureService,
     ) {}
 
+    /**
+     * 绑定列表
+     *
+     * 两级：
+     *   ?bot_id=3               → 机器人级白名单（chat_id = 0）
+     *   ?bot_id=3&chat_id=-100… → 该群自己勾了哪些
+     *
+     * chat_id = 0 表示「不针对具体群」，等价于以前的 NULL。
+     * 不能再写 whereNull：库里已经不允许 NULL 了，而且 NULL 会让唯一索引失效。
+     */
     public function index(Request $request): mixed
     {
         return $this->featureBinds->setBeforeGetList(function ($query) use ($request) {
             $chatId = $request->input('chat_id');
             $botId = $request->input('bot_id');
 
-            if ($botId !== null) {
-                $query->where('bot_id', $botId);
-                // 配置弹窗按「实体维度」管理：chat_id 为空表示实体级默认绑定
-                if ($chatId !== null && $chatId !== '') {
-                    $query->where('chat_id', $chatId);
-                } else {
-                    $query->whereNull('chat_id');
-                }
+            if ($botId !== null && $botId !== '') {
+                $query->where('bot_id', (int) $botId);
+
+                // 群 ID 没传（或显式传 0）就是查机器人级白名单
+                $query->where('chat_id', (int) ($chatId ?: FeaturesBinds::ENTITY_WIDE_CHAT_ID));
             } elseif ($chatId !== null && $chatId !== '') {
-                $query->where('chat_id', $chatId);
+                $query->where('chat_id', (int) $chatId);
             }
 
             $query->select(['id', 'feature_id', 'bot_id', 'chat_id', 'enabled', 'config', 'third_config_id'])
@@ -46,6 +53,13 @@ class FeatureBindsController extends CatchController
         return $this->featureBinds->storeBy($request->all());
     }
 
+    /**
+     * 整存整取：前端把「这个实体最终该有哪几个功能」整份传过来
+     *
+     * 群级必须带 bot_id —— 没有机器人归属就无从判断「这个群能用哪些」，
+     * 历史数据里 bot_id 为空的群级绑定在执行期根本匹配不到（执行期按
+     * bot_id = 当前机器人查），配了也不生效。
+     */
     public function superStore(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -53,10 +67,20 @@ class FeatureBindsController extends CatchController
             'bot_id' => 'nullable|integer',
             'feature_ids' => 'nullable|array',
             'feature_ids.*.feature_id' => 'required|integer',
-            'feature_ids.*.enable' => 'nullable|integer',
-            'feature_ids.*.enabled' => 'nullable|integer',
+            // 开关值前后端都可能是 1/0 或 true/false，一律按布尔收，存成 0/1
+            'feature_ids.*.enable' => 'nullable|boolean',
+            'feature_ids.*.enabled' => 'nullable|boolean',
             'feature_ids.*.third_config_id' => 'nullable|integer',
         ]);
+
+        $chatId = (int) ($validated['chat_id'] ?? 0);
+
+        if ($chatId !== 0 && empty($validated['bot_id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => '群级功能配置必须指定所属机器人（bot_id）',
+            ], 422);
+        }
 
         $results = $this->telegramFeatureService->setBindFeature(
             featureBinds: $this->featureBinds,
@@ -64,23 +88,33 @@ class FeatureBindsController extends CatchController
             loginUserId: $this->getLoginUserId()
         );
 
-        if (empty($results)) {
+        // 三个统计键由 setBindFeature 保证存在；这里再兜一层，
+        // 避免以后谁改了返回值又把「Undefined array key」送回前端。
+        $created = $results['created'] ?? [];
+        $updated = $results['updated'] ?? [];
+        $deleted = $results['deleted'] ?? [];
+
+        if (($results['success'] ?? false) !== true) {
             return response()->json([
                 'success' => false,
-                'message' => 'Something wrong happened',
-                'data' => $results,
-            ]);
+                'message' => $results['message'] ?? 'Something wrong happened',
+                'created' => $created,
+                'updated' => $updated,
+                'deleted' => $deleted,
+            ], 422);
         }
 
         return response()->json([
             'success' => true,
             'message' => sprintf(
                 '成功新增 %d 条，更新 %d 条，删除 %d 条',
-                count($results['created']),
-                count($results['updated']),
-                count($results['deleted'])
+                count($created),
+                count($updated),
+                count($deleted)
             ),
-            'data' => $results,
+            'created' => $created,
+            'updated' => $updated,
+            'deleted' => $deleted,
         ]);
     }
 

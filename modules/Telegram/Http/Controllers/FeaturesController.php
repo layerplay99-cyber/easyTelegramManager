@@ -14,6 +14,7 @@ use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Models\FeatureHookRoutes;
 use Modules\Telegram\Models\FeatureHooks;
+use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Services\Callback\TransformerRegistry;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\ThirdApiConfig;
@@ -94,6 +95,30 @@ class FeaturesController extends Controller
 
             if ($request->query('mode') === 'multiple') {
                 $query->select(['id', 'name', 'category']);
+
+                // 群「配置功能」只能从机器人已分配的功能里挑。
+                // 用 only_assigned=1 + bot_id=X 取白名单，靠前端过滤不保险：
+                // 改个请求参数就能把没分配的功能塞进群。
+                if ($request->boolean('only_assigned') && $request->filled('bot_id')) {
+                    $query->whereIn(
+                        'id',
+                        FeaturesBinds::query()
+                            ->select('feature_id')
+                            ->where('bot_id', (int) $request->input('bot_id'))
+                            ->where('chat_id', FeaturesBinds::ENTITY_WIDE_CHAT_ID)
+                    );
+                }
+
+                // 左边「未配置」那一栏要排除右边已经配置的。
+                // 不排除的话同一条会两边都出现，看着像没配上，再点一次「添加」
+                // 右边还会多一份重复的（-key 撞车）。
+                $excludeIds = array_filter(
+                    array_map('intval', explode(',', (string) $request->input('exclude_ids', '')))
+                );
+
+                if ($excludeIds !== []) {
+                    $query->whereNotIn('id', $excludeIds);
+                }
             }
 
             return $query;

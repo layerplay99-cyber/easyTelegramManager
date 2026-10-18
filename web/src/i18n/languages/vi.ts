@@ -192,6 +192,7 @@ const vi = {
     config: 'Cấu hình',
     feature: 'Tính năng',
     configTitle: 'Cấu hình nhóm',
+    needBotFirst: 'Nhóm này chưa thuộc bot nào, hãy đảm bảo nhóm đã được đồng bộ vào một bot',
     merchantId: 'ID merchant',
     merchantIdPlaceholder: 'Nhập ID merchant',
     customService: 'Hỗ trợ',
@@ -624,13 +625,17 @@ const vi = {
 
   featureConfig: {
     title: 'Cấu hình tính năng',
+    titleForGroup: 'Cấu hình tính năng nhóm',
     unconfigured: 'Tính năng chưa cấu hình',
     configured: 'Tính năng đã cấu hình',
     noAvailable: 'Không có tính năng khả dụng',
+    noAvailableForGroup: 'Bot này chưa được gán tính năng nào, hãy gán trong「Danh sách bot → Tính năng」',
     noConfigured: 'Chưa có tính năng được cấu hình',
-    defaultUpstream: 'Upstream mặc định',
     remove: 'Gỡ bỏ',
-    saveConfig: 'Lưu cấu hình'
+    saveConfig: 'Lưu cấu hình',
+    saved: 'Đã lưu cấu hình tính năng',
+    groupScopeTitle: 'Chỉ được chọn trong các tính năng đã gán cho bot',
+    groupScopeTip: 'Nhóm dùng chung upstream của bot; không chọn gì thì kế thừa toàn bộ cấu hình của bot'
   },
 
   error: {

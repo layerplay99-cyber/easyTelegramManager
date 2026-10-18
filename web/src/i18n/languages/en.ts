@@ -193,6 +193,7 @@ const en = {
     config: 'Config',
     feature: 'Features',
     configTitle: 'Group Config',
+    needBotFirst: 'This group has no bot assigned yet — make sure it is synced to a bot first',
     merchantId: 'Merchant ID',
     merchantIdPlaceholder: 'Enter merchant ID',
     customService: 'Support',
@@ -625,13 +626,17 @@ const en = {
 
   featureConfig: {
     title: 'Feature Config',
+    titleForGroup: 'Group Feature Config',
     unconfigured: 'Unconfigured Features',
     configured: 'Configured Features',
     noAvailable: 'No available features',
+    noAvailableForGroup: 'This bot has no features assigned yet — assign them in Bot list → Feature first',
     noConfigured: 'No configured features',
-    defaultUpstream: 'Default upstream',
     remove: 'Remove',
-    saveConfig: 'Save Config'
+    saveConfig: 'Save Config',
+    saved: 'Feature config saved',
+    groupScopeTitle: 'Only features assigned to the bot can be picked',
+    groupScopeTip: 'Groups share the bot’s upstream; if a group picks nothing, it inherits all of the bot’s features'
   },
 
   error: {

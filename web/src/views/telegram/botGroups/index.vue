@@ -72,9 +72,10 @@
             </el-form>
         </Dialog>
 
-        <!-- 功能配置对话框 -->
+        <!-- 功能配置对话框（群维度：只能从机器人已分配的功能里挑） -->
         <FeatureConfig
             v-model="featureDialogVisible"
+            scope="group"
             :target-id="featureTargetId"
             :bot-id="featureBotId"
             :initial-features="currentGroupFeatures"
@@ -165,6 +166,7 @@ import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
 import { useGroup } from '@/stores/modules/telegram/group'
 import FeatureConfig from '@/components/telegram/FeatureConfig.vue'
+import Message from '@/support/message'
 import { t } from '@/support/helper'
 
 const api = 'telegram/bot/groups'
@@ -191,10 +193,34 @@ const featureTargetId = ref<number | null>(null)
 const featureBotId = ref<number | null>(null)
 const currentGroupFeatures = ref<any[]>([])
 
-const openFeatureDialog = (row: any) => {
+/**
+ * 打开群的功能配置
+ *
+ * 必须带上所属机器人：群只能从「机器人已分配的功能」里挑，
+ * 没有 bot_id 就无从判断范围。以前这里传 null，
+ * 存下来的绑定 bot_id 是空的，执行期按 bot_id 查找时永远匹配不到
+ * —— 表现为「群里配了功能，但机器人在群里不生效」。
+ */
+const openFeatureDialog = async (row: any) => {
+    const botId = row.bot_id ? Number(row.bot_id) : null
+
+    if (!botId) {
+        Message.warning(t('group.needBotFirst'))
+        return
+    }
+
     featureTargetId.value = parseInt(row.chat_id)
-    featureBotId.value = null
-    currentGroupFeatures.value = row.features_binds || []
+    featureBotId.value = botId
+    currentGroupFeatures.value = []
+
+    try {
+        const res = await useGroup().getBindFeatures(parseInt(row.chat_id), botId)
+        const payload = res?.data?.data ?? res?.data ?? []
+        currentGroupFeatures.value = Array.isArray(payload) ? payload : (payload?.data ?? [])
+    } catch {
+        currentGroupFeatures.value = []
+    }
+
     featureDialogVisible.value = true
 }
 

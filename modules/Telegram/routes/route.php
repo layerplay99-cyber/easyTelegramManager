@@ -22,6 +22,9 @@ Route::prefix('telegram')->group(function(){
 	Route::apiResource('phone', PhoneController::class);
 	Route::apiResource('s/can/log', SCanLogController::class);
 	Route::apiResource('bots', BotsController::class);
+    // 单独改「三方上游」：列表页就地改一个字段，不能走 apiResource 的 update
+    // （那边 BotsRequest 要求 username / api_token 必填，只传上游会被 422 拦掉）
+    Route::put('bots/{id}/third-config', [BotsController::class, 'updateThirdConfig']);
     Route::apiResource('bot/groups', BotGroupsController::class);
     Route::apiResource('bot/group/group', BotGroupGroupController::class);
     Route::apiResource('bot/group/config', GroupConfigController::class);

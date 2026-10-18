@@ -1,7 +1,18 @@
 <template>
     <!-- 功能配置对话框 -->
-    <el-dialog v-model="visible" :title="$t('featureConfig.title')" width="900px" destroy-on-close @close="handleClose">
+    <el-dialog v-model="visible" :title="dialogTitle" width="900px" destroy-on-close @close="handleClose">
         <div v-loading="loading">
+            <!-- 群维度：说明「只能从机器人分配的功能里挑」 -->
+            <el-alert
+                v-if="scope === 'group'"
+                type="info"
+                :closable="false"
+                show-icon
+                class="mb-4"
+                :title="$t('featureConfig.groupScopeTitle')"
+                :description="$t('featureConfig.groupScopeTip')"
+            />
+
             <div class="flex gap-4">
                 <!-- 左侧：未配置功能 -->
                 <div class="flex-1 border rounded p-4 flex flex-col" style="height: 450px;">
@@ -25,7 +36,7 @@
                             </el-button>
                         </div>
                         <div v-if="availableFeatures.length === 0" class="text-center text-gray-400 py-8">
-                            {{ $t('featureConfig.noAvailable') }}
+                            {{ noAvailableText }}
                         </div>
                     </div>
                     <el-pagination
@@ -53,21 +64,6 @@
                                 <div class="text-sm text-gray-500">{{ getCategoryText(feature.category) }}</div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <el-select
-                                    v-model="feature.third_config_id"
-                                    :placeholder="$t('featureConfig.defaultUpstream')"
-                                    clearable
-                                    filterable
-                                    class="w-40"
-                                    size="small"
-                                >
-                                    <el-option
-                                        v-for="c in thirdConfigs"
-                                        :key="c.id"
-                                        :label="c.name"
-                                        :value="c.id"
-                                    />
-                                </el-select>
                                 <el-switch
                                     v-model="feature.enable"
                                     :active-value="1"
@@ -114,9 +110,9 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useGroup } from '@/stores/modules/telegram/group'
-import http from '@/support/http'
+import Message from '@/support/message'
 import { t } from '@/support/helper'
 
 interface Props {
@@ -125,11 +121,20 @@ interface Props {
     category?: string
     botId: number | null
     initialFeatures?: any[]
+    /**
+     * 作用维度
+     *   bot   = 给机器人分配可用功能（白名单），chat_id 记 0
+     *   group = 群从机器人白名单里挑自己要用的，chat_id 记群 ID
+     */
+    scope?: 'bot' | 'group'
+    dialogTitle?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
     category: 'bot',
-    initialFeatures: () => []
+    initialFeatures: () => [],
+    scope: 'bot',
+    dialogTitle: ''
 })
 
 const emit = defineEmits<{
@@ -150,19 +155,7 @@ const loading = ref(false)
 const saving = ref(false)
 
 const availableFeatures = ref<Array<{ id: number; name: string; category: string }>>([])
-const selectedFeatures = ref<Array<{ id: number; name: string; category: string; enable: number; third_config_id?: number | null; bindId?: number }>>([])
-
-// 三方上游配置列表（供每条绑定功能单独选择上游）
-const thirdConfigs = ref<Array<{ id: number; name: string }>>([])
-
-const loadThirdConfigs = async () => {
-    try {
-        const { data } = await http.get('telegram/third/config')
-        thirdConfigs.value = data?.data?.data || data?.data || []
-    } catch {
-        thirdConfigs.value = []
-    }
-}
+const selectedFeatures = ref<Array<{ id: number; name: string; category: string; enable: number }>>([])
 
 const availablePage = ref(1)
 const availablePageSize = ref(10)
@@ -171,6 +164,16 @@ const availableTotal = ref(0)
 const selectedPage = ref(1)
 const selectedPageSize = ref(10)
 const selectedTotal = ref(0)
+
+const dialogTitle = computed(() =>
+    props.dialogTitle || (props.scope === 'group' ? t('featureConfig.titleForGroup') : t('featureConfig.title'))
+)
+
+const noAvailableText = computed(() =>
+    props.scope === 'group'
+        ? t('featureConfig.noAvailableForGroup')
+        : t('featureConfig.noAvailable')
+)
 
 // 监听modelValue变化
 watch(() => props.modelValue, (newVal) => {
@@ -191,25 +194,28 @@ watch(availablePage, () => {
     }
 })
 
-// 监听已选功能分页变化（使用 initialFeatures，不需要调用 API）
-watch(selectedPage, async (newPage) => {
-    // 已选功能使用 initialFeatures，不需要分页加载
-})
-
 // 获取类型文本
 const getCategoryText = (category: string): string => {
     return categoryMap[category] || category
 }
 
-// 加载可用功能列表（使用后端分页）
+// 加载可选功能列表
+//
+// 群维度只拉「机器人已分配」的那几个：机器人没分配的功能，群不该看到，
+// 也不该被配进去（后端同样按 bot_id 过滤，这里只是让界面不误导人）。
 const loadAvailableFeatures = async (page: number = 1) => {
     try {
+        // 已经在右边「已配置」里的，左边不再列出来
+        const excludeIds = selectedFeatures.value.map(f => f.id)
+
         const response = await useGroup().getMultipleFeatures(
             page,
             availablePageSize.value,
             props.targetId || undefined,
             props.category,
-            props.botId || undefined
+            props.botId || undefined,
+            props.scope === 'group',
+            excludeIds
         )
 
         if (response && response.data) {
@@ -220,11 +226,20 @@ const loadAvailableFeatures = async (page: number = 1) => {
             }
             availableFeatures.value = list
             availableTotal.value = response.total || 0
+
+            // 排除项会让最后一页整页空掉（比如 11 个功能、每页 10 条、第 2 页被排空），
+            // 这时退回上一页，否则用户看到的是空列表以为没数据了。
+            if (list.length === 0 && page > 1) {
+                availablePage.value = page - 1
+                return loadAvailableFeatures(page - 1)
+            }
         }
     } catch (error) {
         console.error('获取可用功能列表失败:', error)
     }
-}// 加载数据
+}
+
+// 加载数据
 const loadData = async () => {
     if (!props.targetId && !props.botId) return
 
@@ -233,18 +248,17 @@ const loadData = async () => {
     selectedPage.value = 1
 
     try {
-        // 加载三方上游配置（每条绑定功能可单独选上游）
-        await loadThirdConfigs()
-
-        // 使用 initialFeatures 初始化已选功能
+        // 已选功能由调用方传入（机器人列表/群列表各自拉好后传进来）
         if (props.initialFeatures && props.initialFeatures.length > 0) {
+            // 接口里 enabled 是 bool（模型做了 cast），而开关是 1/0。
+            // 直接把 true/false 塞给 :active-value="1" 的开关，它会认为当前值
+            // 既不是激活值也不是关闭值，于是随手把状态改成 0 ——
+            // 结果就是「打开配置页 → 什么都不动 → 保存」，原本开着的功能全被关掉。
             selectedFeatures.value = props.initialFeatures.map((bind: any) => ({
                 id: bind.feature_id,
                 name: bind.feature?.name || '',
                 category: bind.feature?.category || '',
-                enable: bind.enabled,
-                third_config_id: bind.third_config_id ?? null,
-                bindId: bind.id
+                enable: bind.enabled ? 1 : 0
             }))
             selectedTotal.value = props.initialFeatures.length
         } else {
@@ -252,7 +266,6 @@ const loadData = async () => {
             selectedTotal.value = 0
         }
 
-        // 加载可用功能
         await loadAvailableFeatures(1)
     } catch (error) {
         console.error('获取功能列表失败:', error)
@@ -263,49 +276,54 @@ const loadData = async () => {
 
 // 添加功能（本地操作）
 const handleAddFeature = (feature: any) => {
-    // 添加到已选列表，默认开启
-    const newFeature = {
+    selectedFeatures.value.push({
         ...feature,
-        enable: 1,
-        third_config_id: null
-    }
-    selectedFeatures.value.push(newFeature)
+        enable: 1
+    })
     selectedTotal.value = selectedFeatures.value.length
 
-    // 重新加载当前页
     loadAvailableFeatures(availablePage.value)
 }
 
 // 移除功能（本地操作）
 const handleRemoveFeature = (feature: any) => {
-    // 从已选列表移除
     selectedFeatures.value = selectedFeatures.value.filter(f => f.id !== feature.id)
     selectedTotal.value = selectedFeatures.value.length
 
-    // 重新加载当前页
     loadAvailableFeatures(availablePage.value)
 }
 
 // 保存配置
+//
+// 整份提交：前端把「这个实体最终该有哪几个功能」一次性传过去，
+// 后端按 (bot_id, chat_id) 做整存整取，没出现在列表里的就删掉。
+// 上游不再逐条选 —— 统一用机器人自己的上游（机器人列表那一列）。
 const handleSave = async () => {
     if (!props.targetId && !props.botId) return
+
+    // 群维度必须带机器人：没有归属就无从判断「这个群能用哪些」
+    if (props.scope === 'group' && !props.botId) {
+        return
+    }
 
     saving.value = true
 
     try {
         const featureIds = selectedFeatures.value.map(f => ({
             feature_id: f.id,
-            enable: f.enable,
-            third_config_id: f.third_config_id ?? null
+            enable: f.enable
         }))
 
         const response = await useGroup().setBindFeatures(
-            props.targetId || null,
+            props.scope === 'group' ? props.targetId : null,
             props.botId || null,
             featureIds as any
         )
 
         if (response.success) {
+            // 保存后必须告诉用户一声：以前静默关掉弹窗，
+            // 网络一抖看起来跟成功一模一样。
+            Message.success(response.message || t('featureConfig.saved'))
             emit('saved')
             handleClose()
         }

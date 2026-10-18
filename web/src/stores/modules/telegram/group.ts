@@ -118,7 +118,21 @@ export const useGroup = defineStore('telegramGroup', () => {
     return apiRequest(`telegram/bot/group/config/${groupId}`)
   }
 
-  const getMultipleFeatures = async (page: number = 1, perPage: number = 10, chat_id?: number, category?: string, bot_id?: number): Promise<ApiResponse> => {
+  /**
+   * 可选功能列表
+   *
+   * onlyAssigned=true 时只返回「该机器人已分配」的功能 ——
+   * 群配置用它，保证群只能从机器人白名单里挑。
+   */
+  const getMultipleFeatures = async (
+    page: number = 1,
+    perPage: number = 10,
+    chat_id?: number,
+    category?: string,
+    bot_id?: number,
+    onlyAssigned: boolean = false,
+    excludeIds: number[] = []
+  ): Promise<ApiResponse> => {
     const params = new URLSearchParams({
       mode: 'multiple',
       page: page.toString(),
@@ -132,6 +146,12 @@ export const useGroup = defineStore('telegramGroup', () => {
     }
     if (bot_id) {
       params.append('bot_id', bot_id.toString());
+    }
+    if (onlyAssigned) {
+      params.append('only_assigned', '1');
+    }
+    if (excludeIds.length) {
+      params.append('exclude_ids', excludeIds.join(','));
     }
     return apiRequest(`telegram/features?${params.toString()}`, {
       method: 'GET'
@@ -161,6 +181,19 @@ export const useGroup = defineStore('telegramGroup', () => {
     })
   }
 
+  /**
+   * 只改机器人的三方上游
+   *
+   * 列表页就地改一列，不能走 PUT telegram/bots/{id}：
+   * 那边 BotsRequest 要求 username / api_token 必填，只提交上游会被 422 拦下。
+   */
+  const setBotThirdConfig = async (bot_id: number, third_config_id: number|null): Promise<ApiResponse> => {
+    return apiRequest(`telegram/bots/${bot_id}/third-config`, {
+      method: 'PUT',
+      body: JSON.stringify({third_config_id})
+    })
+  }
+
   return {
     loading,
     getGroupGroupList,
@@ -170,6 +203,7 @@ export const useGroup = defineStore('telegramGroup', () => {
     getMultipleFeatures,
     getBindFeatures,
     setBindFeatures,
+    setBotThirdConfig,
     selectGroup
   }
 })

@@ -87,26 +87,40 @@ class HelpCommand
     /**
      * 该会话可用的功能 ID
      *
+     * 层级：机器人「配置功能」是白名单，群「配置功能」是白名单里挑子集 ——
+     *   这个群自己勾过  → 只列群里启用的
+     *   这个群没勾过    → 继承机器人白名单
+     *
      * @return array<int, int>
      */
     protected function boundFeatureIds(Bots $bot, int|string|null $chatId): array
     {
-        $query = FeaturesBinds::query()
+        $groupBinds = FeaturesBinds::query()
             ->where('bot_id', $bot->id)
-            ->where('enabled', true);
+            ->where('chat_id', $chatId ?? FeaturesBinds::ENTITY_WIDE_CHAT_ID);
 
-        $ids = (clone $query)
-            ->where(function ($q) use ($chatId) {
-                $q->where('chat_id', $chatId)->orWhereNull('chat_id')->orWhere('chat_id', '');
-            })
+        // 判断「这个群有没有自己配过」时不能带 enabled 过滤：
+        // 群里全关掉也是一种明确的配置，此时应该什么都不列，
+        // 而不是因为「启用的查不到」就退回机器人白名单把它又显示出来。
+        if ((clone $groupBinds)->exists()) {
+            return (clone $groupBinds)
+                ->where('enabled', true)
+                ->pluck('feature_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        return FeaturesBinds::query()
+            ->where('bot_id', $bot->id)
+            ->where('chat_id', FeaturesBinds::ENTITY_WIDE_CHAT_ID)
+            ->where('enabled', true)
             ->pluck('feature_id')
             ->filter()
             ->unique()
             ->values()
             ->all();
-
-        // 私聊等场景绑不到具体会话：回退为该机器人绑定的全部功能
-        return $ids !== [] ? $ids : $query->pluck('feature_id')->filter()->unique()->values()->all();
     }
 
     /**

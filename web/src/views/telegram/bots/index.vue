@@ -92,9 +92,10 @@
             @success="handleBroadcastSuccess"
         />
 
-        <!-- 功能配置对话框（机器人维度：绑定功能并逐功能指定上游） -->
+        <!-- 功能配置对话框（机器人维度：给这个机器人分配可用功能） -->
         <FeatureConfig
             v-model="botFeatureDialog.visible"
+            scope="bot"
             :target-id="null"
             :bot-id="botFeatureDialog.botId"
             :initial-features="botFeatureDialog.features"
@@ -154,6 +155,7 @@ import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
 import { useTelegramStore } from '@/stores/modules/telegram'
 import { useBotStore } from '@/stores/modules/telegram/botApi'
+import { useGroup } from '@/stores/modules/telegram/group'
 import { useUserStore } from '@/stores/modules/user'
 import Icon from '@/components/icon/index.vue'
 import Message from '@/support/message'
@@ -320,9 +322,16 @@ const loadThirdConfigs = async () => {
   }
 }
 
+/**
+ * 保存三方上游
+ *
+ * 走单独的 PUT telegram/bots/{id}/third-config，不能用 PUT telegram/bots/{id}：
+ * 那边 BotsRequest 要求 username / api_token 必填，这里只提交一个字段会被
+ * 422 拦下（"The username field is required"），表现就是「选了上游保存报错」。
+ */
 const saveThirdConfig = async (row: any, value: any) => {
   try {
-    await http.put(`${api}/${row.id}`, { third_config_id: value ?? null })
+    await useGroup().setBotThirdConfig(row.id, value ?? null)
     Message.success(t('bots.thirdUpdated'))
   } catch {
     Message.error(t('system.updateFailed'))

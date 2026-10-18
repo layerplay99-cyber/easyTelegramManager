@@ -192,6 +192,7 @@ const th = {
     config: 'ตั้งค่า',
     feature: 'ฟีเจอร์',
     configTitle: 'ตั้งค่ากลุ่ม',
+    needBotFirst: 'กลุ่มนี้ยังไม่มีบอทที่รับผิดชอบ กรุณาตรวจสอบว่ากลุ่มถูกซิงก์เข้าบอทแล้ว',
     merchantId: 'ID ร้านค้า',
     merchantIdPlaceholder: 'กรอก ID ร้านค้า',
     customService: 'ฝ่ายบริการ',
@@ -624,13 +625,17 @@ const th = {
 
   featureConfig: {
     title: 'ตั้งค่าฟีเจอร์',
+    titleForGroup: 'ตั้งค่าฟีเจอร์ของกลุ่ม',
     unconfigured: 'ฟีเจอร์ที่ยังไม่ได้ตั้งค่า',
     configured: 'ฟีเจอร์ที่ตั้งค่าแล้ว',
     noAvailable: 'ไม่มีฟีเจอร์ที่ใช้ได้',
+    noAvailableForGroup: 'บอทนี้ยังไม่มีฟีเจอร์ที่กำหนด กรุณากำหนดใน「รายการบอท → ฟีเจอร์」ก่อน',
     noConfigured: 'ไม่มีฟีเจอร์ที่ตั้งค่าแล้ว',
-    defaultUpstream: 'ต้นทางเริ่มต้น',
     remove: 'ลบออก',
-    saveConfig: 'บันทึกการตั้งค่า'
+    saveConfig: 'บันทึกการตั้งค่า',
+    saved: 'บันทึกการตั้งค่าฟีเจอร์แล้ว',
+    groupScopeTitle: 'เลือกได้เฉพาะฟีเจอร์ที่กำหนดให้บอทนี้',
+    groupScopeTip: 'กลุ่มใช้ upstream ของบอท หากไม่เลือกอะไรเลย จะรับการตั้งค่าทั้งหมดของบอท'
   },
 
   error: {

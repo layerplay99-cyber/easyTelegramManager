@@ -211,65 +211,117 @@ class TelegramFeatureService
     }
 
     /**
-     * 设置绑定功能
+     * 设置绑定功能（整存整取）
+     *
+     * 两级结构：
+     *   chat_id = 0            机器人级：给这个机器人分配可用功能（白名单）
+     *   chat_id = 具体群 ID    群级：从这个机器人白名单里挑本群能用哪些
+     *
+     * 返回值必须带 created / updated / deleted 三个数组 ——
+     * FeatureBindsController::superStore() 要用它们拼提示语。
+     * 这里以前只返回 {success, message}，控制器去 count($results['created'])
+     * 直接踩到 PHP8 的「Undefined array key」，于是每次保存都变成 500
+     * （数据其实写进去了，前端只看到报错）。
+     *
+     * @return array{success: bool, message: string, created: array, updated: array, deleted: array}
      */
     public function setBindFeature($featureBinds, array $validated, int $loginUserId): array
     {
         try {
-            $chatId = $validated['chat_id'];
-            $botId = $validated['bot_id'] ?? null;
+            // 「未指定群」库里存 0，不能存 NULL：唯一索引对 NULL 不生效，会插重
+            $chatId = (int) ($validated['chat_id'] ?? 0);
+            $botId = (int) ($validated['bot_id'] ?? 0);
             $featureIds = $validated['feature_ids'] ?? [];
 
-            // 将前端传来的数据转换为 feature_id => enabled 的映射
             $newFeatureMap = collect($featureIds)->keyBy('feature_id')->toArray();
-            $newFeatureIdList = array_keys($newFeatureMap);
+            $newFeatureIdList = array_map('intval', array_keys($newFeatureMap));
 
-            // 查询当前群组已有的绑定记录
-            $existingBinds = $featureBinds
+            // 必须带上软删的查：软删行仍然占着 (bot_id, chat_id, feature_id) 唯一索引。
+            // 以前不带 withTrashed，于是「勾上 → 取消 → 再勾上」到第三次就插不进去
+            // （Duplicate entry），而且这个错只在第二次取消之后才出现，极难复现。
+            $existingBinds = $featureBinds->newQuery()
+                ->withTrashed()
+                ->where('bot_id', $botId)
                 ->where('chat_id', $chatId)
                 ->get()
                 ->keyBy('feature_id');
 
-            // 处理新增和更新
+            $created = [];
+            $updated = [];
+
             foreach ($newFeatureMap as $featureId => $item) {
-                $featureBinds->updateOrCreate(
-                    [
-                        'chat_id' => $chatId,
-                        'bot_id' => $botId,
-                        'feature_id' => $featureId,
-                    ],
-                    [
-                        'enabled' => $item['enabled'] ?? $item['enable'] ?? 1,
-                        'config' => $item['config'] ?? null,
-                        'third_config_id' => $item['third_config_id'] ?? null,
-                        'creator_id' => $loginUserId,
-                    ]
-                );
+                $featureId = (int) $featureId;
+
+                // enabled 对外是 bool，库里存 0/1：前端开关给 1/0，
+                // 老代码有的地方给 true/false，这里统一成 0/1 再入库
+                $enable = $item['enable'] ?? $item['enabled'] ?? true;
+
+                $attributes = [
+                    'enabled' => $enable ? 1 : 0,
+                    'config' => $item['config'] ?? null,
+                    'third_config_id' => $item['third_config_id'] ?? null,
+                ];
+
+                $bind = $existingBinds->get($featureId);
+
+                if ($bind) {
+                    // 上次被取消过（软删）的先恢复，否则唯一索引上还压着这一条
+                    if ($bind->trashed()) {
+                        $bind->restore();
+                    }
+
+                    // 已存在：改这两级自己的字段，creator_id 保持原值不动
+                    $bind->forceFill($attributes)->save();
+                    $updated[] = $featureId;
+
+                    continue;
+                }
+
+                $featureBinds->create($attributes + [
+                    'bot_id' => $botId,
+                    'chat_id' => $chatId,
+                    'feature_id' => $featureId,
+                    'creator_id' => $loginUserId,
+                ]);
+
+                $created[] = $featureId;
             }
 
-            // 删除前端未传来的绑定（表示前端取消了该功能）
-                        $toDeleteIds = $existingBinds->keys()->diff($newFeatureIdList);
-                      if ($toDeleteIds->isNotEmpty()) {
-               $featureBinds->where('chat_id', $chatId)
-                         ->whereIn('feature_id', $toDeleteIds)
-               ->delete();
-                    }
+            // 前端没传的功能 = 这次被取消掉了，删掉本级的绑定
+            $toDeleteIds = $existingBinds->keys()
+                ->map(fn ($id) => (int) $id)
+                ->diff($newFeatureIdList)
+                ->values()
+                ->all();
 
-                    // 绑定关系变了 → 让getBindings 的缓存失效，否则改了不生效
-                    if ($botId !== null) {
-                        // 实体级默认（chat_id 为 NULL）的变更会影响所有群，
-                        // 因此除了当前群 key 外，也清掉「无 chat」的 key。
-                        Cache::forget("feature:binds:{$botId}:{$chatId}");
-                        if ($chatId === null || $chatId === '') {
-                            // 实体级编辑：尽力清除（无法枚举各群 key，靠 10 分钟 TTL 兜底）
-                            Cache::forget("feature:binds:{$botId}:");
-                        }
-                    }
+            if ($toDeleteIds !== []) {
+                $featureBinds->newQuery()
+                    ->where('bot_id', $botId)
+                    ->where('chat_id', $chatId)
+                    ->whereIn('feature_id', $toDeleteIds)
+                    ->delete();
+            }
 
-                return [
+            // 绑定关系变了 → 让 getBindings 的缓存失效，否则改了不生效
+            //
+            // 机器人级（chat_id = 0）的变更会影响这个机器人名下所有群，
+            // 而各群的 key 无法枚举，所以把实体级 key 也一起清掉，
+            // 并依赖 10 分钟 TTL 兜底。
+            if ($botId !== 0) {
+                Cache::forget("feature:binds:{$botId}:{$chatId}");
+
+                if ($chatId === 0) {
+                    Cache::forget("feature:binds:{$botId}:0");
+                }
+            }
+
+            return [
                 'success' => true,
-                        'message' => '功能绑定设置成功',
-                        ];
+                'message' => '功能绑定设置成功',
+                'created' => $created,
+                'updated' => $updated,
+                'deleted' => $toDeleteIds,
+            ];
 
         } catch (\Throwable $e) {
             $this->logMessageService->createLaravelLog(
@@ -286,6 +338,9 @@ class TelegramFeatureService
             return [
                 'success' => false,
                 'message' => '功能绑定设置失败: ' . $e->getMessage(),
+                'created' => [],
+                'updated' => [],
+                'deleted' => [],
             ];
         }
     }

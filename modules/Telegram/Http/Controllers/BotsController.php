@@ -88,11 +88,55 @@ class BotsController extends Controller
     }
 
     /**
+     * 只改「三方上游」
+     *
+     * 机器人列表那一列是就地改的：一次只提交一个字段，
+     * 走 update() 会被 BotsRequest 的 username / api_token 必填规则挡掉
+     * （422 The username field is required），表现出来就是「选了上游保存报错」。
+     *
+     * 这里单独开一个口子，只验这一个字段。
+     */
+    public function updateThirdConfig(int|string $id, Request $request): JsonResponse
+    {
+        if (! $this->isSuperAdmin()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => '只有超级管理员才能修改机器人的三方上游',
+            ], 403);
+        }
+
+        $data = $request->validate([
+            'third_config_id' => 'nullable|integer|exists:thirdapi_config,id',
+        ]);
+
+        $bot = $this->model->find($id);
+
+        if (! $bot) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Bot not found',
+            ], 404);
+        }
+
+        $bot->forceFill(['third_config_id' => $data['third_config_id'] ?? null])->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'ok',
+            'data' => ['third_config_id' => $bot->third_config_id],
+        ]);
+    }
+
+    /**
      * 是否超级管理员
+     *
+     * 必须用后台自己那个 guard 取登录用户：Auth::id() 走的是默认 guard（web），
+     * API 请求在它上面没登录态，取出来恒为 null，
+     * 于是超管改上游也会被自己的权限校验挡成 403。
      */
     protected function isSuperAdmin(): bool
     {
-        return (int) Auth::id() === (int) config('catch.super_admin', 1);
+        return (int) $this->getLoginUserId() === (int) config('catch.super_admin', 1);
     }
 
     /**

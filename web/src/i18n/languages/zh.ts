@@ -192,6 +192,7 @@ const zh = {
     config: '配置',
     feature: '功能',
     configTitle: '群组配置',
+    needBotFirst: '这个群还没有归属机器人，请先确认群已同步到某个机器人',
     merchantId: '商户ID',
     merchantIdPlaceholder: '请输入商户ID',
     customService: '客服',
@@ -624,13 +625,17 @@ const zh = {
 
   featureConfig: {
     title: '功能配置',
+    titleForGroup: '群功能配置',
     unconfigured: '未配置功能',
     configured: '已配置功能',
     noAvailable: '暂无可用功能',
+    noAvailableForGroup: '这个机器人还没有分配任何功能，请先到「机器人列表 → 功能」里分配',
     noConfigured: '暂无已配置功能',
-    defaultUpstream: '默认上游',
     remove: '移除',
-    saveConfig: '保存配置'
+    saveConfig: '保存配置',
+    saved: '功能配置已保存',
+    groupScopeTitle: '只能从机器人已分配的功能里选择',
+    groupScopeTip: '群不单独配置上游，统一用机器人自己的上游；群里没勾任何功能时，继承机器人的全部配置'
   },
 
   error: {

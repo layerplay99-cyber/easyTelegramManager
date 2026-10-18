@@ -122,9 +122,10 @@
             @refresh-list="search"
         />
 
-        <!-- 功能配置对话框 -->
+        <!-- 功能配置对话框（客服号维度：给它分配可用功能，等同机器人级） -->
         <FeatureConfig
             v-model="featureDialogVisible"
+            scope="bot"
             :target-id="featureTargetId"
             :bot-id="featureBotId"
             :initial-features="currentUserFeatures"

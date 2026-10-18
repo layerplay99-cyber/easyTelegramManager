@@ -216,6 +216,48 @@ class PlatformEndpointRegistry
     }
 
     /**
+     * 平台默认值（每个接口的 name / method / path_template）
+     *
+     * 取数顺序：
+     *   1. 库里 third_api_endpoints —— 由 sync() 扫描代码声明写入的那份，
+     *      这是「初始化扫描」的结果，必须以此为准；
+     *   2. 库里还没有（首次还没同步过）时用代码声明兜底，保证下拉不会空。
+     *
+     * 注意这里只读不写，也不会把定制值回填进来 ——
+     * 默认值和定制值是库里两个互不影响的值。
+     *
+     * @return array<string, array{name: string, method: string, path_template: string}>
+     */
+    public static function defaults(): array
+    {
+        $defaults = [];
+
+        foreach (\Modules\Telegram\Models\ThirdApiEndpoints::query()->orderBy('code')->get() as $endpoint) {
+            $defaults[(string) $endpoint->code] = [
+                'name' => (string) $endpoint->name,
+                'method' => (string) $endpoint->method,
+                'path_template' => (string) $endpoint->path_template,
+            ];
+        }
+
+        foreach (self::definitions() as $definition) {
+            if (isset($defaults[$definition['code']])) {
+                continue;
+            }
+
+            $defaults[$definition['code']] = [
+                'name' => $definition['name'],
+                'method' => $definition['method'],
+                'path_template' => $definition['path_template'],
+            ];
+        }
+
+        ksort($defaults);
+
+        return $defaults;
+    }
+
+    /**
      * 后台下拉选项：code + 名称 + 平台默认的方法路径
      *
      * @return array<int, array<string, mixed>>
@@ -224,10 +266,10 @@ class PlatformEndpointRegistry
     {
         $options = [];
 
-        foreach (self::definitions() as $definition) {
+        foreach (self::defaults() as $code => $default) {
             $options[] = [
-                'value' => $definition['code'],
-                'label' => sprintf('%s（%s %s）', $definition['name'], $definition['method'], $definition['path_template']),
+                'value' => $code,
+                'label' => sprintf('%s（%s %s）', $default['name'], $default['method'], $default['path_template']),
             ];
         }
 
@@ -237,12 +279,14 @@ class PlatformEndpointRegistry
     /**
      * 后台下拉选项（按上游）：括号里显示该上游实际会请求的 method + path
      *
-     * 之前用的是 options()，取的是代码声明的平台默认值 —— 后台在「上游接口配置」里
-     * 定制过路径/方法后，下拉里括号仍显示平台默认，看着像「没生效」。
+     * 两份数据分开存、互不覆盖：
+     *   · 默认值  third_api_endpoints   由 sync() 扫描代码写入
+     *   · 定制值  third_config_endpoints 由后台「上游接口配置」写入
      *
-     * 这里按 third_config_endpoints 的覆盖算出真正生效的值：
-     *   · 定制过 → 显示该上游的 method + path，并标注「已定制」
-     *   · 未定制 → 显示平台默认（与 options() 一致）
+     * 所以：
+     *   · 定制过   → 显示该上游的 method + path，并标注「已定制」
+     *   · 未定制 / 定制被删除 → 直接回到库里的默认值，
+     *     不需要重新执行扫描、也不需要在删除定制时把默认值再写一遍。
      *
      * @param int|null $thirdConfigId 上游配置 id；为空则等同 options()
      * @return array<int, array<string, mixed>>
@@ -261,19 +305,20 @@ class PlatformEndpointRegistry
 
         $options = [];
 
-        foreach (self::definitions() as $definition) {
-            $override = $overrides[$definition['code']] ?? null;
+        foreach (self::defaults() as $code => $default) {
+            $override = $overrides[$code] ?? null;
 
-            $method = $override?->method ?: $definition['method'];
-            $path   = $override?->path ?: $definition['path_template'];
+            // 定制值优先，但只是「算出来展示」，不回写到默认表
+            $method = $override?->method ?: $default['method'];
+            $path   = $override?->path ?: $default['path_template'];
             $custom = $override !== null
                 && ((string) ($override->path ?? '') !== '' || (string) ($override->method ?? '') !== '');
 
             $options[] = [
-                'value' => $definition['code'],
+                'value' => $code,
                 'label' => sprintf(
                     '%s（%s %s%s）',
-                    $definition['name'],
+                    $default['name'],
                     $method,
                     $path,
                     $custom ? ' ·已定制' : ''

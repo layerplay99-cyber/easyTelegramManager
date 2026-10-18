@@ -68,8 +68,8 @@
       {{ $t('feature.selectDriverFirst') }}
     </div>
 
-    <template v-else-if="schema.length">
-      <el-form-item v-for="f in schema" :key="f.key" :label="f.label">
+    <template v-else-if="resolvedSchema.length">
+      <el-form-item v-for="f in resolvedSchema" :key="f.key" :label="f.label">
         <!-- 文本 -->
         <el-input
           v-if="f.type === 'text'"
@@ -109,7 +109,7 @@
           class="w-full"
         >
           <el-option
-            v-for="o in optionsFor(f)"
+            v-for="o in (f.options || [])"
             :key="o.value"
             :label="o.label"
             :value="o.value"
@@ -282,38 +282,45 @@ const removeParam = (cmd: any, index: number) => cmd.params.splice(index, 1)
 const dynamicOptions = ref<Record<string, any[]>>({})
 
 /**
- * 选项版本号：每次动态选项拉取完成后 +1
- *
- * 不能直接依赖「dynamicOptions 新增一个 key 会不会触发更新」——
- * 首帧渲染时该 key 往往还不存在，读到的就是 undefined，
- * 之后异步把 key 补上，Vue 不保证能追踪到这个新增，下拉就会一直停在旧列表。
- * 让 optionsFor() 读一下这个版本号，就能确定性地触发重新渲染。
- */
-const optionsVersion = ref(0)
-
-/**
  * 平台接口类下拉：括号里显示的是「该上游实际生效」的 method + path。
  * 后台在「上游接口配置」里定制过之后，下拉要跟着变，不能还显示平台默认的示例值。
  */
 const ENDPOINT_SOURCES = ['platform_endpoints', 'third_api_endpoints']
 
 /**
- * 取字段选项
+ * 把动态选项并进 schema，模板直接读 f.options
  *
- * 接口类下拉必须走动态来源：后端 DriverRegistry 会把静态 options 直接写进 schema，
- * 那份是平台默认值，用了就永远不会随上游定制变化。
- * 所以这里对 ENDPOINT_SOURCES 反过来优先取动态拉取的结果，静态的只作兜底。
+ * 之前是「模板里调 optionsFor(field)，再靠读一个版本号保证刷新」，不可靠：
+ * 函数式调用建立的依赖在编译后可能被优化掉，而且首帧该 key 往往还不存在，
+ * 读到 undefined 之后异步补上 key，Vue 不保证能追踪到这个新增 ——
+ * 表现就是「请求发了、返回也对、下拉就是不刷新」。
+ *
+ * 改成 computed：key 由 loadDynamicOptions 同步预建过，赋值时这里必定重算。
  */
-const optionsFor = (field: any) => {
-  void optionsVersion.value
+const resolvedSchema = computed<any[]>(() =>
+  schema.value.map((f: any) => {
+    const dynamic = f.source ? dynamicOptions.value[f.source] : undefined
 
-  if (ENDPOINT_SOURCES.includes(field.source)) {
-    const dynamic = dynamicOptions.value[field.source]
-    if (dynamic && dynamic.length) return dynamic
+    return dynamic && dynamic.length ? { ...f, options: dynamic } : f
+  })
+)
+
+/**
+ * 后台响应是两层：外层 {code, message, data}，里层 controller 又返回了一次
+ * {code, message, data}，真正的列表在 data.data.data。
+ *
+ * 直接取 data.data 拿到的是里层那个对象（不是数组），length 是 undefined，
+ * 于是下拉静默退回 schema 里的静态选项 ——
+ * 请求发了、返回也对、切换上游也重拉了，界面就是不变。
+ */
+const unwrapList = (res: any): any[] => {
+  const payload = res?.data
+
+  if (Array.isArray(payload)) {
+    return payload
   }
 
-  if (field.options && field.options.length) return field.options
-  return dynamicOptions.value[field.source] || []
+  return Array.isArray(payload?.data) ? payload.data : []
 }
 
 /**
@@ -343,14 +350,11 @@ const loadDynamicOptions = async (sources: string[], force = false) => {
       }
 
       const { data } = await http.get('telegram/features/options', params)
-      dynamicOptions.value[source] = data.data || []
+      dynamicOptions.value[source] = unwrapList(data)
     } catch {
       dynamicOptions.value[source] = []
     }
   }))
-
-  // 确定性触发重新渲染
-  optionsVersion.value++
 }
 
 // ---------- 表单 ----------
@@ -450,7 +454,7 @@ const loadCommands = async () => {
   if (!props.primary) return
   try {
     const { data } = await http.get(`telegram/features/${props.primary}/commands`)
-    commands.value = (data.data || []).map((c: any) => ({
+    commands.value = unwrapList(data).map((c: any) => ({
       command: c.command,
       description: c.description || '',
       usage: c.usage || '',

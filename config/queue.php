@@ -71,7 +71,17 @@ return [
             // 造成同一条消息被重复发送（本项目历史上出现过）。
             // 取 timeout 的 2 倍，留出网络/DB 抖动余量。
             'retry_after' => 360,
-            'block_for' => null,
+
+            // 阻塞取任务：worker 没任务时 blpop 住 :notify，有任务立刻被唤醒。
+            //
+            // ⚠️ 留 null 的话 RedisQueue 走非阻塞 eval：pop 不到任务就返回 null，
+            // Worker::runNextJob() 接着 sleep(--sleep)，docker-compose 里是 3 秒。
+            // 机器人消息是低频的，worker 几乎总在睡 —— 每条消息凭空白等 0~3s（均值 1.5s），
+            // 表现为「webhook 秒回 200，但群里好几秒才看到回复」。
+            // pushRaw 会同时 rpush 到 <queue>:notify，所以这里一设就能被立刻唤醒。
+            //
+            // 取值要小于 retry_after、大于单任务耗时；0 = 一直阻塞（这里给 5 保守些）。
+            'block_for' => (int) env('REDIS_QUEUE_BLOCK_FOR', 5),
             'after_commit' => false,
         ],
 

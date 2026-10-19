@@ -114,9 +114,13 @@ class ListenBotInGroupService
             }
 
             if ($this->syncChatInfo($chatId, $bot->id)) {
+                // 只登记群 + 打节流标记，不做功能绑定。
+                //
+                // 功能是「机器人白名单 > 群子集」的递进关系：新发现的群只入库，
+                // 用哪些功能由后台在群里手动添加。这里调 syncBindFeature() 会把机器人
+                // 的 bot 类功能全部按 enabled=1 写进这个群，等于新群自动全选，
+                // 与「没配置的群即便机器人有也不能用」冲突。
                 Cache::put($cacheKey, true, now()->addMinutes(self::SYNC_THROTTLE_MINUTES));
-
-                $this->syncBindFeature($chatId, $bot->id);
             }
         } catch (\Throwable $e) {
             $this->logMessageService->createLaravelLog(

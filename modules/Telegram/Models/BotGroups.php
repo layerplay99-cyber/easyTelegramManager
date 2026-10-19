@@ -193,9 +193,19 @@ class BotGroups extends Model
 
     /**
      * 只刷新单个 chat_id 对应的缓存项
+     *
+     * ⚠️ 参数必须是 int|string|null，不能写成 ?string：
+     * chat_id 在库里是整型，Eloquent 取出来是 int，本文件 declare(strict_types=1)，
+     * int 传给 ?string 会直接 TypeError。而它是 saved/deleted 回调里调的，
+     * 一抛异常 BotGroups::updateOrCreate() 整个失败，
+     * ListenBotInGroupService::syncChatInfo() 只能 return false，
+     * 于是「10 分钟同步节流」的缓存标记永远写不进去 ——
+     * 表现就是每条消息都重跑一次同步群信息。
      */
-    public static function refreshCacheForChat(?string $chatId): void
+    public static function refreshCacheForChat(int|string|null $chatId): void
     {
+        $chatId = $chatId === null ? null : (string) $chatId;
+
         // 缓存还没建过就做一次全量，保证数据完整
         if (! $chatId || ! Cache::has('group_configs')) {
             static::refreshCache();

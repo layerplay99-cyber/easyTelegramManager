@@ -131,6 +131,48 @@ services:
         networks:
             - stack
 
+    # ---------------------------------------------------------- Telegram Bot API Server（本地 TDLib）
+    #
+    # 把 Bot API 出站调用从公网的 api.telegram.org 换成本机 TDLib 服务：
+    #   延迟：走 stack 内网，省掉公网往返
+    #   文件：加 --local 后上限 2GB（云端是下载 20MB / 上传 50MB）
+    #   对业务无感：token、方法名、返回结构都不变，只是换个 base url
+    # 部署与运维要点见 docs/telegram-bot-api-server.md
+    #
+    # 启用步骤（三步都要做，少一步等于没启用）：
+    #   1. 项目 .env 填 TELEGRAM_API_ID / TELEGRAM_API_HASH（my.telegram.org 申请）
+    #   2. 项目 .env 设 TELEGRAM_BASE_BOT_URL=http://telegram-bot-api:8083/bot
+    #      —— 只起容器不设这个，出站仍走官方，容器白起
+    #   3. docker compose up -d telegram-bot-api
+    #      docker exec tgbot-php php artisan config:clear   # 用了 config:cache 就再 cache 一次
+    #      后台每个机器人重新「关闭 → 激活」，再用「查看状态」确认
+    #
+    # 注意两点：
+    #   · 不映射宿主端口。这个 HTTP 端口无任何鉴权，谁连上谁就能用你挂的所有
+    #     bot token 发消息；PHP 通过服务名 telegram-bot-api:8083 在 stack 网络内访问。
+    #   · 端口 8083 是避开 telegram-py（Telethon）的 8081 选的，别改回去。
+    telegram-bot-api:
+        image: aiogram/telegram-bot-api:latest
+        container_name: tgbot-bot-api
+        # 参数写全，避免依赖镜像自己的 env 约定
+        command: >
+            --api-id=${TELEGRAM_API_ID}
+            --api-hash=${TELEGRAM_API_HASH}
+            --local
+            --http-port=8083
+            --dir=/data
+            --temp-dir=/tmp/telegram-bot-api
+            --log=/data/telegram-bot-api.log
+            --verbosity=2
+        volumes:
+            # --dir 是文件缓存，只增不减，必须持久化。
+            # 清掉后已下载文件的 file_path 失效（需重新下载），不影响新消息。
+            # file_path / file_id 与实例绑定，所以只能单实例 + 持久卷，不要跑多副本。
+            - tgbot_botapi:/data
+        restart: unless-stopped
+        networks:
+            - stack
+
     # ---------------------------------------------------------- 旧版 MadelineProto 常驻监听（默认不启动）
     # 事件处理已改由 Python Telethon 负责，默认关闭以避免双处理。
     # 如需回退：docker compose --profile madeline-legacy up -d telegram
@@ -170,6 +212,7 @@ volumes:
     node_modules:
     tgbot_media:
     tgbot_redis:
+    tgbot_botapi:      # Telegram Bot API Server 的文件缓存（--dir）
 
 networks:
     stack:

@@ -1,7 +1,7 @@
 # 部署文档：本地 Telegram Bot API Server
 
 > 相关文档：[部署](deployment.md) · [Telegram 模块开发](telegram-module.md) · [数据库说明](database.md)
-> 最后更新：2026-10-16
+> 最后更新：2026-10-19
 > 目标：把 Bot API 调用从 `api.telegram.org` 换成本机 TDLib 服务，降低延迟、突破文件大小限制
 
 ---
@@ -36,50 +36,40 @@
 | 网络 | 服务器能访问 Telegram（就近 DC，或配代理，见 6.3） |
 | 磁盘 | `--dir` 是文件缓存，持续增长，建议独立卷 ≥ 20G |
 | 内存 | 单实例约 200–500MB（每个 bot 的会话常驻 TDLib） |
-| 端口 | HTTP 默认 `8081`（本项目 `telegram-service` 用 8081，**注意避开**，可用 8083） |
+| 端口 | 官方默认的 8081 在本项目已被 `telegram-service`（Telethon）占用，compose 里固定用 **8083** |
 
 ---
 
 ## 3. 部署方式
 
-### 3.1 Docker（推荐）
+### 3.1 Docker（推荐，已写进项目 docker-compose.yml）
 
 镜像用社区维护的 `aiogram/telegram-bot-api`（跟随官方 release 打 tag）。
 
-接入本项目 `docker-compose.yml`（共享 `stack` 网络，**不映射宿主端口**）：
+**服务定义已经在仓库根目录的 `docker-compose.yml` 里**（服务名 `telegram-bot-api`，
+容器名 `tgbot-bot-api`，共享 `stack` 网络、**不映射宿主端口**，缓存卷 `tgbot_botapi`）。
+本节只保留"为什么这么配"，**不再复制一份 yaml** —— 两处配置必然互相漂移。
 
-```yaml
-  # ---------------------------------------------------------- Telegram Bot API Server（本地 TDLib）
-  telegram-bot-api:
-      image: aiogram/telegram-bot-api:latest
-      container_name: tgbot-bot-api
-      # 参数写全，避免依赖镜像自己的 env 约定
-      command: >
-        --api-id=123456 --api-hash=你的api_hash
-        --local
-        --http-port=8083
-        --dir=/data
-        --temp-dir=/tmp/telegram-bot-api
-        --log=/data/telegram-bot-api.log
-        --verbosity=2
-      volumes:
-          - tgbot_botapi:/data
-      restart: unless-stopped
-      networks:
-          - stack
+启用（三步，少一步等于没启用）：
+
+```bash
+# 1. 项目 .env：TDLib 身份（my.telegram.org 申请） + 出站地址
+TELEGRAM_API_ID=123456
+TELEGRAM_API_HASH=你的api_hash
+TELEGRAM_BASE_BOT_URL=http://telegram-bot-api:8083/bot
+
+# 2. 只起这一个服务，不影响其它容器
+docker compose up -d telegram-bot-api
+docker logs -f tgbot-bot-api
+
+# 3. Laravel 重新读配置（用了 config:cache 的必须再 cache 一次）
+docker exec tgbot-php php artisan config:clear
 ```
 
-`volumes` 里补一行：
+> 后续更新镜像也是同一条：`docker compose up -d telegram-bot-api`
+> （先 `docker compose pull telegram-bot-api` 拉新 tag 也行）。
 
-```yaml
-volumes:
-    node_modules:
-    tgbot_media:
-    tgbot_redis:
-    tgbot_botapi:      # ← 新增
-```
-
-**参数要点**
+**参数要点**（对应 compose 里 `command:` 那一段，改参数请改 compose）
 
 | 参数 | 作用 | 注意 |
 |---|---|---|
@@ -89,11 +79,6 @@ volumes:
 | `--dir` | 文件缓存目录 | **必须持久化**，见第 5 节 |
 | `--temp-dir` | 上传临时目录 | 显式指定，别放 `PrivateTmp` 命名空间里 |
 | `--verbosity` | 日志级别 | 2 够排查，磁盘紧张降到 1 |
-
-```bash
-docker compose up -d telegram-bot-api
-docker logs -f tgbot-bot-api
-```
 
 ### 3.2 从源码构建（要锁版本时）
 
@@ -251,7 +236,8 @@ curl -s -F "chat_id=<群ID>" -F "document=@/tmp/big.mp4" \
 4. **端口无鉴权**：这个 HTTP 端口**没有任何认证**，谁能连上谁就能用你挂的所有 bot token 发消息。
    Docker 方式只暴露在 `stack` 网络、不映射宿主端口；宿主机方式务必 `--http-ip-address=127.0.0.1` + 防火墙。
 5. **`api_id` / `api_hash` 是凭证**：放 `.env` / secrets，`.env` 已在 `.gitignore` 里，别提交。
-6. **和 `telegram-service` 的 8081 错开**：本项目 Telethon 服务占用 8081，本文示例用 8083。
+6. **和 `telegram-service` 的 8081 错开**：本项目 Telethon 服务占用 8081，
+   compose 里 Bot API Server 固定用 **8083**，别改回去。
 
 ---
 

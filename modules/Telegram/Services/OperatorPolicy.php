@@ -135,16 +135,13 @@ class OperatorPolicy
     /**
      * 是否群管理员（含群主）
      *
-     * 判定顺序：
-     *   1) 给了 $bot → 直接问官方 getChatMember（权威，本地 Bot API Server 下 3ms 级）
-     *   2) 官方判不出来（网络问题 / 机器人被踢 / 用户已退群）→ 退回 group_admins 备份
+     * 有 bot 就只问官方：getChatMember(chat_id, user_id) 返回这个人在该群的身份，
+     * creator = 群主、administrator = 管理员，两者都放行。命令是谁发的，$userId 就是谁，
+     * 一条命令一次调用即可，不需要任何本地快照。
      *
-     * 为什么不以库为准：group_admins 只是 syncChatAdmins() 在「机器人入群」那一瞬间
-     * 拉的一份快照，之后有人被提升/撤销管理员它都不知道；而走兜底发现的群压根没同步过。
-     * 拿快照当权威，就会出现「群主也不是管理员」。
-     *
-     * ⚠️ 备份那条查询原来是 ->where('status', 1)，但 status 存的是 Telegram 原文
-     * （creator / administrator），MySQL 把非数字字符串转成 0，永远匹配不到任何行。
+     * group_admins 只在「连官方都问不出来、且手上没有可调用的 bot」时才看一眼，
+     * 平时不参与判定 —— 它只是 syncChatAdmins() 在机器人入群那一瞬间拉的快照，
+     * 之后有人被提升/撤销都不知道，拿它当权威就会出现「群主也不是管理员」。
      */
     public function isGroupAdmin(string $chatId, ?int $userId, ?Bots $bot = null): bool
     {
@@ -153,20 +150,17 @@ class OperatorPolicy
         }
 
         if ($bot) {
-            $live = $this->isGroupAdminLive($bot, (string) $chatId, (int) $userId);
-
-            if ($live !== null) {
-                return $live;
-            }
+            return $this->isGroupAdminLive($bot, (string) $chatId, (int) $userId) ?? false;
         }
 
+        // 没有 bot 可用（问不了官方）才走这一步
         return $this->isAdminInDb((string) $chatId, (int) $userId);
     }
 
     /**
      * 问官方：这个人在该群里是不是 creator / administrator
      *
-     * @return bool|null null = 判不出来（留给调用方走备份）
+     * @return bool|null null = 问不出来（接口报错 / 返回里没有 status）
      */
     protected function isGroupAdminLive(Bots $bot, string $chatId, int $userId): ?bool
     {
@@ -188,7 +182,7 @@ class OperatorPolicy
 
             $isAdmin = in_array($status, self::ADMIN_STATUSES, true);
 
-            // 顺手把官方结果回填进 group_admins：官方接口哪天不可用，备份还能用
+            // 顺手回填 group_admins：判定不读它，但后台「群管理员」列表要看这份数据
             if ($isAdmin) {
                 $this->rememberAdmin($chatId, $userId, $status, $member);
             }

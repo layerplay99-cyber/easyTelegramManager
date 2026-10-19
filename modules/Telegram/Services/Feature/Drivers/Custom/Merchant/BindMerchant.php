@@ -167,7 +167,7 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
         $routes = app(MerchantRouteService::class);
 
         // 绑定关系决定了「通知发到哪、谁能在群里点按钮」，默认只给管理员
-        if ($context->config('require_admin', true) && ! $policy->isGroupAdmin($chatId, $context->userId)) {
+        if ($context->config('require_admin', true) && ! $policy->isGroupAdmin($chatId, $context->userId, $context->bot)) {
             return $this->fail('只有群管理员可以绑定商户号');
         }
 

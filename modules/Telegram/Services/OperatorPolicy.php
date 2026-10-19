@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Services;
 
+use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\GroupAdmins;
 use Modules\Telegram\Models\GroupMembers;
+use Modules\Telegram\Services\Bot\BotApiFactory;
 use Modules\Telegram\Services\Feature\FeatureDataStore;
 
 /**
@@ -26,6 +28,13 @@ class OperatorPolicy
      * feature_data 里 feature_id=0 保留给「群级通用配置」
      */
     public const GROUP_SETTING_FEATURE_ID = 0;
+
+    /**
+     * 算「管理员」的 Telegram 身份
+     *
+     * creator = 群主，administrator = 管理员，两者都要放行。
+     */
+    public const ADMIN_STATUSES = ['creator', 'administrator'];
 
     public function __construct(protected FeatureDataStore $store)
     {
@@ -98,7 +107,7 @@ class OperatorPolicy
     /**
      * 是否允许该用户点击
      */
-    public function allows(array $settings, string $chatId, ?int $userId, ?string $username = null): bool
+    public function allows(array $settings, string $chatId, ?int $userId, ?string $username = null, ?Bots $bot = null): bool
     {
         if (! $userId) {
             return false;
@@ -116,26 +125,109 @@ class OperatorPolicy
             }
 
             // 白名单模式下管理员也放行，避免设了名单把管理员锁在外面
-            return $this->isGroupAdmin($chatId, $userId);
+            return $this->isGroupAdmin($chatId, $userId, $bot);
         }
 
         // 默认：仅群管理员
-        return $this->isGroupAdmin($chatId, $userId);
+        return $this->isGroupAdmin($chatId, $userId, $bot);
     }
 
     /**
-     * 是否群管理员（ListenBotInGroupService::syncChatAdmins 同步进来的那份）
+     * 是否群管理员（含群主）
+     *
+     * 判定顺序：
+     *   1) 给了 $bot → 直接问官方 getChatMember（权威，本地 Bot API Server 下 3ms 级）
+     *   2) 官方判不出来（网络问题 / 机器人被踢 / 用户已退群）→ 退回 group_admins 备份
+     *
+     * 为什么不以库为准：group_admins 只是 syncChatAdmins() 在「机器人入群」那一瞬间
+     * 拉的一份快照，之后有人被提升/撤销管理员它都不知道；而走兜底发现的群压根没同步过。
+     * 拿快照当权威，就会出现「群主也不是管理员」。
+     *
+     * ⚠️ 备份那条查询原来是 ->where('status', 1)，但 status 存的是 Telegram 原文
+     * （creator / administrator），MySQL 把非数字字符串转成 0，永远匹配不到任何行。
      */
-    public function isGroupAdmin(string $chatId, ?int $userId): bool
+    public function isGroupAdmin(string $chatId, ?int $userId, ?Bots $bot = null): bool
     {
         if (! $userId) {
             return false;
         }
 
+        if ($bot) {
+            $live = $this->isGroupAdminLive($bot, (string) $chatId, (int) $userId);
+
+            if ($live !== null) {
+                return $live;
+            }
+        }
+
+        return $this->isAdminInDb((string) $chatId, (int) $userId);
+    }
+
+    /**
+     * 问官方：这个人在该群里是不是 creator / administrator
+     *
+     * @return bool|null null = 判不出来（留给调用方走备份）
+     */
+    protected function isGroupAdminLive(Bots $bot, string $chatId, int $userId): ?bool
+    {
+        try {
+            $member = app(BotApiFactory::class)->forBot($bot)->getChatMember([
+                'chat_id' => $chatId,
+                'user_id' => $userId,
+            ]);
+
+            $status = is_array($member)
+                ? (string) ($member['status'] ?? '')
+                : (string) ($member->status ?? '');
+
+            $status = strtolower($status);
+
+            if ($status === '') {
+                return null;
+            }
+
+            $isAdmin = in_array($status, self::ADMIN_STATUSES, true);
+
+            // 顺手把官方结果回填进 group_admins：官方接口哪天不可用，备份还能用
+            if ($isAdmin) {
+                $this->rememberAdmin($chatId, $userId, $status, $member);
+            }
+
+            return $isAdmin;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * 官方判定结果的备份（写失败不影响本次判定）
+     */
+    protected function rememberAdmin(string $chatId, int $userId, string $status, mixed $member): void
+    {
+        try {
+            $user = is_array($member) ? ($member['user'] ?? []) : ($member->user ?? null);
+
+            GroupAdmins::updateOrCreate(
+                ['chat_id' => $chatId, 'user_id' => $userId],
+                [
+                    'status' => $status,
+                    'username' => (string) (is_array($user) ? ($user['username'] ?? '') : ($user->username ?? '')),
+                ]
+            );
+        } catch (\Throwable) {
+            // 备份写不进去无所谓，下次还能问官方
+        }
+    }
+
+    /**
+     * 备份判定：group_admins 里有没有这个人
+     */
+    protected function isAdminInDb(string $chatId, int $userId): bool
+    {
         return GroupAdmins::query()
-            ->where('chat_id', (string) $chatId)
-            ->where('user_id', (int) $userId)
-            ->where('status', 1)
+            ->where('chat_id', $chatId)
+            ->where('user_id', $userId)
+            ->whereIn('status', self::ADMIN_STATUSES)
             ->exists();
     }
 

@@ -205,7 +205,7 @@ class TradeConfirm extends BaseCustomFeature implements EndpointProvider
             ? $session->allowed
             : $policy->settings((string) $session->chat_id);
 
-        if (! $policy->allows($allowed, (string) $session->chat_id, $context->userId, $context->username())) {
+        if (! $policy->allows($allowed, (string) $session->chat_id, $context->userId, $context->username(), $context->bot)) {
             return $this->quiet('你没有权限操作这个按钮', true);
         }
 

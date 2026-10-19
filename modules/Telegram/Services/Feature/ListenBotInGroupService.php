@@ -107,21 +107,25 @@ class ListenBotInGroupService
                 ->where('bot_id', $bot->id)
                 ->exists();
 
-            // 已存在只做节流标记，避免每条消息都写库
-            if ($exists) {
-                Cache::put($cacheKey, true, now()->addMinutes(self::SYNC_THROTTLE_MINUTES));
+            // 只登记群 + 打节流标记，不做功能绑定。
+            //
+            // 功能是「机器人白名单 > 群子集」的递进关系：新发现的群只入库，
+            // 用哪些功能由后台在群里手动添加。这里调 syncBindFeature() 会把机器人
+            // 的 bot 类功能全部按 enabled=1 写进这个群，等于新群自动全选，
+            // 与「没配置的群即便机器人有也不能用」冲突。
+            if (! $exists) {
+                $exists = $this->syncChatInfo($chatId, $bot->id);
+            }
+
+            // 同步失败就不打节流标记，下一条消息再试一次
+            if (! $exists) {
                 return;
             }
 
-            if ($this->syncChatInfo($chatId, $bot->id)) {
-                // 只登记群 + 打节流标记，不做功能绑定。
-                //
-                // 功能是「机器人白名单 > 群子集」的递进关系：新发现的群只入库，
-                // 用哪些功能由后台在群里手动添加。这里调 syncBindFeature() 会把机器人
-                // 的 bot 类功能全部按 enabled=1 写进这个群，等于新群自动全选，
-                // 与「没配置的群即便机器人有也不能用」冲突。
-                Cache::put($cacheKey, true, now()->addMinutes(self::SYNC_THROTTLE_MINUTES));
-            }
+            // 不在这里同步管理员：权限判定以官方 getChatMember 为准（见 OperatorPolicy），
+            // group_admins 只是接口不可用时的备份，靠 bot 入群事件 + 判定成功时回填维护。
+            // 没必要为了填这张表给每个群每 10 分钟多打一次 getChatAdministrators。
+            Cache::put($cacheKey, true, now()->addMinutes(self::SYNC_THROTTLE_MINUTES));
         } catch (\Throwable $e) {
             $this->logMessageService->createLaravelLog(
                 'telegram_errors',

@@ -214,7 +214,7 @@ class InteractiveClickDriver implements FeatureDriver
             ? $session->allowed
             : $this->policy->settings((string) $session->chat_id);
 
-        if (! $this->policy->allows($allowed, (string) $session->chat_id, $context->userId, $context->username())) {
+        if (! $this->policy->allows($allowed, (string) $session->chat_id, $context->userId, $context->username(), $context->bot)) {
             return $this->quiet('你没有权限操作这个按钮', true);
         }
 

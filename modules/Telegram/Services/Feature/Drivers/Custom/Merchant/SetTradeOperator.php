@@ -101,7 +101,7 @@ class SetTradeOperator extends BaseCustomFeature
         $chatId = (string) $context->chatId;
         $policy = app(OperatorPolicy::class);
 
-        if ($context->config('require_admin', true) && ! $policy->isGroupAdmin($chatId, $context->userId)) {
+        if ($context->config('require_admin', true) && ! $policy->isGroupAdmin($chatId, $context->userId, $context->bot)) {
             return $this->fail('只有群管理员可以设置操作人');
         }
 

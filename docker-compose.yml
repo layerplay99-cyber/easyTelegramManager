@@ -147,23 +147,33 @@ services:
     #      docker exec tgbot-php php artisan config:clear   # 用了 config:cache 就再 cache 一次
     #      后台每个机器人重新「关闭 → 激活」，再用「查看状态」确认
     #
-    # 注意两点：
+    # 注意三点：
     #   · 不映射宿主端口。这个 HTTP 端口无任何鉴权，谁连上谁就能用你挂的所有
     #     bot token 发消息；PHP 通过服务名 telegram-bot-api:8083 在 stack 网络内访问。
     #   · 端口 8083 是避开 telegram-py（Telethon）的 8081 选的，别改回去。
+    #   · ⚠️ 只能靠环境变量配置，不要写 command:
+    #     镜像的 docker-entrypoint.sh 用环境变量拼命令行，最后一行是 `exec $COMMAND`
+    #     （不带 "$@"）—— compose 里写的 command 会被静默丢弃，
+    #     而它校验的 TELEGRAM_API_ID 等又必须在容器 env 里，结果就是起来就退出刷：
+    #     "error: expected TELEGRAM_API_ID or TELEGRAM_API_ID_FILE env vars to be set"
     telegram-bot-api:
         image: aiogram/telegram-bot-api:latest
         container_name: tgbot-bot-api
-        # 参数写全，避免依赖镜像自己的 env 约定
-        command: >
-            --api-id=${TELEGRAM_API_ID}
-            --api-hash=${TELEGRAM_API_HASH}
-            --local
-            --http-port=8083
-            --dir=/data
-            --temp-dir=/tmp/telegram-bot-api
-            --log=/data/telegram-bot-api.log
-            --verbosity=2
+        environment:
+            # 必填：TDLib 身份。也可改用 TELEGRAM_API_ID_FILE / TELEGRAM_API_HASH_FILE
+            # 指向 secret 文件（二选一，同时给会报错）
+            TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+            TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+            # 必填：entrypoint 启动时会对 WORK_DIR 做 chown
+            TELEGRAM_WORK_DIR: /data
+            # /tmp 容器内一定存在且 1777 可写（容器里没有 systemd 的 PrivateTmp 隔离），
+            # 比指向持久卷里一个可能还不存在的子目录稳。
+            TELEGRAM_TEMP_DIR: /tmp
+            # 本地模式：不加就是云端那套 20MB/50MB 限制
+            TELEGRAM_LOCAL: 1
+            TELEGRAM_HTTP_PORT: 8083
+            TELEGRAM_LOG_FILE: /data/telegram-bot-api.log
+            TELEGRAM_VERBOSITY: 2
         volumes:
             # --dir 是文件缓存，只增不减，必须持久化。
             # 清掉后已下载文件的 file_path 失效（需重新下载），不影响新消息。

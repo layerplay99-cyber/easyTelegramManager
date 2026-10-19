@@ -50,6 +50,12 @@
 容器名 `tgbot-bot-api`，共享 `stack` 网络、**不映射宿主端口**，缓存卷 `tgbot_botapi`）。
 本节只保留"为什么这么配"，**不再复制一份 yaml** —— 两处配置必然互相漂移。
 
+> ⚠️ **这个镜像只能用环境变量配置，不要写 `command:`。**
+> 镜像的 `docker-entrypoint.sh` 用环境变量拼命令行，最后一行是 `exec $COMMAND`
+> （不带 `"$@"`），compose 里写的 `command` 会被**静默丢弃**；
+> 而它校验的 `TELEGRAM_API_ID` 又必须存在于容器 env 里。两个条件缺一个就会起来就退出并刷：
+> `error: expected TELEGRAM_API_ID or TELEGRAM_API_ID_FILE env vars to be set`
+
 启用（三步，少一步等于没启用）：
 
 ```bash
@@ -69,16 +75,22 @@ docker exec tgbot-php php artisan config:clear
 > 后续更新镜像也是同一条：`docker compose up -d telegram-bot-api`
 > （先 `docker compose pull telegram-bot-api` 拉新 tag 也行）。
 
-**参数要点**（对应 compose 里 `command:` 那一段，改参数请改 compose）
+**参数要点**（对应 compose 里 `environment:` 那一段，改参数请改 compose。
+下表左边是环境变量，右边是 entrypoint 用它拼出的命令行参数）
 
-| 参数 | 作用 | 注意 |
-|---|---|---|
-| `--api-id` / `--api-hash` | TDLib 身份 | 必填，写错容器起不来 |
-| `--local` | 开启本地模式 | **必须加**，否则文件大小限制和云端一样 |
-| `--http-port` | HTTP 端口 | 避开已占用的 8081（本项目 Telethon 在用） |
-| `--dir` | 文件缓存目录 | **必须持久化**，见第 5 节 |
-| `--temp-dir` | 上传临时目录 | 显式指定，别放 `PrivateTmp` 命名空间里 |
-| `--verbosity` | 日志级别 | 2 够排查，磁盘紧张降到 1 |
+| 环境变量 | 拼出的参数 | 作用 | 注意 |
+|---|---|---|---|
+| `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` | （不拼参数，由 TDLib 直接读 env） | TDLib 身份 | **必填**，空了容器起来就退出。也可改用 `*_FILE` 指向 secret 文件，二选一 |
+| `TELEGRAM_WORK_DIR` | `--dir` | 文件缓存目录 | **必填**，entrypoint 启动时对它 chown；必须持久化，见第 5 节 |
+| `TELEGRAM_TEMP_DIR` | `--temp-dir` | 上传临时目录 | **必填**。容器里用 `/tmp`（必定存在且可写，没有 systemd 的 `PrivateTmp` 隔离）；宿主机部署时别放会被隔离的路径 |
+| `TELEGRAM_LOCAL` | `--local` | 开启本地模式 | **必须给**，否则文件大小限制和云端一样 |
+| `TELEGRAM_HTTP_PORT` | `--http-port` | HTTP 端口 | 默认 8081，本项目改 8083 避开 Telethon |
+| `TELEGRAM_LOG_FILE` | `--log` | 日志文件 | 落在持久卷里，方便 `docker exec` 看 |
+| `TELEGRAM_VERBOSITY` | `--verbosity` | 日志级别 | 2 够排查，磁盘紧张降到 1 |
+
+> 镜像还支持 `TELEGRAM_STAT`（`--http-stat-port`）、`TELEGRAM_FILTER`、
+> `TELEGRAM_MAX_CONNECTIONS`、`TELEGRAM_MAX_WEBHOOK_CONNECTIONS`、
+> `TELEGRAM_PROXY`、`TELEGRAM_HTTP_IP_ADDRESS`，需要时按同样规则加到 `environment:` 里。
 
 ### 3.2 从源码构建（要锁版本时）
 
@@ -245,7 +257,8 @@ curl -s -F "chat_id=<群ID>" -F "document=@/tmp/big.mp4" \
 
 | 现象 | 原因 / 处理 |
 |---|---|
-| 容器起来就退出 / `curl` 不通 | `api_id` / `api_hash` 没配或写错。`docker logs tgbot-bot-api` |
+| 容器起来就退出，日志刷 `expected TELEGRAM_API_ID or TELEGRAM_API_ID_FILE env vars to be set` | `.env` 里 `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` 没填，或填了但 compose 没把它传进容器 env（这个镜像**不认 `command:` 里的 `--api-id`**）。填完 `.env` 后 `docker compose up -d --force-recreate telegram-bot-api` |
+| 容器起来就退出 / `curl` 不通 | `api_id` / `api_hash` 没配或写错，或 `TELEGRAM_WORK_DIR` / `TELEGRAM_TEMP_DIR` 没给。`docker logs tgbot-bot-api` |
 | 大文件仍报 `Request Entity Too Large` | 没加 `--local`；或 nginx `client_max_body_size` 太小（部署文档里是 50m，按需调大） |
 | `getFile` 拿到的 `file_path` 下载 404 | 指向了另一个实例，或容器重建过缓存没了；重新下载即可 |
 | 后台群发突然全失败 | `base_bot_url` 改了但服务没起。先做 4.4 第 1 步验收 |

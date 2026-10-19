@@ -368,7 +368,7 @@ abstract class BaseCustomFeature implements FeatureDriver
             }
 
             if ($third->token) {
-                $request = $request->withHeaders(['Authorization' => $third->token]);
+                $request = $request->withToken($third->token);
             }
 
             // 上游若单独指定了请求方法则以它为准；否则沿用调用方传入的方法（兼容既有自定义功能）

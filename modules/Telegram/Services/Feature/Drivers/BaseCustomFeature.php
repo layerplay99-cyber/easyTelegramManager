@@ -335,12 +335,30 @@ abstract class BaseCustomFeature implements FeatureDriver
         $renderer = app(TemplateRenderer::class);
         $path = $renderer->render($resolved['path'], [], $params);
 
+        // 路径模板里已经用到的参数名（{name} 或 {{name}} / {{@name}}）
+        //
+        // 这些参数等下会被填进 URL 路径，不能再往 GET 的 query 里塞一份，
+        // 否则路径写成 api/webhook/users/{merchant_id} 时会请求成
+        //   /api/webhook/users/158?merchant_id=158
+        $usedInPath = [];
+
+        foreach (['/\{([A-Za-z0-9_]+)\}/', '/\{\{\s*@?([A-Za-z0-9_.]+?)\s*\}\}/'] as $pattern) {
+            if (preg_match_all($pattern, (string) $resolved['path'], $matched)) {
+                foreach ($matched[1] as $name) {
+                    $usedInPath[(string) $name] = true;
+                }
+            }
+        }
+
         // 支持 {name} 形式的占位
         $path = (string) preg_replace_callback('/\{([A-Za-z0-9_]+)\}/', function ($m) use ($params) {
             return rawurlencode((string) ($params[$m[1]] ?? ''));
         }, $path);
 
         $url = ThirdEndpointResolver::buildUrl($third, $path);
+
+        // GET：只把没被路径吃掉的参数放 query（POST 的 body 保持原样，上游通常都要）
+        $queryParams = array_diff_key($params, $usedInPath);
 
         try {
             $request = Http::timeout($resolved['timeout']);
@@ -361,7 +379,7 @@ abstract class BaseCustomFeature implements FeatureDriver
 
             $response = $requestMethod === 'POST'
                 ? $request->post($url, $params)
-                : $request->get($url, $params);
+                : $request->get($url, $queryParams);
 
             return (array) ($response->json() ?? ['_raw' => $response->body()]);
         } catch (\Throwable $e) {

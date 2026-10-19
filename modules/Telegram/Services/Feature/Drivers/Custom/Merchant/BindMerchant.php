@@ -187,7 +187,7 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
         // 具体怎么判交给上游约定：拿到响应后照自己的返回结构改这段即可。
         $check = $this->callEndpoint(
             (string) $context->config('endpoint_code', 'merchant.check'),
-            [],
+            ['merchant_id' => $merchantId],
             $context
         );
 

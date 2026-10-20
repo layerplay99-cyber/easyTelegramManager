@@ -381,10 +381,36 @@ abstract class BaseCustomFeature implements FeatureDriver
                 ? $request->post($url, $params)
                 : $request->get($url, $queryParams);
 
-            return (array) ($response->json() ?? ['_raw' => $response->body()]);
+            // ⚠️ 必须先看状态码：上游挂了（Cloudflare 523 / 502、限流 429 等）时响应体是
+            // 纯文本，json() 解析不出来，以前会静默变成 ['_raw' => 'error code: 523']，
+            // 功能侧只看 isset($data['_error']) 判断失败，根本发现不了，
+            // 模板取不到字段就渲染成「余额：- 元」这种看起来像成功的空结果。
+            if (! $response->successful()) {
+                return ['_error' => '上游返回 HTTP ' . $response->status() . '：' . $this->excerpt($response->body())];
+            }
+
+            $body = (string) $response->body();
+            $json = $response->json();
+
+            // 200 但返回的不是 JSON（代理劫持、网关错误页等），同样要报出来
+            if ($json === null && trim($body) !== '') {
+                return ['_error' => '上游返回不是 JSON：' . $this->excerpt($body)];
+            }
+
+            return (array) ($json ?? ['_raw' => $body]);
         } catch (\Throwable $e) {
             return ['_error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * 截断响应体片段，避免把整个错误页塞进回复 / 日志
+     */
+    protected function excerpt(string $text, int $limit = 200): string
+    {
+        $text = trim((string) preg_replace('/\s+/', ' ', $text));
+
+        return mb_substr($text, 0, $limit);
     }
 
     /**

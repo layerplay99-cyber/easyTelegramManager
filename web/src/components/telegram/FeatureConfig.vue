@@ -398,7 +398,9 @@ const handleSave = async () => {
             featureIds as any
         )
 
-        if (response.success) {
+        // 后台统一返回 {code, message, data}，没有 success 字段：
+        // 原来只判 response.success（永远是 undefined），保存成功也会静默什么都不做。
+        if ((response as any)?.code === 10000 || (response as any)?.success) {
             // 保存后必须告诉用户一声：以前静默关掉弹窗，
             // 网络一抖看起来跟成功一模一样。
             Message.success(response.message || t('featureConfig.saved'))

@@ -12,7 +12,6 @@ interface ApiResponse<T = any> {
 interface GroupConfig {
     groupId: any
     mid: any
-    customers: any
     welcome: any
     autoReply: any
 }
@@ -37,10 +36,15 @@ export const useGroup = defineStore('telegramGroup', () => {
     }
 
     return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        // 必须带：后端只对这个头的请求做统一包装（{code, message, data}）。
+        // 少了它，这一路 fetch 拿到的就是控制器裸返回，
+        // 和其它用 http(axios) 的接口结构不一致 —— 调用方就会取到 undefined
+        // （表现：配置弹窗读不到商户ID、保存成功却走了失败分支）。
+        'Request-from': 'Dashboard',
     }
-  }
+}
 
   // 通用的API请求方法
   const apiRequest = async <T = any>(
@@ -113,8 +117,17 @@ export const useGroup = defineStore('telegramGroup', () => {
     })
   }
 
-  const getGroupConfig = async (groupId: number): Promise<ApiResponse> => {
-    return apiRequest(`telegram/bot/group/config/${groupId}`)
+  /**
+   * 取群配置
+   *
+   * 直接返回配置对象本身（不是 {code, message, data}），调用方不用关心走哪条通道：
+   * 带上 Request-from: Dashboard 后后端会包一层，这里剥掉；
+   * 万一哪天不带了（返回裸对象）也能正常取到。
+   */
+  const getGroupConfig = async (groupId: number): Promise<any> => {
+    const res: any = await apiRequest(`telegram/bot/group/config/${groupId}`)
+
+    return res?.data ?? res ?? {}
   }
 
   /**

@@ -42,14 +42,11 @@
                 </el-table-column>
                 <el-table-column prop="created_at" :label="$t('system.createTime')" />
                 <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
-                <el-table-column :label="$t('system.operation')" width="430">
+                <el-table-column :label="$t('system.operation')" width="350">
                     <template #default="scope">
-                        <!-- 群语种（「语种配置」）在这个编辑弹窗里，之前按钮被注释掉导致没有入口 -->
+                        <!-- 语种配置 / 商户ID / 欢迎语 / 自动回复全在这一个编辑弹窗里 -->
                         <el-button type="warning" size="small" @click="open(scope.row.id)">
                             <Icon name="pen-to-square" className="w-4 h-4 mr-1" /> {{ $t('system.edit') }}
-                        </el-button>
-                        <el-button type="success" size="small" @click="openConfigDialog(scope.row)">
-                            <Icon name="cog" className="w-4 h-4 mr-1" /> {{ $t('group.config') }}
                         </el-button>
                         <el-button type="primary" size="small" @click="openFeatureDialog(scope.row)">
                             <Icon name="puzzle-piece" className="w-4 h-4 mr-1" /> {{ $t('group.feature') }}
@@ -93,72 +90,6 @@
             @saved="handleFeatureSaved"
         />
 
-        <!-- 配置对话框 -->
-        <el-dialog v-model="configDialog.visible" :title="$t('group.configTitle')" width="600px" destroy-on-close>
-            <el-form :model="configDialog.form" label-width="120px">
-                <el-form-item :label="$t('group.merchantId')" prop="mid">
-                    <el-input v-model="configDialog.form.mid" :placeholder="$t('group.merchantIdPlaceholder')" />
-                </el-form-item>
-
-                <el-form-item :label="$t('group.customService')" prop="customers">
-                    <el-input
-                        v-model="configDialog.form.customers"
-                        :placeholder="$t('group.customersPlaceholder')"
-                        type="textarea"
-                        :rows="2"
-                    />
-                    <div class="text-gray-500 text-xs mt-1">{{ $t('group.customersTip') }}</div>
-                </el-form-item>
-
-                <!-- 语种不在群配置里设：统一在群编辑的「语种配置」里设（bot_groups.settings.language） -->
-
-                <el-form-item :label="$t('group.welcome')" prop="welcome">
-                    <el-input
-                        v-model="configDialog.form.welcome"
-                        :placeholder="$t('group.welcomePlaceholder')"
-                        type="textarea"
-                        :rows="3"
-                    />
-                    <div class="text-gray-500 text-xs mt-1">{{ $t('group.welcomeTip') }}</div>
-                </el-form-item>
-
-                <el-form-item :label="$t('group.autoReply')" prop="autoReply">
-                    <div class="space-y-2">
-                        <div v-for="(item, index) in configDialog.form.autoReply" :key="index" class="flex gap-2">
-                            <el-input
-                                v-model="item.key"
-                                :placeholder="$t('group.keyword')"
-                                style="flex: 1"
-                            />
-                            <el-input
-                                v-model="item.value"
-                                :placeholder="$t('group.replyContent')"
-                                style="flex: 2"
-                            />
-                            <el-button
-                                type="danger"
-                                link
-                                @click="removeAutoReply(index)"
-                            >
-                                {{ $t('system.delete') }}
-                            </el-button>
-                        </div>
-                        <el-button type="primary" link @click="addAutoReply">
-                            {{ $t('group.addAutoReply') }}
-                        </el-button>
-                    </div>
-                </el-form-item>
-            </el-form>
-
-            <template #footer>
-                <div class="dialog-footer">
-                    <el-button @click="configDialog.visible = false">{{ $t('system.cancel') }}</el-button>
-                    <el-button type="primary" @click="saveConfig" :loading="configDialog.loading">
-                        {{ $t('group.saveConfig') }}
-                    </el-button>
-                </div>
-            </template>
-        </el-dialog>
     </div>
 </template>
 
@@ -240,19 +171,6 @@ const categoryMap: Record<string, string> = {
     'realMan': t('feature.categories.realMan')
 };
 
-// 配置对话框相关
-const configDialog = ref({
-    visible: false,
-    loading: false,
-    groupId: null as number | null,
-    configId: null as number | null, // 存储已有配置的ID
-    form: {
-        mid: '',
-        customers: '',
-        welcome: '',
-        autoReply: [] as Array<{ key: string; value: string }>
-    }
-});
 const getGroupList = async () => {
     try {
         const response = await useGroup().getGroupGroupList();
@@ -299,104 +217,6 @@ const handleGroupSubmit = () => {
 const handleExportTemplate = () => {
     group_visible.value = true;
 };
-
-// 打开配置对话框
-const openConfigDialog = async (row: any) => {
-    configDialog.value.groupId = row.id
-    configDialog.value.loading = true
-    configDialog.value.visible = true
-
-    try {
-        // 获取配置数据
-        const response = await useGroup().getGroupConfig(row.id)
-
-        if (response.data) {
-            const config = response.data
-            configDialog.value.configId = config.id || null
-            configDialog.value.form = {
-                mid: config.mid || '',
-                customers: config.customers || '',
-                welcome: config.welcome || '',
-                autoReply: config.autoReply ?
-                    Object.entries(config.autoReply).map(([key, value]) => ({ key, value: value as string })) :
-                    []
-            }
-        } else {
-            // 如果没有配置数据，使用默认值
-            configDialog.value.configId = null
-            configDialog.value.form = {
-                mid: '',
-                customers: '',
-                welcome: '',
-                autoReply: []
-            }
-        }
-    } catch (error) {
-        console.error('获取配置失败:', error)
-        // 出错时也使用默认值
-        configDialog.value.configId = null
-        configDialog.value.form = {
-            mid: '',
-            customers: '',
-            welcome: '',
-            autoReply: []
-        }
-    } finally {
-        configDialog.value.loading = false
-    }
-}// 添加自动回复项
-const addAutoReply = () => {
-    configDialog.value.form.autoReply.push({ key: '', value: '' })
-}
-
-// 删除自动回复项
-const removeAutoReply = (index: number) => {
-    configDialog.value.form.autoReply.splice(index, 1)
-}
-
-// 保存配置
-const saveConfig = async () => {
-    if (!configDialog.value.groupId) {
-        console.error('群组ID不存在')
-        return
-    }
-
-    configDialog.value.loading = true
-
-    try {
-        // 将autoReply数组转换为对象格式
-        const autoReplyObj = configDialog.value.form.autoReply.reduce((acc, item) => {
-            if (item.key && item.value) {
-                acc[item.key] = item.value
-            }
-            return acc
-        }, {} as Record<string, string>)
-
-        const configData = {
-            group_id: configDialog.value.groupId,
-            mid: configDialog.value.form.mid,
-            customers: configDialog.value.form.customers,
-            welcome: configDialog.value.form.welcome,
-            autoReply: autoReplyObj
-        }
-
-        // 如果configId为空，传入0，否则传入configId
-        const saveId = configDialog.value.configId || 0
-        const response = await useGroup().createOrUpdateGroupConfig(saveId, configData as any)
-
-        if (response.success) {
-            console.log('保存配置成功')
-            configDialog.value.visible = false
-            search() // 刷新列表
-        } else {
-            console.error('保存配置失败:', response.message)
-        }
-    } catch (error) {
-        console.error('保存配置失败:', error)
-    } finally {
-        configDialog.value.loading = false
-    }
-}
 
 onMounted(() => {
     search()

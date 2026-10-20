@@ -307,7 +307,9 @@ const resolvedSchema = computed<any[]>(() =>
 )
 
 /**
- * 后台响应是两层：外层 {code, message, data}，里层 controller 又返回了一次
+ * 后台接口统一是一层 {code, message, data}（由 App\Listeners\DashboardResponseListener 保证）。
+ *
+ * 这里仍兼容历史的两层结构：外层 {code, message, data}，里层 controller 又返回了一次
  * {code, message, data}，真正的列表在 data.data.data。
  *
  * 直接取 data.data 拿到的是里层那个对象（不是数组），length 是 undefined，

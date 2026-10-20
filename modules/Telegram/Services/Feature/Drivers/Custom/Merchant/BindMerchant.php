@@ -7,7 +7,10 @@ namespace Modules\Telegram\Services\Feature\Drivers\Custom\Merchant;
 use Modules\Telegram\Contracts\EndpointProvider;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
+use Modules\Telegram\Models\BotGroups;
+use Modules\Telegram\Models\GroupConfigs;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
+use Modules\Telegram\Services\LogMessageService;
 use Modules\Telegram\Services\MerchantRouteService;
 use Modules\Telegram\Services\OperatorPolicy;
 
@@ -171,15 +174,31 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
             return $this->fail('只有群管理员可以绑定商户号');
         }
 
-        $merchantId = trim((string) ($this->value($context, 'merchant_id') ?: $context->arg(0) ?: ''));
+        // 只认命令实参：不带参数就是「查看」，绝不能拿已存数据 / 群配置里兜底的
+        // merchant_id 当成本次输入的商户号 —— 那会把「/bd」变成「/bd <商户号>」，
+        // 平白去打一次上游还重新绑一遍。
+        $merchantId = trim((string) ($context->arg(0) ?: ''));
 
-        // 不带参数：查看当前绑定
+        // 不带参数：查看当前绑定，只读本地，不请求上游
         if ($merchantId === '') {
-            $bound = $routes->forChat($chatId);
+            $local = $this->localMerchantId($context, $chatId);
 
-            return $bound
-                ? $this->reply('本群已绑定商户号：' . implode('、', $bound))
-                : $this->reply('本群还没有绑定商户号，用法：/bd <商户号>');
+            return $local === ''
+                ? $this->reply('本群还没有绑定商户号，用法：/bd <商户号>')
+                : $this->reply($this->render(
+                    $this->template($context),
+                    ['merchant_id' => $local],
+                    $context
+                ));
+        }
+
+        // 带参数：本地已经绑的就是这个号 → 直接用本地记录，不再向上游确认
+        if (in_array($merchantId, $routes->forChat($chatId), true)) {
+            return $this->reply($this->render(
+                $this->template($context),
+                ['merchant_id' => $merchantId],
+                $context
+            ));
         }
 
         // 先向上游确认这个商户号是否真的存在（用后台选的接口 + 上游）
@@ -221,11 +240,85 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
         // 同时写一份到功能数据，方便 {{@merchant_id}} 在别的功能里直接引用
         $this->putData($context, ['merchant_id' => $merchantId]);
 
+        // 回写到群配置：后台「群列表 → 配置」里的商户ID 才有东西显示
+        // （前端读的就是 group_configs.mid，两张表指的是同一个商户号）
+        $this->syncGroupConfig($context, $chatId, $merchantId);
+
         return $this->reply($this->render(
-            (string) $context->config('reply_template', '✅ 本群已绑定商户号：{{merchant_id}}'),
+            $this->template($context),
             ['merchant_id' => $merchantId],
             $context
         ));
+    }
+
+    /**
+     * 本群当前绑定的商户号（只读本地，不打上游）
+     *
+     * 优先级：merchant_routes（/bd 写的，唯一数据源）
+     *       → 本功能已存数据（含群配置里兜底出来的那个）
+     *       → group_configs.mid
+     */
+    protected function localMerchantId(FeatureContext $context, string $chatId): string
+    {
+        $bound = app(MerchantRouteService::class)->forChat($chatId);
+
+        if ($bound !== []) {
+            return (string) $bound[0];
+        }
+
+        $stored = trim((string) ($context->stored['merchant_id'] ?? ''));
+
+        if ($stored !== '') {
+            return $stored;
+        }
+
+        return (string) (GroupConfigs::merchantIdOf($chatId) ?? '');
+    }
+
+    /**
+     * /bd 绑定成功后把商户号同步进群配置
+     */
+    protected function syncGroupConfig(FeatureContext $context, string $chatId, string $merchantId): void
+    {
+        try {
+            $group = BotGroups::query()
+                ->where('chat_id', $chatId)
+                ->where('bot_id', $context->bot?->id)
+                ->first();
+
+            if (! $group) {
+                return;
+            }
+
+            $config = GroupConfigs::query()->firstOrNew(['groupId' => $group->id]);
+
+            if ((string) ($config->mid ?? '') === $merchantId) {
+                return;
+            }
+
+            $config->forceFill([
+                'mid' => $merchantId,
+                // 后台保存时由框架填，这里跑在队列里没有登录态，显式继承群的归属
+                'creator_id' => (int) ($config->creator_id ?: $group->creator_id ?: 1),
+            ])->save();
+        } catch (\Throwable $e) {
+            app(LogMessageService::class)->createLaravelLog(
+                'telegram_errors',
+                ['chat_id' => $chatId, 'trace' => $e->getTraceAsString()],
+                "同步商户号到群配置失败: {$e->getMessage()}",
+                'error'
+            );
+        }
+    }
+
+    /**
+     * 回复模板
+     */
+    protected function template(FeatureContext $context): string
+    {
+        $template = (string) $context->config('reply_template', '');
+
+        return $template !== '' ? $template : '✅ 本群已绑定商户号：{{merchant_id}}';
     }
 
     /**

@@ -38,7 +38,10 @@ class MerchantRouteService
     ): MerchantRoute {
         $merchantId = trim($merchantId);
 
-        $route = MerchantRoute::query()->where('merchant_id', $merchantId)->first();
+        // 必须带 withTrashed()：解绑走的是软删，行还在表里、唯一键还在。
+        // 不带的话解绑后重新绑同一个商户号会查不到（以为没有），
+        // 直接 insert 撞唯一键报 1062 —— 表现就是「解绑之后再也绑不上」。
+        $route = MerchantRoute::query()->withTrashed()->where('merchant_id', $merchantId)->first();
 
         if ($route) {
             $owned = (string) $route->chat_id === (string) $chatId && (int) $route->bot_id === $botId;
@@ -53,6 +56,8 @@ class MerchantRouteService
                 'third_config_id' => $thirdConfigId ?: $route->third_config_id,
                 'feature_id' => $featureId ?: $route->feature_id,
                 'status' => true,
+                // 软删标记清零 = 恢复（Catch 的约定是 0 表示未删除）
+                'deleted_at' => $route->deleted_at ? 0 : $route->deleted_at,
                 'updated_at' => time(),
             ])->save();
         } else {

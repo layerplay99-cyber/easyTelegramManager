@@ -183,6 +183,8 @@ class UpdateRouter
                             'message_id' => $intent->messageId,
                             'username' => $intent->username,
                             'media_type' => $intent->messageType,
+                            // 图片/文件等的 file_id，识图这类功能要靠它取回内容
+                            'file_id' => $intent->fileId,
                         ],
                     ],
                     $bot,

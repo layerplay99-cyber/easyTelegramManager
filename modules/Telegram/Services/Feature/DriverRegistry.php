@@ -150,6 +150,9 @@ class DriverRegistry
             'third_api_endpoints' => PlatformEndpointRegistry::options(),
                  'platform_endpoints' => PlatformEndpointRegistry::options(),
             'realman_message_types' => \Modules\Telegram\Services\Feature\Drivers\TelegramApiDriver::messageTypeOptions(),
+            // 消息（非命令）触发的功能按媒体类型过滤，取值与 UpdateIntent::MEDIA_* 一致
+            'update_media_types' => \Modules\Telegram\Contracts\UpdateIntent::mediaTypeOptions(),
+            'group_languages' => \Modules\Telegram\Services\Ocr\OcrManager::languageOptions(),
             default => [],
         };
     }

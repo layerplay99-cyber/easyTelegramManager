@@ -104,6 +104,7 @@
           v-else-if="f.type === 'select' || f.type === 'endpoint'"
           v-model="config[f.key]"
           :placeholder="f.hint"
+          :multiple="f.multiple === true"
           filterable
           clearable
           class="w-full"

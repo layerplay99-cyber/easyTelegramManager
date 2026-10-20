@@ -59,7 +59,38 @@ class UpdateIntent
         public readonly ?string $callbackQueryId = null,
         public readonly ?string $messageId = null,
         public readonly ?string $username = null,
+        // 媒体文件 id（图片/文件/语音…），识图、转写这类功能要靠它把内容取回来。
+        // photo 取的是 Telegram 给的最后一个尺寸（最大那张）。
+        public readonly ?string $fileId = null,
     ) {
+    }
+
+    /**
+     * 全部媒体细分类型（供后台下拉、运行时过滤用）
+     *
+     * @return array<int, string>
+     */
+    public static function mediaTypes(): array
+    {
+        $types = [];
+
+        foreach ((new \ReflectionClass(self::class))->getConstants() as $name => $value) {
+            if (str_starts_with((string) $name, 'MEDIA_')) {
+                $types[] = (string) $value;
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * 后台下拉选项：媒体类型
+     *
+     * @return array<int, array<string, string>>
+     */
+    public static function mediaTypeOptions(): array
+    {
+        return array_map(fn (string $type) => ['value' => $type, 'label' => $type], self::mediaTypes());
     }
 
     /**

@@ -64,4 +64,65 @@ return [
     */
     'log_webhook_update' => (bool) env('TELEGRAM_LOG_WEBHOOK_UPDATE', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | 媒体文件下载超时（秒）
+    |--------------------------------------------------------------------------
+    | 识图等功能要先把图片从 Bot API 取回来。走本地 Bot API Server 时是内网毫秒级，
+    | 走官方则受图片大小影响，给 30 秒。
+    |
+    */
+    'media_download_timeout' => (int) env('TELEGRAM_MEDIA_DOWNLOAD_TIMEOUT', 30),
+
+    /*
+    |--------------------------------------------------------------------------
+    | OCR 识图
+    |--------------------------------------------------------------------------
+    | 群里发图片 → 取回图片 → OCR → 把识别出的文本拼成一个字符串。
+    |
+    | 扩展性靠两张表，不要写 if-else：
+    |   languages   群可标记的语种，后台下拉直接读这里，加语种只改配置
+    |   drivers     OCR 实现。换引擎（比如泰文改 Google Vision）= 加一个类 +
+    |               在这里登记一行，业务代码不动
+    |   by_language 语种 → 引擎。没配的语种回落 default
+    |
+    | 目前只有一个 textract 实现，接口和映射表先搭好，等验证过各语种效果再按语种接。
+    |
+    | 凭证放 .env（通用的一套）：AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION
+    |
+    */
+    'ocr' => [
+        'default'     => env('AWS_OCR_DEFAULT', 'textract'),
+        'default_language' => 'zh',
+
+        'drivers' => [
+            'textract' => \Modules\Telegram\Services\Ocr\Drivers\TextractOcr::class,
+        ],
+
+        // 群可标记的语种（后台「群 → 语种」下拉读这里）
+        'languages' => [
+            'zh' => '中文（默认）',
+            'en' => 'English',
+            'vi' => 'Tiếng Việt',
+            'th' => 'ไทย',
+        ],
+
+        // 语种 → 引擎；没配的语种用 default
+        'by_language' => [
+            'vi' => 'textract',
+            'th' => 'textract',
+        ],
+
+        'aws' => [
+            'region'  => env('AWS_REGION', 'us-east-1'),
+            'key'     => env('AWS_ACCESS_KEY_ID'),
+            'secret'  => env('AWS_SECRET_ACCESS_KEY'),
+            // 单次 OCR 的硬超时：OCR 是重活，别用默认的 180s 把 worker 占死
+            'timeout' => (int) env('AWS_OCR_TIMEOUT', 15),
+        ],
+
+        // 传给 Textract 的最大图片字节数（同步接口上限 10MB，留点余量）
+        'max_bytes' => (int) env('AWS_OCR_MAX_BYTES', 9 * 1024 * 1024),
+    ],
+
 ];

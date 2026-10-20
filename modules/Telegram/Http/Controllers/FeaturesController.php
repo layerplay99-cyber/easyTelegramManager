@@ -22,6 +22,8 @@ use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
 use Modules\Telegram\Services\Feature\DriverRegistry;
 use Modules\Telegram\Services\Feature\PlatformEndpointRegistry;
+use Modules\Telegram\Services\Ocr\OcrManager;
+use Modules\Telegram\Contracts\UpdateIntent;
 
 
 class FeaturesController extends Controller
@@ -224,6 +226,10 @@ class FeaturesController extends Controller
                 ['value' => 'hmac_sha256', 'label' => 'HMAC-SHA256（推荐）'],
                 ['value' => 'md5', 'label' => 'MD5 + key 后缀（老上游）'],
             ],
+            // 消息类功能按媒体类型过滤（识图默认只处理 photo）
+            'update_media_types' => UpdateIntent::mediaTypeOptions(),
+            // 群可标记的语种，来自 config('telegram.ocr.languages')，加语种只改配置
+            'group_languages' => OcrManager::languageOptions(),
             'parse_modes' => [
                 ['value' => '', 'label' => '纯文本'],
                 ['value' => 'HTML', 'label' => 'HTML'],

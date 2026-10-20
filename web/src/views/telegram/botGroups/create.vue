@@ -9,13 +9,19 @@
         <el-form-item :label="$t('group.chatId')" prop="chat_id">
             <el-input v-model="formData.chat_id" name="chat_id" :readonly="true" clearable />
         </el-form-item>
-        <!-- <el-form-item label="状态" prop="status">
-            <el-select v-model="formData.status" placeholder="请选择" clearable multiple>
-                <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
+
+        <!-- 群语种：识图按这个语种走对应的 OCR 逻辑，以后的双语回复也按它翻译 -->
+        <el-form-item label="群语种" prop="settings">
+            <el-select v-model="groupLanguage" placeholder="默认（中文）" clearable filterable class="w-full">
+                <el-option v-for="o in languages" :key="o.value" :label="o.label" :value="o.value" />
             </el-select>
-        </el-form-item> -->
+            <div class="text-xs text-gray-400 mt-1">
+                不选择就用默认语种（中文）。可选项来自配置，加语种只需改 config/telegram.php。
+            </div>
+        </el-form-item>
+
         <div class="flex justify-end">
-            <el-button type="primary" @click="submitForm(form)">{{ $t('system.confirm') }}</el-button>
+            <el-button type="primary" @click="submitWithLanguage(form)">{{ $t('system.confirm') }}</el-button>
         </div>
     </el-form>
 </template>
@@ -23,7 +29,8 @@
 <script lang="ts" setup>
 import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
-import { onMounted } from 'vue'
+import http from '@/support/http'
+import { onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
     primary: [String, Number],
@@ -40,4 +47,35 @@ const emit = defineEmits(['close'])
 onMounted(() => {
     close(() => emit('close'))
 })
+
+// ---------- 群语种 ----------
+const languages = ref<any[]>([])
+const groupLanguage = ref<string>('')
+
+const loadLanguages = async () => {
+    try {
+        // 复用现成的 options 接口，不加新路由（新路由在开了 route:cache 的环境要重新 cache 才生效）
+        const { data } = await http.get('telegram/features/options', { params: { source: 'group_languages' } })
+        const payload = data?.data ?? data
+        languages.value = Array.isArray(payload) ? payload : []
+    } catch {
+        languages.value = []
+    }
+}
+loadLanguages()
+
+// show 是异步的，settings 可能晚一步到，用 watch 回填
+watch(
+    () => (formData.value as any)?.settings,
+    (settings) => {
+        groupLanguage.value = settings?.language ? String(settings.language) : ''
+    },
+    { immediate: true, deep: true }
+)
+
+const submitWithLanguage = (formEl: any) => {
+    const fd = formData.value as any
+    fd.settings = { ...(fd.settings || {}), language: groupLanguage.value || '' }
+    submitForm(formEl)
+}
 </script>

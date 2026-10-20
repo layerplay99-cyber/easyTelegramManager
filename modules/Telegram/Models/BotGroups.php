@@ -49,6 +49,14 @@ class BotGroups extends Model
 
     protected $table = 'bot_groups';
 
+    /**
+     * settings 存的是群的附加配置（目前是语种），DB 里是 TEXT，
+     * 必须 cast 成数组，否则读写都要自己 json_decode / json_encode。
+     */
+    protected $casts = [
+        'settings' => 'array',
+    ];
+
     protected $fillable = [
         'id',
         'app_id',
@@ -206,6 +214,9 @@ class BotGroups extends Model
     {
         $chatId = $chatId === null ? null : (string) $chatId;
 
+        // 语种也缓了一份，群信息变了要一起失效（后台改完语种能立刻生效）
+        Cache::forget(self::languageCacheKey($chatId));
+
         // 缓存还没建过就做一次全量，保证数据完整
         if (! $chatId || ! Cache::has('group_configs')) {
             static::refreshCache();
@@ -232,4 +243,54 @@ class BotGroups extends Model
         Cache::forever('group_configs', $cache);
     }
 
+    /**
+     * 群标记的语种（没标记就用默认语种）
+     *
+     * 存/读都是 settings.language：settings 已 cast 成 array，
+     * 但历史数据里可能是 JSON 字符串，这里兼容一下。
+     */
+    public function language(): string
+    {
+        $settings = $this->settings;
+
+        if (is_string($settings)) {
+            $settings = json_decode($settings, true);
+        }
+
+        $language = strtolower(trim((string) (($settings['language'] ?? '') ?: '')));
+
+        return $language !== '' ? $language : self::defaultLanguage();
+    }
+
+    /**
+     * 按 chat_id 取群语种
+     *
+     * 带 10 分钟缓存：识图、回复翻译每条消息都要读，不能每条都查库。
+     * 后台改语种时会走 saved 钩子把这份缓存清掉。
+     */
+    public static function languageOf(int|string|null $chatId): string
+    {
+        $chatId = $chatId === null ? '' : (string) $chatId;
+
+        if ($chatId === '') {
+            return self::defaultLanguage();
+        }
+
+        return (string) Cache::remember(
+            self::languageCacheKey($chatId),
+            now()->addMinutes(10),
+            fn () => static::query()->where('chat_id', $chatId)->first()?->language()
+                ?? self::defaultLanguage()
+        );
+    }
+
+    public static function defaultLanguage(): string
+    {
+        return (string) config('telegram.ocr.default_language', 'zh');
+    }
+
+    public static function languageCacheKey(?string $chatId): string
+    {
+        return 'telegram:group:language:' . (string) $chatId;
+    }
 }

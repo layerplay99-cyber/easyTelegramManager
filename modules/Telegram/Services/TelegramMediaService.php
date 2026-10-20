@@ -3,8 +3,12 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Services;
 
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Modules\Telegram\Models\Bots;
+use Modules\Telegram\Services\Bot\BotApiFactory;
 use Telegram\Bot\Laravel\Facades\Telegram;
 
 /**
@@ -28,6 +32,42 @@ class TelegramMediaService
     {
         $url = $this->getImageUrl($message, $token);
         return $url ? file_get_contents($url) : false;
+    }
+
+    /**
+     * 按 file_id 取回文件二进制
+     *
+     * 走 BotApiFactory 而不是 SDK 的全局 BotManager：多 bot 场景下 file_path 只有
+     * 所属机器人自己的 token 才下载得到，而且这样能自动吃到本地 Bot API Server
+     * 的地址（TELEGRAM_BASE_BOT_URL），下载走内网、不受云端 20MB 限制。
+     *
+     * @throws \RuntimeException
+     */
+    public function downloadFile(Bots $bot, string $fileId): string
+    {
+        $file = app(BotApiFactory::class)->forBot($bot)->getFile(['file_id' => $fileId]);
+
+        $filePath = (string) (is_array($file) ? ($file['file_path'] ?? '') : ($file->file_path ?? ''));
+
+        if ($filePath === '') {
+            throw new \RuntimeException('getFile 没有返回 file_path');
+        }
+
+        $url = $this->buildDownloadUrl($filePath, $bot->api_token);
+
+        if ($url === '') {
+            throw new \RuntimeException('机器人缺少 api_token，无法下载文件');
+        }
+
+        $binary = Http::timeout((int) config('telegram.media_download_timeout', 30))
+            ->get($url)
+            ->body();
+
+        if ($binary === '') {
+            throw new \RuntimeException('下载到的文件内容为空');
+        }
+
+        return $binary;
     }
 
     /**

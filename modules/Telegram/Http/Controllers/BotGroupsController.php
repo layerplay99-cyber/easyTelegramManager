@@ -72,6 +72,23 @@ class BotGroupsController extends Controller
      */
     public function update(int|string $id, Request $request)
     {
+        // 群设置（目前是语种）：与下面「移动到分组」是两件事，分开处理
+        if ($request->has('settings')) {
+            $group = $this->model->firstBy($id);
+
+            if (! $group) {
+                return false;
+            }
+
+            app(DataScope::class)->assertVisible($group);
+
+            // 走模型 save()：saved 钩子会把语种缓存清掉，后台改完立刻生效
+            $group->forceFill(['settings' => $this->normalizeSettings($request->input('settings'))])
+                ->save();
+
+            return true;
+        }
+
         $groupIds = $request->input('group_id');
         $groupGroupIds = $request->input('group_group_ids');
 
@@ -101,6 +118,26 @@ class BotGroupsController extends Controller
      * @param int|string $id
      * @return mixed
      */
+    /**
+     * 只放行 settings.language，且必须是配置里登记过的语种
+     *
+     * @return array<string, string>
+     */
+    protected function normalizeSettings(mixed $settings): array
+    {
+        $settings = is_array($settings) ? $settings : [];
+
+        $language = strtolower(trim((string) ($settings['language'] ?? '')));
+
+        $allowed = array_map('strval', array_keys((array) config('telegram.ocr.languages', [])));
+
+        if (! in_array($language, $allowed, true)) {
+            $language = '';
+        }
+
+        return ['language' => $language];
+    }
+
     public function destroy(int|string $id): mixed
     {
         $group = $this->model->firstBy($id);

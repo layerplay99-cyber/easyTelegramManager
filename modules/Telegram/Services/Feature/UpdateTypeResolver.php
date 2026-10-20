@@ -139,6 +139,9 @@ class UpdateTypeResolver
                 userId: $message->from->id ?? null,
                 text: $text,
                 update: $update,
+                messageId: isset($message->message_id) ? (string) $message->message_id : null,
+                username: $message->from->username ?? null,
+                fileId: $this->extractFileId($message, $mediaType),
             );
         }
 
@@ -149,6 +152,47 @@ class UpdateTypeResolver
             userId: $this->extractUserId($update),
             update: $update,
         );
+    }
+
+    /**
+     * 取媒体文件的 file_id
+     *
+     * photo 特殊：Telegram 给的是「多个尺寸」的数组，按小→大排列，
+     * 取最后一个（尺寸最大那张），OCR 精度取决于分辨率。
+     * 其余媒体类型（document / video / voice / audio / sticker / animation）
+     * 字段名与媒体类型同名，直接取它的 file_id。
+     */
+    private function extractFileId(mixed $message, string $mediaType): ?string
+    {
+        if ($mediaType === UpdateIntent::MEDIA_PHOTO) {
+            $sizes = is_array($message) ? ($message['photo'] ?? null) : ($message->photo ?? null);
+
+            if (! is_array($sizes) || $sizes === []) {
+                return null;
+            }
+
+            return $this->fileIdOf(end($sizes));
+        }
+
+        $node = is_array($message) ? ($message[$mediaType] ?? null) : ($message->{$mediaType} ?? null);
+
+        return $this->fileIdOf($node);
+    }
+
+    /**
+     * 从 PhotoSize / Document 之类的节点里取 file_id（对象、数组都兼容）
+     */
+    private function fileIdOf(mixed $node): ?string
+    {
+        $id = null;
+
+        if (is_array($node)) {
+            $id = $node['file_id'] ?? null;
+        } elseif (is_object($node)) {
+            $id = $node->file_id ?? null;
+        }
+
+        return is_string($id) && $id !== '' ? $id : null;
     }
 
     /**

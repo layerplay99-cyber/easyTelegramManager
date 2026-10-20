@@ -34,10 +34,20 @@
                         <label v-else>{{ $t('system.disabled') }}</label>
                     </template>
                 </el-table-column>
+                <!-- 直接显示当前语种，改完能一眼看到有没有生效 -->
+                <el-table-column prop="settings" label="语种" width="90">
+                    <template #default="scope">
+                        {{ scope.row.settings?.language || 'zh' }}
+                    </template>
+                </el-table-column>
                 <el-table-column prop="created_at" :label="$t('system.createTime')" />
                 <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
-                <el-table-column :label="$t('system.operation')" width="350">
+                <el-table-column :label="$t('system.operation')" width="430">
                     <template #default="scope">
+                        <!-- 群语种（「语种配置」）在这个编辑弹窗里，之前按钮被注释掉导致没有入口 -->
+                        <el-button type="warning" size="small" @click="open(scope.row.id)">
+                            <Icon name="pen-to-square" className="w-4 h-4 mr-1" /> {{ $t('system.edit') }}
+                        </el-button>
                         <el-button type="success" size="small" @click="openConfigDialog(scope.row)">
                             <Icon name="cog" className="w-4 h-4 mr-1" /> {{ $t('group.config') }}
                         </el-button>

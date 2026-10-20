@@ -10,8 +10,8 @@
             <el-input v-model="formData.chat_id" name="chat_id" :readonly="true" clearable />
         </el-form-item>
 
-        <!-- 群语种：识图按这个语种走对应的 OCR 逻辑，以后的双语回复也按它翻译 -->
-        <el-form-item label="群语种" prop="settings">
+        <!-- 语种配置：识图按这个语种走对应的 OCR 逻辑，群回复/欢迎语的双语也按它翻译 -->
+        <el-form-item label="语种配置" prop="settings">
             <el-select v-model="groupLanguage" placeholder="默认（中文）" clearable filterable class="w-full">
                 <el-option v-for="o in languages" :key="o.value" :label="o.label" :value="o.value" />
             </el-select>
@@ -48,7 +48,7 @@ onMounted(() => {
     close(() => emit('close'))
 })
 
-// ---------- 群语种 ----------
+// ---------- 语种配置 ----------
 const languages = ref<any[]>([])
 const groupLanguage = ref<string>('')
 

@@ -14,7 +14,6 @@ interface GroupConfig {
     mid: any
     customers: any
     welcome: any
-    replyLang: any
     autoReply: any
 }
 

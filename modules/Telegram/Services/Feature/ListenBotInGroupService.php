@@ -10,6 +10,7 @@ use Modules\Telegram\Models\GroupAdmins;
 use Modules\Telegram\Models\GroupMembers;
 use Modules\Telegram\Services\Bot\BotApiFactory;
 use Modules\Telegram\Services\FeatureOperateService;
+use Modules\Telegram\Services\GroupWelcomeService;
 use Modules\Telegram\Services\LogMessageService;
 use Telegram\Bot\Api;
 use Telegram\Bot\Exceptions\TelegramSDKException;
@@ -150,8 +151,9 @@ class ListenBotInGroupService
                     // 机器人入群：需要同步群信息和管理员
                     $this->handleBotJoined($bot, $chatId, $member);
                 } else {
-                    // 普通成员入群：只保存成员信息
+                    // 普通成员入群：保存成员信息 + 发进群欢迎语
                     $this->saveMember($chatId, $member);
+                    $this->sendWelcome($chatId, $member);
                 }
             }
         }
@@ -352,6 +354,31 @@ class ListenBotInGroupService
                 'left_at' => null,
             ]
         );
+    }
+
+    /**
+     * 进群欢迎语
+     *
+     * 后台「群配置 - 欢迎语」录入中文，发送时按群语种补一段对应语种。
+     * 没配欢迎语就什么都不发；发失败也不影响成员入库。
+     */
+    protected function sendWelcome($chatId, $member): void
+    {
+        try {
+            $telegram = $this->telegram ?? app(BotApiFactory::class)->forBot($this->bot);
+
+            app(GroupWelcomeService::class)->send($telegram, $chatId, $member);
+        } catch (\Throwable $e) {
+            $this->logMessageService->createLaravelLog(
+                'telegram_errors',
+                [
+                    'chat_id' => $chatId,
+                    'trace' => $e->getTraceAsString(),
+                ],
+                "处理进群欢迎语失败: {$e->getMessage()}",
+                'error'
+            );
+        }
     }
 
     /**

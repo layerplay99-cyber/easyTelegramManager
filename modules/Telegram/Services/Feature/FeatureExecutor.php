@@ -12,6 +12,7 @@ use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\FeatureLogs;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
+use Modules\Telegram\Models\GroupConfigs;
 use Modules\Telegram\Services\LogMessageService;
 use Modules\Telegram\Services\Translate\ReplyTranslator;
 use Telegram\Bot\Api;
@@ -158,6 +159,8 @@ class FeatureExecutor
             ? $this->dataStore->get($feature->id, $scopeType, $scopeId)
             : [];
 
+        $stored = $this->withDefaultMerchant($stored, $chatId);
+
         $context = new FeatureContext(
             feature: $feature,
             config: $config,
@@ -284,6 +287,42 @@ class FeatureExecutor
         }
 
         return $result;
+    }
+
+    /**
+     * 补上群里配的默认商户号
+     *
+     * 群配置里的「商户ID」就是该群的默认商户号：
+     * 功能读 merchant_id 时（{{merchant_id}} / $ctx->value('merchant_id')），
+     * /bm 绑过的以绑定为准，没绑过就用它兜底 —— 不用每个群都先敲一遍 /bm。
+     *
+     * 只在本群没有值时补，绝不会覆盖已绑定的商户号。
+     *
+     * @param array<string, mixed> $stored
+     * @return array<string, mixed>
+     */
+    protected function withDefaultMerchant(array $stored, int|string|null $chatId): array
+    {
+        if ($chatId === null || $chatId === '') {
+            return $stored;
+        }
+
+        if (trim((string) ($stored['merchant_id'] ?? '')) !== '') {
+            return $stored;
+        }
+
+        try {
+            $mid = GroupConfigs::merchantIdOf($chatId);
+        } catch (\Throwable) {
+            // 配置读不出来不能影响功能执行
+            return $stored;
+        }
+
+        if ($mid !== null && $mid !== '') {
+            $stored['merchant_id'] = $mid;
+        }
+
+        return $stored;
     }
 
     /**

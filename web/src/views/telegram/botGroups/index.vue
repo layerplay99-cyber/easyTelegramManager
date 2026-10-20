@@ -100,14 +100,7 @@
                     <div class="text-gray-500 text-xs mt-1">{{ $t('group.customersTip') }}</div>
                 </el-form-item>
 
-                <el-form-item :label="$t('group.replyLang')" prop="replyLang">
-                    <el-select v-model="configDialog.form.replyLang" :placeholder="$t('group.replyLangPlaceholder')" style="width: 100%">
-                        <el-option :label="$t('system.chinese')" value="zh_CN" />
-                        <el-option :label="$t('system.english')" value="en_US" />
-                        <el-option :label="$t('system.thai')" value="th_TH" />
-                        <el-option :label="$t('system.vietnamese')" value="vi_VN" />
-                    </el-select>
-                </el-form-item>
+                <!-- 语种不在群配置里设：统一在群编辑的「语种配置」里设（bot_groups.settings.language） -->
 
                 <el-form-item :label="$t('group.welcome')" prop="welcome">
                     <el-input
@@ -116,6 +109,7 @@
                         type="textarea"
                         :rows="3"
                     />
+                    <div class="text-gray-500 text-xs mt-1">{{ $t('group.welcomeTip') }}</div>
                 </el-form-item>
 
                 <el-form-item :label="$t('group.autoReply')" prop="autoReply">
@@ -246,7 +240,6 @@ const configDialog = ref({
         mid: '',
         customers: '',
         welcome: '',
-        replyLang: 'zh_CN',
         autoReply: [] as Array<{ key: string; value: string }>
     }
 });
@@ -314,7 +307,6 @@ const openConfigDialog = async (row: any) => {
                 mid: config.mid || '',
                 customers: config.customers || '',
                 welcome: config.welcome || '',
-                replyLang: config.replyLang || 'zh_CN',
                 autoReply: config.autoReply ?
                     Object.entries(config.autoReply).map(([key, value]) => ({ key, value: value as string })) :
                     []
@@ -326,7 +318,6 @@ const openConfigDialog = async (row: any) => {
                 mid: '',
                 customers: '',
                 welcome: '',
-                replyLang: 'zh_CN',
                 autoReply: []
             }
         }
@@ -338,7 +329,6 @@ const openConfigDialog = async (row: any) => {
             mid: '',
             customers: '',
             welcome: '',
-            replyLang: 'zh_CN',
             autoReply: []
         }
     } finally {
@@ -377,7 +367,6 @@ const saveConfig = async () => {
             mid: configDialog.value.form.mid,
             customers: configDialog.value.form.customers,
             welcome: configDialog.value.form.welcome,
-            replyLang: configDialog.value.form.replyLang,
             autoReply: autoReplyObj
         }
 

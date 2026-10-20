@@ -9,6 +9,7 @@ use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
 use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
+use Modules\Telegram\Services\LogMessageService;
 use Modules\Telegram\Services\MerchantRouteService;
 
 /**
@@ -211,6 +212,7 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
         // 3) 用命令声明的模板渲染回复
         $template = (string) $context->config('reply_template', '{{_raw}}');
 
+        app(LogMessageService::class)->createLaravelLog('upstream-api-error',$data);
         return $this->reply($this->render($template, $data, $context), $data);
     }
 

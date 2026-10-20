@@ -7,7 +7,9 @@ namespace Modules\Telegram\Services\Feature\Drivers\Custom\Merchant;
 use Modules\Telegram\Contracts\EndpointProvider;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
+use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
+use Modules\Telegram\Services\MerchantRouteService;
 
 /**
  * 示例：查询商户余额（自定义功能参考实现）
@@ -19,9 +21,9 @@ use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
  *   3) 在后台「功能列表」把该功能绑定到群
  *
  * 本例演示的场景：
- *   用户在群里执行 /ye → 取出该群已绑定的 merchant_id（由「绑定商户号」功能存入
- *   feature_data 表）→ 调三方余额接口 → 用模板渲染回复。
- *   如果该群还没绑定商户号，会提示用户先执行 /bm。
+ *   用户在群里执行 /ye → 取出该群已绑定的 merchant_id（来自 merchant_routes，
+ *   也就是「绑定商户号」功能写入的那张表）→ 调三方余额接口 → 用模板渲染回复。
+ *   如果该群还没绑定商户号，提示里会按后台实际配置的绑定命令动态显示。
  */
 class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
 {
@@ -128,12 +130,20 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
      * 不给默认三方配置（那是每个用户自己的），但把平台接口与回复模板预设好，
      * 注册后只需在后台选一下接口即可用。
      */
+    /**
+     * 提示里写死的旧命令：库里 features.config 还存着这份，运行时按它识别并替换
+     */
+    private const LEGACY_NOT_BOUND_TIP = '本群还没有绑定商户号，请先执行 /bm <商户号>';
+
+    private const DEFAULT_NOT_BOUND_TIP = '本群还没有绑定商户号';
+
     public static function defaultConfig(): array
     {
         return [
             'upstream_id' => null,
             'endpoint_code' => 'merchant.balance',
-            'not_bound_tip' => '本群还没有绑定商户号，请先执行 /bm <商户号>',
+            // 不写死命令：命令名在后台随时可改，写死就会提示一个不存在的 /bm
+            'not_bound_tip' => self::DEFAULT_NOT_BOUND_TIP,
             'reply_template' => '余额：{{data.balance}} 元',
         ];
     }
@@ -169,7 +179,8 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                 'label'    => '未绑定时的提示',
                 'type'     => 'text',
                 'required' => false,
-                'default'  => '本群还没有绑定商户号，请先执行 /bm <商户号>',
+                'default'  => '本群还没有绑定商户号',
+                'hint'     => '留空用默认文案；可写 {{bind_usage}} 指定命令出现的位置，不写则自动追加在末尾（绑定命令改了这边会跟着变）',
             ],
         ];
     }
@@ -179,16 +190,11 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
      */
     public function handle(FeatureContext $context): FeatureResult
     {
-        // 1) 取出该群已绑定的商户号（由「绑定商户号」功能写入 feature_data）
-        $merchantId = $context->value('merchant_id');
+        // 1) 取出该群已绑定的商户号
+        $merchantId = $this->resolveMerchantId($context);
 
-        if (! $merchantId) {
-            $tip = (string) $context->config(
-                'not_bound_tip',
-                '本群还没有绑定商户号，请先执行 /bm <商户号>'
-            );
-
-            return $this->fail($tip);
+        if ($merchantId === '') {
+            return $this->fail($this->notBoundTip($context));
         }
 
         // 2) 调平台接口（上游由机器人绑定，各用户不同）
@@ -206,5 +212,73 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
         $template = (string) $context->config('reply_template', '{{_raw}}');
 
         return $this->reply($this->render($template, $data, $context), $data);
+    }
+
+    /**
+     * 该群绑定的商户号
+     *
+     * ⚠️ 不能读 $context->value('merchant_id')：feature_data 是按功能分桶存的，
+     * $context->value() 只能读到「本功能」那一桶，而商户号是「绑定商户号」那个功能
+     * 用 putData() 写进它自己桶里的 —— 这里读必然是空的，
+     * 表现就是「/bd 明明绑成功了，/ye 却说没绑定」。
+     * 绑定关系的唯一数据源是 merchant_routes（/bd 写的就是它）。
+     */
+    protected function resolveMerchantId(FeatureContext $context): string
+    {
+        $bound = app(MerchantRouteService::class)->forChat((string) $context->chatId);
+
+        if ($bound !== []) {
+            return trim((string) reset($bound));
+        }
+
+        // 兼容旧数据：本功能自己存过的也算数
+        return trim((string) ($context->value('merchant_id') ?? ''));
+    }
+
+    /**
+     * 未绑定时的提示：命令部分按后台实际配置动态拼，不写死
+     */
+    protected function notBoundTip(FeatureContext $context): string
+    {
+        $tip = (string) $context->config('not_bound_tip', self::DEFAULT_NOT_BOUND_TIP);
+
+        // 库里还存着写死 /bm 的旧默认值时，按新默认值处理，不用去后台手工改
+        if ($tip === self::LEGACY_NOT_BOUND_TIP) {
+            $tip = self::DEFAULT_NOT_BOUND_TIP;
+        }
+
+        if ($tip === '') {
+            $tip = self::DEFAULT_NOT_BOUND_TIP;
+        }
+
+        $usage = $this->bindUsage();
+
+        $tip = str_replace('{{bind_usage}}', $usage, $tip);
+
+        if ($usage !== '' && ! str_contains($tip, $usage)) {
+            $tip .= '，请先执行 ' . $usage;
+        }
+
+        return $tip;
+    }
+
+    /**
+     * 「绑定商户号」功能当前实际用的命令（后台可改，写死就一定会错）
+     */
+    protected function bindUsage(): string
+    {
+        $command = FeatureCommands::query()
+            ->where('enabled', true)
+            ->whereHas('feature', fn ($q) => $q->where('driver', BindMerchant::key()))
+            ->orderBy('id')
+            ->first();
+
+        if (! $command) {
+            return '';
+        }
+
+        $usage = trim((string) ($command->usage ?? ''));
+
+        return $usage !== '' ? $usage : '/' . $command->command;
     }
 }

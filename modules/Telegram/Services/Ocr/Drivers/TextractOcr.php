@@ -72,7 +72,7 @@ class TextractOcr implements OcrDriver
     protected function assertConfigured(): void
     {
         foreach (['key' => 'AWS_ACCESS_KEY_ID', 'secret' => 'AWS_SECRET_ACCESS_KEY'] as $field => $env) {
-            if (trim((string) config('telegram.ocr.aws.' . $field, '')) === '') {
+            if (trim((string) config('telegram.aws.' . $field, '')) === '') {
                 throw new \RuntimeException("未配置 {$env}，无法调用 AWS Textract");
             }
         }
@@ -82,10 +82,10 @@ class TextractOcr implements OcrDriver
     {
         return new TextractClient([
             'version'     => 'latest',
-            'region'      => (string) config('telegram.ocr.aws.region', 'us-east-1'),
+            'region'      => (string) config('telegram.aws.region', 'us-east-1'),
             'credentials' => [
-                'key'    => (string) config('telegram.ocr.aws.key'),
-                'secret' => (string) config('telegram.ocr.aws.secret'),
+                'key'    => (string) config('telegram.aws.key'),
+                'secret' => (string) config('telegram.aws.secret'),
             ],
             // OCR 是重活：连不上要快失败，总耗时也不能拖垮队列 worker
             'http'    => [

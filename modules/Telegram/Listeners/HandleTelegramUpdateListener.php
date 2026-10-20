@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\App;
 use Modules\Telegram\Events\TelegramUpdateReceivedEvent;
 use Modules\Telegram\Services\Feature\ListenBotInGroupService;
 use Modules\Telegram\Services\Feature\TelegramFeatureService;
+use Modules\Telegram\Services\Feature\UpdateQueueResolver;
 
 // 必须实现 ShouldQueue（队列 worker 已在跑），但关键是不能在构造函数注入服务：
 // 若注入 ListenBotInGroupService（含未初始化的强类型属性 Api $telegram 等），
@@ -15,6 +16,24 @@ use Modules\Telegram\Services\Feature\TelegramFeatureService;
 // 任务根本没进队列、群永远同步不进来。服务改为在 handle() 内即时解析。
 readonly class HandleTelegramUpdateListener implements ShouldQueue
 {
+    /**
+     * 这条 update 进哪条队列
+     *
+     * Laravel 的 Dispatcher 入队时会调它（有事件参数就带事件参数调），
+     * 所以能按内容动态分流，图片单独走 ocr 队列，不跟轻量命令挤在一起。
+     *
+     * 注意：这个实例是 newInstanceWithoutConstructor() 建的，
+     * 依赖只能在方法里用 app() 取，不能在构造函数注入。
+     */
+    public function viaQueue(TelegramUpdateReceivedEvent $event): string
+    {
+        try {
+            return app(UpdateQueueResolver::class)->queueFor($event->update);
+        } catch (\Throwable) {
+            return (string) config('telegram.queues.default', 'default');
+        }
+    }
+
     public function handle(TelegramUpdateReceivedEvent $event)
     {
         try {

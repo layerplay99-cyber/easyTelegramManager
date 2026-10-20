@@ -76,6 +76,63 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | AWS 通用凭证
+    |--------------------------------------------------------------------------
+    | OCR（Textract）和翻译（Translate）共用一套，放 .env。
+    | IAM 用户需要：textract:DetectDocumentText、translate:TranslateText
+    |
+    */
+    'aws' => [
+        'region' => env('AWS_REGION', 'us-east-1'),
+        'key'    => env('AWS_ACCESS_KEY_ID'),
+        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 队列拆分
+    |--------------------------------------------------------------------------
+    | 重活（识图）不能和轻量命令挤在一条队列里：worker 是串行的，
+    | 一张图 1~2s，10 张图并发就能把 /bd、/ye 全堵住十几秒。
+    |
+    | by_media_type：按媒体类型把 update 路由到不同队列，没配的走 default。
+    | 起 worker 时 --queue=ocr 只消费 ocr（见 docker-compose.yml 的 queue-ocr）。
+    |
+    */
+    'queues' => [
+        'default' => env('TELEGRAM_QUEUE_DEFAULT', 'default'),
+        'ocr'     => env('TELEGRAM_QUEUE_OCR', 'ocr'),
+
+        'by_media_type' => [
+            'photo' => env('TELEGRAM_QUEUE_OCR', 'ocr'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 群回复双语
+    |--------------------------------------------------------------------------
+    | 群标记了非默认语种时，回复在默认语种（中文）后面追加一段该语种的译文。
+    | 统一在 FeatureExecutor 发出消息前处理，所有功能自动生效，不用改各驱动。
+    |
+    | 文案来源两级：
+    |   1) 功能配置里有 reply_templates[<语种>] → 直接用（业务术语不会被翻错）
+    |   2) 没有 → 调 AWS Translate 翻译，结果按「原文 + 目标语种」缓存
+    |
+    | 翻译按内容缓存：群回复就那几套固定文案，命中率接近 100%，费用可忽略。
+    |
+    */
+    'translate' => [
+        'enabled'   => (bool) env('TELEGRAM_TRANSLATE_ENABLED', true),
+        // 默认语种即「原文语种」，与 ocr.default_language 保持一致
+        'source'    => env('TELEGRAM_TRANSLATE_SOURCE', 'zh'),
+        'separator' => "\n",
+        'timeout'   => (int) env('AWS_TRANSLATE_TIMEOUT', 10),
+        'cache_ttl' => (int) env('TELEGRAM_TRANSLATE_CACHE_TTL', 43200), // 分钟，默认 30 天
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | OCR 识图
     |--------------------------------------------------------------------------
     | 群里发图片 → 取回图片 → OCR → 把识别出的文本拼成一个字符串。
@@ -114,10 +171,7 @@ return [
         ],
 
         'aws' => [
-            'region'  => env('AWS_REGION', 'us-east-1'),
-            'key'     => env('AWS_ACCESS_KEY_ID'),
-            'secret'  => env('AWS_SECRET_ACCESS_KEY'),
-            // 单次 OCR 的硬超时：OCR 是重活，别用默认的 180s 把 worker 占死
+            // 凭证在顶层的 telegram.aws，这里只留 OCR 自己的超时
             'timeout' => (int) env('AWS_OCR_TIMEOUT', 15),
         ],
 

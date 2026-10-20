@@ -542,7 +542,7 @@ deploy_app() {
     build_frontend
 
     log "重启常驻容器（加载新代码）"
-    app_compose restart queue reverb
+    app_compose restart queue queue-ocr reverb
 
     reload_nginx
 
@@ -577,7 +577,7 @@ update_app() {
     build_frontend
 
     log "重启常驻容器"
-    app_compose restart queue reverb
+    app_compose restart queue queue-ocr reverb
 
     log "✅ 更新完成"
 }

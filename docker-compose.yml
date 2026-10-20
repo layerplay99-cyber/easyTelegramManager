@@ -76,7 +76,34 @@ services:
             - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
             # SyncCollect 读取 Python 下载的头像
             - tgbot_media:/data/media
+        # 只消费 default：轻量命令（/bd、/ye …）
         command: php artisan queue:work redis --queue=default --sleep=3 --tries=3 --timeout=180
+        environment:
+            DB_HOST: mysql
+            REDIS_HOST: redis
+        restart: unless-stopped
+        networks:
+            - stack
+
+    # ---------------------------------------------------------- 队列 worker：识图专用
+    #
+    # 为什么要单独一条：
+    #   worker 是串行的，识图单次 1~2s。图片和命令挤在一条队列上时，
+    #   10 张图并发就能把 /bd、/ye 堵住十几秒。
+    #   路由规则在 config/telegram.php 的 queues.by_media_type（photo → ocr）。
+    #
+    # 两条队列互不干扰，default 慢了不影响识图，识图堆积也不影响命令。
+    # 图片量大就加 --scale：docker compose up -d --scale queue-ocr=3
+    queue-ocr:
+        image: telegram-bot-php:8.4
+        container_name: tgbot-queue-ocr
+        working_dir: /opt/projects/${PROJECT_DIR:-easyTelegramManager}
+        volumes:
+            - ${PROJECTS_ROOT:-/var/www}/${PROJECT_DIR:-easyTelegramManager}:/opt/projects/${PROJECT_DIR:-easyTelegramManager}
+            - ./docker-stack/php/php.ini:/usr/local/etc/php/conf.d/zz-dev.ini:ro
+            - tgbot_media:/data/media
+        # 只消费 ocr；OCR 本身有 15s 硬超时，--timeout 给它留够余量
+        command: php artisan queue:work redis --queue=ocr --sleep=3 --tries=2 --timeout=120
         environment:
             DB_HOST: mysql
             REDIS_HOST: redis

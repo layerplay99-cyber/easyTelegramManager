@@ -7,11 +7,13 @@ namespace Modules\Telegram\Services\Feature;
 use Illuminate\Support\Str;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
+use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\FeatureLogs;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Services\LogMessageService;
+use Modules\Telegram\Services\Translate\ReplyTranslator;
 use Telegram\Bot\Api;
 
 /**
@@ -263,7 +265,8 @@ class FeatureExecutor
             && $chatId !== null
             && $trigger !== 'webhook'
         ) {
-            $params = ['chat_id' => $chatId, 'text' => $result->message];
+            // 按群语种把回复变成双语（默认语种不处理，翻译挂了也照发原文）
+            $params = ['chat_id' => $chatId, 'text' => $this->localize($result, $config, $chatId)];
 
             if (isset($meta['reply_markup'])) {
                 $params['reply_markup'] = $meta['reply_markup'];
@@ -281,6 +284,33 @@ class FeatureExecutor
         }
 
         return $result;
+    }
+
+    /**
+     * 群回复双语化：默认语种文案 + 群标记语种的文案
+     *
+     * 只在这里做一次，所有功能自动生效 —— 不逐个驱动改。
+     * 群没标语种或标的就是默认语种时原样返回；翻译失败也退回原文，不影响主流程。
+     */
+    protected function localize(
+        FeatureResult $result,
+        array $config,
+        int|string|null $chatId
+    ): string {
+        if ($result->message === '' || $chatId === null || $chatId === '') {
+            return $result->message;
+        }
+
+        try {
+            return app(ReplyTranslator::class)->bilingual(
+                $result->message,
+                BotGroups::languageOf($chatId),
+                $config,
+                $result->data
+            );
+        } catch (\Throwable) {
+            return $result->message;
+        }
     }
 
     /**

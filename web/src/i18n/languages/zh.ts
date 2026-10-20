@@ -197,7 +197,9 @@ const zh = {
     merchantIdPlaceholder: '请输入商户ID',
     welcome: '进群欢迎语',
     welcomePlaceholder: '请输入进群欢迎语',
-    welcomeTip: '录入中文即可，发送时按该群的「语种配置」自动追加对应语种；支持 {{username}} {{full_name}} 等占位',
+    // ⚠️ 文案里不能出现 {{ }}：vue-i18n 会把它当插值语法编译，直接抛 SyntaxError（错误码 9），
+    // 整个弹窗都渲染不出来。要写占位就写变量名本身，别带花括号。
+    welcomeTip: '录入中文即可，发送时按该群的「语种配置」自动追加对应语种；可用 username、full_name 等占位',
     autoReply: '自动回复',
     keyword: '关键词',
     replyContent: '回复内容',

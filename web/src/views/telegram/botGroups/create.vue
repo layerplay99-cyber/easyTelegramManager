@@ -55,9 +55,13 @@ const groupLanguage = ref<string>('')
 const loadLanguages = async () => {
     try {
         // 复用现成的 options 接口，不加新路由（新路由在开了 route:cache 的环境要重新 cache 才生效）
-        const { data } = await http.get('telegram/features/options', { params: { source: 'group_languages' } })
-        const payload = data?.data ?? data
-        languages.value = Array.isArray(payload) ? payload : []
+        //
+        // ⚠️ 第二个参数就是 axios 的 params 本身，Request.get() 内部已经包了一层
+        //    { params }（见 support/request.ts）。这里再写成 { params: {...} } 会变成
+        //    ?params[source]=group_languages，后端拿不到 source → 走 default 返回空数组，
+        //    表现就是「下拉一直是空的」。跟 hook.vue / features/create.vue 保持一致。
+        const { data } = await http.get('telegram/features/options', { source: 'group_languages' })
+        languages.value = data.data || []
     } catch {
         languages.value = []
     }

@@ -391,7 +391,8 @@ write_nginx_conf() {
     }"
     else
         root_block="    location / {
-        proxy_pass             http://tgbot-frontend:5173;
+        set                    \$frontend_upstream \"tgbot-frontend:5173\";
+        proxy_pass             http://\$frontend_upstream;
         proxy_http_version     1.1;
         proxy_set_header       Host \$host;
         proxy_set_header       X-Real-IP \$remote_addr;
@@ -426,8 +427,12 @@ $root_block
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
+    # 上游写成变量：nginx 只在启动/重载时解析写死的名字，php 容器一重建
+    # IP 就变了，nginx 还发往旧 IP → /api/* 全 502（php-fpm 日志却是干净的）。
+    # 变量形式会按 nginx.conf 里 resolver 的 valid 周期重新解析。
     location ~ \\.php\$ {
-        fastcgi_pass   tgbot-php:9000;
+        set            \$php_upstream \"tgbot-php:9000\";
+        fastcgi_pass   \$php_upstream;
         fastcgi_index  index.php;
         fastcgi_param  SCRIPT_FILENAME $CONTAINER_DIR/public\$fastcgi_script_name;
         include        fastcgi_params;
@@ -435,7 +440,8 @@ $root_block
 
     # ---- Reverb WebSocket 反代 ----
     location /app {
-        proxy_pass             http://tgbot-reverb:8080;
+        set                    \$reverb_upstream \"tgbot-reverb:8080\";
+        proxy_pass             http://\$reverb_upstream;
         proxy_http_version     1.1;
         proxy_set_header       Upgrade \$http_upgrade;
         proxy_set_header       Connection "Upgrade";
@@ -451,13 +457,41 @@ EOF
     fi
 }
 
+# nginx 容器名在不同部署方式下不一样：
+#   项目自带 nginx（老部署）  → tgbot-nginx
+#   共享栈 nginx（deploy.sh） → stack-nginx
+# 写死任何一个，在另一种部署上 `docker exec` 都会失败；原来失败只打一行 warn，
+# 于是「脚本跑完了但 nginx 根本没重载」，php 容器一重建 IP 变了就全站 502。
+detect_nginx_container() {
+    local name
+    for name in tgbot-nginx stack-nginx nginx; do
+        if docker inspect "$name" >/dev/null 2>&1; then
+            printf '%s' "$name"
+            return 0
+        fi
+    done
+    return 1
+}
+
 reload_nginx() {
-    log "重载 Nginx"
-    if docker exec stack-nginx nginx -t >/dev/null 2>&1; then
-        docker exec stack-nginx nginx -s reload
-    else
-        warn "nginx -t 未通过（vhost 引用了还没启动的容器？），先不 reload；稍后手动：docker exec stack-nginx nginx -s reload"
+    local nginx_container
+
+    if ! nginx_container="$(detect_nginx_container)"; then
+        err "找不到 nginx 容器（tgbot-nginx / stack-nginx / nginx 都不存在）"
+        err "nginx 不重载 = 上游 IP 不刷新，重建 php 后 /api/* 必然 502"
+        exit 1
     fi
+
+    log "重载 Nginx（$nginx_container）"
+
+    if ! docker exec "$nginx_container" nginx -t >/dev/null 2>&1; then
+        err "nginx -t 未通过，配置有错，已中止（完整报错如下）"
+        docker exec "$nginx_container" nginx -t || true
+        exit 1
+    fi
+
+    docker exec "$nginx_container" nginx -s reload
+    log "✅ Nginx 已重载（上游 IP 已刷新）"
 }
 
 # ============================================================================
@@ -516,6 +550,8 @@ deploy_app() {
     remove_shared_redis
 
     log "启动项目容器"
+    # 若这一步重建了 php，它的内网 IP 会变 → 靠后面的 reload_nginx() 刷新 nginx；
+    # 别把 reload 那一步删掉。
     app_compose up -d
 
     ensure_writable_dirs
@@ -576,8 +612,16 @@ update_app() {
 
     build_frontend
 
+    # docker-compose.yml 可能改过（新增服务、换镜像 tag）：先按新配置对齐容器。
+    # 注意：这一步重建 php 会换掉它的内网 IP，所以后面必须 reload nginx，
+    # 否则 nginx 还往旧 IP 发请求 → /api/* 全 502。
+    log "按 compose 配置对齐容器"
+    app_compose up -d
+
     log "重启常驻容器"
     app_compose restart queue queue-ocr reverb
+
+    reload_nginx
 
     log "✅ 更新完成"
 }

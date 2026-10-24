@@ -30,7 +30,8 @@ server {
     # ---- 前端 SPA（vite dev，含 HMR）----
     # 生产用构建产物时，改为直接 serve web/dist（见 telegram-bot.conf 文末注释）。
     location / {
-        proxy_pass             http://<CONTAINER>-frontend:<PORT>;
+        set                    $frontend_upstream "<CONTAINER>-frontend:<PORT>";
+        proxy_pass             http://$frontend_upstream;
         proxy_http_version     1.1;
         proxy_set_header       Host $host;
         proxy_set_header       X-Real-IP $remote_addr;
@@ -47,7 +48,10 @@ server {
     }
 
     location ~ \.php$ {
-        fastcgi_pass   <CONTAINER>-php:9000;
+        # 变量形式 + nginx.conf 里的 resolver：容器重建后 IP 变了也能自动跟上，
+        # 写死名字的话 nginx 只解析一次，重建后 /api/* 全 502
+        set            $php_upstream "<CONTAINER>-php:9000";
+        fastcgi_pass   $php_upstream;
         fastcgi_index  index.php;
         # 与 php/app 容器内挂载路径一致：/opt/projects/<PROJECT>
         fastcgi_param  SCRIPT_FILENAME /opt/projects/<PROJECT>/public$fastcgi_script_name;
@@ -56,7 +60,8 @@ server {
 
     # ---- WebSocket（如用 Reverb，容器名 <CONTAINER>-reverb）----
     location /app {
-        proxy_pass             http://<CONTAINER>-reverb:8080;
+        set                    $reverb_upstream "<CONTAINER>-reverb:8080";
+        proxy_pass             http://$reverb_upstream;
         proxy_http_version     1.1;
         proxy_set_header       Upgrade $http_upgrade;
         proxy_set_header       Connection "Upgrade";

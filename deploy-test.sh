@@ -497,7 +497,7 @@ write_nginx_conf() {
         try_files \$uri \$uri/ /index.html;
     }
 
-    location ~* \\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)\$ {
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)\$ {
         root $CONTAINER_DIR/web/dist;
         expires 7d;
         add_header Cache-Control \"public\";

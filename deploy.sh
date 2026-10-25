@@ -549,7 +549,7 @@ write_nginx_conf() {
         try_files \$uri \$uri/ /index.html;
     }
 
-    location ~* \\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)\$ {
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)\$ {
         root $CONTAINER_DIR/web/dist;
         expires 7d;
         add_header Cache-Control \"public\";
@@ -596,7 +596,10 @@ $root_block
     # IP 就变了，nginx 还发往旧 IP → /api/* 全 502（php-fpm 日志却是干净的）。
     # 变量形式会按 nginx.conf 里 resolver 的 valid 周期重新解析。
     location ~ \\.php\$ {
-        set            \$php_upstream \"tgbot-php:9000\";
+        # 注意：所在 heredoc 不带引号，双引号千万别加反斜杠转义 —— 反斜杠会
+        #      原样落盘，值变成带引号的字符串，nginx 报 invalid port in
+        #      upstream，/api/* 全 500。用裸双引号即可。
+        set            \$php_upstream "tgbot-php:9000";
         fastcgi_pass   \$php_upstream;
         fastcgi_index  index.php;
         fastcgi_param  SCRIPT_FILENAME $CONTAINER_DIR/public\$fastcgi_script_name;
@@ -605,7 +608,7 @@ $root_block
 
     # ---- Reverb WebSocket 反代 ----
     location /app {
-        set                    \$reverb_upstream \"tgbot-reverb:8080\";
+        set                    \$reverb_upstream "tgbot-reverb:8080";
         proxy_pass             http://\$reverb_upstream;
         proxy_http_version     1.1;
         proxy_set_header       Upgrade \$http_upgrade;

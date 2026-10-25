@@ -1,12 +1,22 @@
 # ============================================================================
-# telegram-bot 项目虚拟主机（由共享 Nginx 加载）
+# telegram-bot 项目虚拟主机 —— 本机开发用示例（不是生产配置）
 # ----------------------------------------------------------------------------
-# 前置：telegram-bot 项目的 app 容器已接入 `stack` 网络，容器名分别为：
-#   tgbot-php / tgbot-frontend / tgbot-reverb
-# 本文件随 docker-stack 一起挂载到 /etc/nginx/sites，无需重启 nginx 即可生效
-# （改完执行：docker compose -f /opt/docker-stack/docker-compose.yml exec nginx nginx -s reload）
+# ⚠️ 为什么叫 .example：nginx 只 include /etc/nginx/sites/*.conf，
+#    .example 不会被加载。本文件以前叫 telegram-bot.conf，会被 deploy.sh 的
+#    `cp -a docker-stack/. /opt/docker-stack/` 一起复制进生产 nginx，
+#    结果生产机上多出一个 server_name tgbot.local、前端反代 5173 dev server 的
+#    开发站点（Telethon 回调带 Host: tgbot.local 还会命中它）。已改名避免误加载。
 #
-# 本机访问需在 /etc/hosts 添加：  127.0.0.1 tgbot.local
+# 生产 vhost 由 deploy.sh 生成：/opt/docker-stack/conf/nginx/sites/<项目目录名>.conf
+#   server_name = 真实域名，location / 托管 web/dist，/api 走 php-fpm。
+# 模板见同目录 _template.conf.example。
+#
+# 本机开发要用：cp _dev.conf.example telegram-bot.conf，并在 /etc/hosts 加
+#   127.0.0.1 tgbot.local
+# ----------------------------------------------------------------------------
+# 前置：本项目的 app 容器已接入 `stack` 网络，容器名分别为：
+#   tgbot-php / tgbot-frontend / tgbot-reverb
+# 改完执行：docker exec <nginx容器> nginx -s reload
 # ============================================================================
 
 server {

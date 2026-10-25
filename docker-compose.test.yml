@@ -28,12 +28,13 @@ services:
 
     # 测试环境覆盖：Telethon 的回调必须打回「测试」后端（tgbot-nginx → tgbot-php），
     # 不能沿用生产默认的 http://stack-nginx（否则群被同步进生产库，测试群列表永远为空）。
-    # tgbot-nginx 在 stack 网络内，且是第一个 server 块（无匹配 Host 时作默认），
-    # LARAVEL_HOST 用 tgbot.local 即可正常路由。
+    # tgbot-nginx 在 stack 网络内，这里只有一份 server 块（server_name = 测试域名），
+    # 无匹配 Host 时它就是默认站点，所以 Host 写什么都能路由到；
+    # 仍统一跟 deploy-test.sh 写入的 TELETHON_CALLBACK_HOST 走，避免两套口径。
     telegram-py:
         environment:
             LARAVEL_BASE_URL: http://tgbot-nginx
-            LARAVEL_HOST: tgbot.local
+            LARAVEL_HOST: ${TELETHON_CALLBACK_HOST:-tgbot.local}
 
 # redis 已由主 docker-compose.yml 自带（tgbot-redis，独立命名卷、不占宿主端口），
 # 不再依赖共享栈的 stack-redis；此处无需重复定义。

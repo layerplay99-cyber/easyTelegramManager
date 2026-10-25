@@ -2,7 +2,8 @@
 # ============================================================================
 # telegram-bot —— Docker 一键部署脚本
 # ----------------------------------------------------------------------------
-# 结构：共享栈（mysql/redis/nginx + stack-php/stack-node 镜像）在 /opt/docker-stack，
+# 结构：共享栈（mysql/pgsql/nginx + stack-php/stack-node 镜像）在 /opt/docker-stack，
+#       注意：共享栈没有 redis，各项目自带（本项目是 tgbot-redis）。
 #       本项目只跑自己的 app 容器（php/queue/reverb/frontend/telethon），接入 stack 网络。
 #
 # 用法：
@@ -36,11 +37,11 @@ fi
 # ============================================================================
 
 # ★ 域名（Nginx server_name / APP_URL / 前端 VITE_* / Telethon 回调用）
-DOMAIN="${DOMAIN:-bot.example.com}"
+DOMAIN="${DOMAIN:-tg.dg7788.top}"
 
 # http / https。选 https 时把 ENABLE_SSL 设为 1 并填证书路径
 PROTO="${PROTO:-https}"
-ENABLE_SSL="${ENABLE_SSL:-1}"
+ENABLE_SSL="${ENABLE_SSL:-0}"
 SSL_CERT="${SSL_CERT:-/etc/nginx/ssl/${DOMAIN}/fullchain.pem}"
 SSL_KEY="${SSL_KEY:-/etc/nginx/ssl/${DOMAIN}/privkey.pem}"
 # 没有证书也能先跑起来：ENABLE_SSL=0 时只监听 80
@@ -74,6 +75,11 @@ TELETHON_CALLBACK_TOKEN="${TELETHON_CALLBACK_TOKEN:-}"
 REVERB_APP_ID="${REVERB_APP_ID:-160452}"
 REVERB_APP_KEY="${REVERB_APP_KEY:-}"
 REVERB_APP_SECRET="${REVERB_APP_SECRET:-}"
+
+# 本地 Telegram Bot API Server（TDLib）身份：my.telegram.org 申请
+# 留空时 docker-compose.yml 的 telegram-bot-api 服务会启动即退出（不影响其它容器）
+TELEGRAM_API_ID="${TELEGRAM_API_ID:-}"
+TELEGRAM_API_HASH="${TELEGRAM_API_HASH:-}"
 
 # 是否跳过共享栈镜像构建（镜像已存在时可设 1 提速）
 SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-0}"
@@ -115,6 +121,21 @@ ensure_env_var() {
     fi
 }
 
+# 读 .env 里某个 key 的当前值（不存在返回空）
+env_val() {
+    grep -m1 "^$2=" "$1" 2>/dev/null | cut -d= -f2- || true
+}
+
+# 确保某个 key 在 .env 里存在：已存在则保留原值（保护手改），只在缺失时补默认值
+ensure_env_default() {
+    local file="$1" key="$2" value="$3"
+    touch "$file"
+    if grep -q "^${key}=" "$file" 2>/dev/null; then
+        return 0
+    fi
+    printf '%s=%s\n' "$key" "$value" >> "$file"
+}
+
 # ============================================================================
 # 1. 共享栈
 # ============================================================================
@@ -126,6 +147,19 @@ remove_shared_redis() {
     if docker inspect stack-redis >/dev/null 2>&1; then
         log "移除冲突的共享栈 redis(stack-redis)，redis 改由项目自带 tgbot-redis 提供"
         docker rm -f stack-redis >/dev/null 2>&1 || true
+    fi
+}
+
+# 清理历史遗留的「开发用 vhost」：sites/telegram-bot.conf（server_name tgbot.local、
+# 前端反代 5173 dev server）。它在仓库里已改名 _dev.conf.example，但 cp -a 不会删除
+# 目标目录里已有的文件，生产机上那份还会被 nginx 的 sites/*.conf 加载。
+# 只删「确实还是开发配置」的那份：若它已被本项目 vhost 覆盖（server_name 是真实域名）则不动。
+remove_legacy_dev_vhost() {
+    local legacy="$STACK_ROOT/conf/nginx/sites/telegram-bot.conf"
+    if [ -f "$legacy" ] && grep -q 'server_name[[:space:]]\+tgbot\.local' "$legacy"; then
+        log "清理遗留的开发 vhost：conf/nginx/sites/telegram-bot.conf（server_name tgbot.local）"
+        rm -f "$legacy"
+        reload_nginx
     fi
 }
 
@@ -170,6 +204,7 @@ EOF
     stack_compose up -d mysql nginx
 
     remove_shared_redis
+    remove_legacy_dev_vhost
 
     wait_mysql
     create_db
@@ -203,7 +238,7 @@ create_db() {
 CREATE DATABASE IF NOT EXISTS \`$DB_DATABASE\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '$DB_USERNAME'@'%' IDENTIFIED BY '$DB_PASSWORD';
 GRANT ALL PRIVILEGES ON \`$DB_DATABASE\`.* TO '$DB_USERNAME'@'%';
-FLUSH PRIVILEGES;" 
+FLUSH PRIVILEGES;"
 }
 
 # ============================================================================
@@ -230,21 +265,35 @@ fetch_code() {
 # 3. 各份 .env
 # ============================================================================
 write_envs() {
-    # ---- Laravel .env ----
-    if [ ! -s "$PROJECT_HOST_DIR/.env" ]; then
-        log "生成 Laravel .env"
-        local apikey reverb_key reverb_secret token
-        apikey="${EXTERNAL_API_KEY:-$(rand)}"
-        reverb_key="${REVERB_APP_KEY:-$(rand)}"
-        reverb_secret="${REVERB_APP_SECRET:-$(rand)}"
-        token="${TELETHON_CALLBACK_TOKEN:-$(rand)}"
+    local env_file="$PROJECT_HOST_DIR/.env"
 
-        cat > "$PROJECT_HOST_DIR/.env" <<EOF
+    local apikey reverb_key reverb_secret token vite_port wss_url tmpl
+    apikey="${EXTERNAL_API_KEY:-$(rand)}"
+    reverb_key="${REVERB_APP_KEY:-$(rand)}"
+    reverb_secret="${REVERB_APP_SECRET:-$(rand)}"
+    token="${TELETHON_CALLBACK_TOKEN:-$(rand)}"
+    vite_port=$([ "$PROTO" = "https" ] && echo 443 || echo 80)
+    wss_url=$([ "$PROTO" = "https" ] && echo "wss://$DOMAIN/app" || echo "ws://$DOMAIN/app")
+    tmpl="$(mktemp)"
+
+    # 老 .env 里已有主密钥时，派生值必须沿用同一套，不能另生成
+    # （否则 EXTERNAL_API_KEY 与 VITE_API_KEY、REVERB_APP_KEY 与 VITE_REVERB_APP_KEY 对不上）
+    local cur_apikey cur_rkey cur_rsecret
+    cur_apikey="$(env_val "$env_file" EXTERNAL_API_KEY)"
+    cur_rkey="$(env_val "$env_file" REVERB_APP_KEY)"
+    cur_rsecret="$(env_val "$env_file" REVERB_APP_SECRET)"
+    if [ -n "$cur_apikey" ];  then apikey="$cur_apikey";         fi
+    if [ -n "$cur_rkey" ];    then reverb_key="$cur_rkey";       fi
+    if [ -n "$cur_rsecret" ]; then reverb_secret="$cur_rsecret"; fi
+
+    # ---- 静态默认值：与仓库根目录 .env.example 逐键对齐 ----
+    # 用 'ENVTMPL'（带引号）包起来，里面的 $ 不展开，原样落盘。
+    # 新增变量时改这一处即可，新装和「老 .env 补齐」两条路径共用。
+    cat > "$tmpl" <<'ENVTMPL'
 APP_NAME=机器人管理系统
 APP_ENV=production
 APP_KEY=
 APP_DEBUG=false
-APP_URL=$APP_URL
 
 LOG_CHANNEL=stack
 LOG_DEPRECATIONS_CHANNEL=null
@@ -253,10 +302,6 @@ LOG_LEVEL=error
 DB_CONNECTION=mysql
 DB_HOST=mysql
 DB_PORT=3306
-DB_DATABASE=$DB_DATABASE
-DB_USERNAME=$DB_USERNAME
-DB_PASSWORD="$DB_PASSWORD"
-DB_PREFIX=$DB_PREFIX
 
 BROADCAST_DRIVER=reverb
 CACHE_DRIVER=file
@@ -264,6 +309,8 @@ FILESYSTEM_DISK=local
 QUEUE_CONNECTION=redis
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
+
+MEMCACHED_HOST=127.0.0.1
 
 REDIS_HOST=redis
 REDIS_PASSWORD=null
@@ -277,7 +324,77 @@ MAIL_USERNAME=null
 MAIL_PASSWORD=null
 MAIL_ENCRYPTION=null
 MAIL_FROM_ADDRESS="hello@example.com"
-MAIL_FROM_NAME="\${APP_NAME}"
+MAIL_FROM_NAME=机器人管理系统
+
+# S3 / 通用 AWS 凭证（下面的 OCR 复用同一对 key，所以只写一份）
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_DEFAULT_REGION=us-east-1
+AWS_BUCKET=
+AWS_USE_PATH_STYLE_ENDPOINT=false
+
+# Pusher（本项目实际用 Reverb，这里只占位，保持与 .env.example 一致）
+PUSHER_APP_ID=
+PUSHER_APP_KEY=
+PUSHER_APP_SECRET=
+PUSHER_HOST=
+PUSHER_PORT=443
+PUSHER_SCHEME=https
+PUSHER_APP_CLUSTER=mt1
+VITE_PUSHER_APP_KEY=
+VITE_PUSHER_HOST=
+VITE_PUSHER_PORT=
+VITE_PUSHER_SCHEME=
+VITE_PUSHER_APP_CLUSTER=
+
+ALIOSS_BUCKET=
+ALIOSS_ACCESS_ID=
+ALIOSS_ACCESS_SECRET=
+ALIOSS_ENDPOINT=
+ALIOSS_UPLOAD_DIR=
+
+# Telegram 业务开关
+TELEGRAM_MEDIA_DOWNLOAD_TIMEOUT=30
+TELEGRAM_QUEUE_DEFAULT=default
+TELEGRAM_QUEUE_OCR=ocr
+TELEGRAM_TRANSLATE_ENABLED=true
+TELEGRAM_TRANSLATE_SOURCE=zh
+TELEGRAM_TRANSLATE_CACHE_TTL=43200
+
+# OCR / 翻译（AWS Textract / Translate）
+AWS_REGION=us-east-1
+AWS_OCR_DEFAULT=textract
+AWS_OCR_TIMEOUT=15
+AWS_OCR_MAX_BYTES=9437184
+AWS_TRANSLATE_TIMEOUT=10
+
+# Telethon（Python MTProto 服务）
+TELETHON_BASE_URL=http://telegram-py:8081
+TELETHON_TIMEOUT=120
+TELETHON_MEDIA_PATH=/data/media
+
+# 回调验签（新接入的上游建议配）
+TELEGRAM_HOOK_SECRET=
+TELEGRAM_HOOK_SIGN_ALGO=hmac_sha256
+TELEGRAM_HOOK_SIGN_FIELD=sign
+TELEGRAM_HOOK_SIGN_TTL=300
+TELEGRAM_INTERACTIVE_TTL=86400
+ENVTMPL
+
+    # ---- Laravel .env ----
+    if [ ! -s "$env_file" ]; then
+        log "生成 Laravel .env"
+        cat "$tmpl" > "$env_file"
+
+        # 部署参数派生段（域名 / 数据库 / 随机密钥）
+        cat >> "$env_file" <<EOF
+
+APP_URL=$APP_URL
+
+DB_DATABASE=$DB_DATABASE
+DB_USERNAME=$DB_USERNAME
+DB_PASSWORD=$DB_PASSWORD
+DB_PREFIX=$DB_PREFIX
 
 # 外部 API 校验密钥（与前端 VITE_API_KEY 一致）
 EXTERNAL_API_KEY=$apikey
@@ -290,50 +407,93 @@ REVERB_HOST=$DOMAIN
 REVERB_PORT=8080
 REVERB_SCHEME=http
 
+# 前端（构建时注入，改完必须重新 build）
 VITE_BASE_URL=$APP_URL/api/
 VITE_APP_NAME=机器人后台管理
-VITE_REVERB_APP_KEY="$reverb_key"
+VITE_REVERB_APP_KEY=$reverb_key
 VITE_REVERB_HOST=$DOMAIN
-VITE_REVERB_PORT=$([ "$PROTO" = "https" ] && echo 443 || echo 80)
+VITE_REVERB_PORT=$vite_port
 VITE_REVERB_SCHEME=$PROTO
-VITE_WSS_URL=$([ "$PROTO" = "https" ] && echo "wss://$DOMAIN/app" || echo "ws://$DOMAIN/app")
+VITE_WSS_URL=$wss_url
 VITE_API_KEY=$apikey
 
 # 浏览器 -> Nginx -> PHP 这一跳用（容器间走服务名，不受影响）
 SANCTUM_STATEFUL_DOMAINS=$DOMAIN
 SESSION_DOMAIN=$DOMAIN
 
-# Telethon（Python MTProto 服务）
-TELETHON_BASE_URL=http://telegram-py:8081
-TELETHON_TIMEOUT=120
-TELETHON_CALLBACK_TOKEN=$token
-TELETHON_MEDIA_PATH=/data/media
+# 本地 Telegram Bot API Server（TDLib）身份：my.telegram.org 申请。
+# 留空的话 tgbot-bot-api 容器会起来就退出；不用本地 Bot API 可以先不管。
+TELEGRAM_API_ID=$TELEGRAM_API_ID
+TELEGRAM_API_HASH=$TELEGRAM_API_HASH
 
-# 回调验签（新接入的上游建议配）
-TELEGRAM_HOOK_SECRET=
-TELEGRAM_HOOK_SIGN_ALGO=hmac_sha256
-TELEGRAM_HOOK_SIGN_FIELD=sign
-TELEGRAM_HOOK_SIGN_TTL=300
-TELEGRAM_INTERACTIVE_TTL=86400
+# 留空 = 走官方 https://api.telegram.org/bot
+# 启用本地 TDLib 时填 http://telegram-bot-api:8083/bot
+TELEGRAM_BASE_BOT_URL=
+
+# Telethon 回调密钥（telegram-service/.env 的 CALLBACK_TOKEN 用同一个）
+TELETHON_CALLBACK_TOKEN=$token
 
 # compose 变量（部署脚本写入，勿删）
 PROJECTS_ROOT=$PROJECTS_ROOT
 PROJECT_DIR=$PROJECT_DIR
-TELETHON_CALLBACK_TOKEN=$token
 EOF
         log "Laravel .env 已生成（APP_KEY 待容器启动后生成）"
     else
-        log "Laravel .env 已存在，跳过生成"
+        # 已存在：只补 .env.example 里有、而本地没有的键，已有的值一律不动
+        log "Laravel .env 已存在，补齐缺失项（对齐 .env.example）"
+        while IFS='=' read -r k v; do
+            case "$k" in
+                ''|\#*) continue ;;
+            esac
+            grep -q "^${k}=" "$env_file" || printf '%s=%s\n' "$k" "$v" >> "$env_file"
+        done < "$tmpl"
     fi
+    rm -f "$tmpl"
 
-    # ---- docker-compose.yml 用 .env 做变量替换，确保这三个一定在 ----
-    ensure_env_var "$PROJECT_HOST_DIR/.env" PROJECTS_ROOT "$PROJECTS_ROOT"
-    ensure_env_var "$PROJECT_HOST_DIR/.env" PROJECT_DIR   "$PROJECT_DIR"
+    # ---- 部署参数类：缺失才补，已存在保留原值 ----
+    ensure_env_default "$env_file" APP_URL                  "$APP_URL"
+    ensure_env_default "$env_file" DB_DATABASE              "$DB_DATABASE"
+    ensure_env_default "$env_file" DB_USERNAME              "$DB_USERNAME"
+    ensure_env_default "$env_file" DB_PASSWORD              "$DB_PASSWORD"
+    ensure_env_default "$env_file" DB_PREFIX                "$DB_PREFIX"
+    ensure_env_default "$env_file" EXTERNAL_API_KEY         "$apikey"
+    ensure_env_default "$env_file" REVERB_APP_ID            "$REVERB_APP_ID"
+    ensure_env_default "$env_file" REVERB_APP_KEY           "$reverb_key"
+    ensure_env_default "$env_file" REVERB_APP_SECRET        "$reverb_secret"
+    ensure_env_default "$env_file" REVERB_HOST              "$DOMAIN"
+    ensure_env_default "$env_file" REVERB_PORT              8080
+    ensure_env_default "$env_file" REVERB_SCHEME            http
+    ensure_env_default "$env_file" VITE_BASE_URL            "$APP_URL/api/"
+    ensure_env_default "$env_file" VITE_APP_NAME            "机器人后台管理"
+    ensure_env_default "$env_file" VITE_REVERB_APP_KEY      "$reverb_key"
+    ensure_env_default "$env_file" VITE_REVERB_HOST         "$DOMAIN"
+    ensure_env_default "$env_file" VITE_REVERB_PORT         "$vite_port"
+    ensure_env_default "$env_file" VITE_REVERB_SCHEME       "$PROTO"
+    ensure_env_default "$env_file" VITE_WSS_URL             "$wss_url"
+    ensure_env_default "$env_file" VITE_API_KEY             "$apikey"
+    ensure_env_default "$env_file" SANCTUM_STATEFUL_DOMAINS "$DOMAIN"
+    ensure_env_default "$env_file" SESSION_DOMAIN           "$DOMAIN"
+    ensure_env_default "$env_file" TELEGRAM_API_ID          "$TELEGRAM_API_ID"
+    ensure_env_default "$env_file" TELEGRAM_API_HASH        "$TELEGRAM_API_HASH"
+    ensure_env_default "$env_file" TELEGRAM_BASE_BOT_URL    ""
+
+    # ---- docker-compose.yml 用 .env 做变量替换，这几个必须与实际路径/密钥一致 ----
+    ensure_env_var "$env_file" PROJECTS_ROOT "$PROJECTS_ROOT"
+    ensure_env_var "$env_file" PROJECT_DIR   "$PROJECT_DIR"
+
+    # Telethon 回调要带能命中本项目 vhost 的 Host：生产 vhost 的 server_name 就是 $DOMAIN。
+    # 写死 tgbot.local 的话，一旦那份开发 vhost 不在，请求会落到 default_server 返回 404。
+    ensure_env_var "$env_file" TELETHON_CALLBACK_HOST "$DOMAIN"
 
     local cb_token
-    cb_token="$(grep -m1 '^TELETHON_CALLBACK_TOKEN=' "$PROJECT_HOST_DIR/.env" | cut -d= -f2- || true)"
-    [ -n "$cb_token" ] || cb_token="${TELETHON_CALLBACK_TOKEN:-$(rand)}"
-    ensure_env_var "$PROJECT_HOST_DIR/.env" TELETHON_CALLBACK_TOKEN "$cb_token"
+    cb_token="$(grep -m1 '^TELETHON_CALLBACK_TOKEN=' "$env_file" | cut -d= -f2- || true)"
+    [ -n "$cb_token" ] || cb_token="$token"
+    ensure_env_var "$env_file" TELETHON_CALLBACK_TOKEN "$cb_token"
+
+    if [ -z "${TELEGRAM_API_ID:-}" ] || [ -z "${TELEGRAM_API_HASH:-}" ]; then
+        warn "未配置 TELEGRAM_API_ID / TELEGRAM_API_HASH：tgbot-bot-api 容器会启动即退出"
+        warn "  → my.telegram.org 申请后填进 $env_file，再 docker compose up -d telegram-bot-api"
+    fi
 
     # ---- 前端生产环境 ----
     log "写入 web/.env.production"

@@ -28,7 +28,7 @@ server {
     client_max_body_size 50m;
 
     # ---- 前端 SPA（vite dev，含 HMR）----
-    # 生产用构建产物时，改为直接 serve web/dist（见 telegram-bot.conf 文末注释）。
+    # 生产用构建产物时，改为直接 serve web/dist（见 _dev.conf.example 文末注释）。
     location / {
         set                    $frontend_upstream "<CONTAINER>-frontend:<PORT>";
         proxy_pass             http://$frontend_upstream;

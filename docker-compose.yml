@@ -51,7 +51,7 @@ services:
         #   yarn build  = 产出 web/dist（nginx 静态托管读的就是它）
         #   加 --watch  = 构建完不退出，持续监听源码变化并自动重新构建
         # 若前端要改回走 vite dev server，这里换回 `yarn dev --host 0.0.0.0 --port 5173`，
-        # 同时 nginx 的 location / 必须改成反代 http://tgbot-frontend:5173（见 telegram-bot.conf）
+        # 同时 nginx 的 location / 必须改成反代 http://tgbot-frontend:5173（见 _dev.conf.example）
         command: sh -c "yarn install && yarn build --watch"
         environment:
             # vite.config.ts 中 open: true（自动打开浏览器）。容器内无桌面环境，
@@ -148,8 +148,13 @@ services:
             MEDIA_DIR: /data/media
             # php 容器是 php-fpm(9000 fastcgi)，不提供 HTTP；必须走共享栈的 nginx
             LARAVEL_BASE_URL: http://stack-nginx
-            # nginx 按 server_name 路由，请求需带正确 Host，否则落到 default_server 返回 404
-            LARAVEL_HOST: tgbot.local
+            # nginx 按 server_name 选 vhost，所以回调要带一个能命中本项目 vhost 的 Host。
+            # 生产 vhost（deploy.sh 生成）的 server_name 是真实域名，
+            # 所以这里跟域名走；域名不需要能解析 —— 请求打的是 LARAVEL_BASE_URL，
+            # Host 头只是给 nginx 做匹配用的。
+            # deploy.sh 会把 TELETHON_CALLBACK_HOST 写成域名写进 .env；
+            # 没跑 deploy.sh 时才回落到 tgbot.local（本机开发那份 _dev.conf.example）。
+            LARAVEL_HOST: ${TELETHON_CALLBACK_HOST:-tgbot.local}
             CALLBACK_TOKEN: ${TELETHON_CALLBACK_TOKEN}
             REDIS_URL: redis://redis:6379/0
         volumes:

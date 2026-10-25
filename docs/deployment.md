@@ -567,8 +567,13 @@ server {
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Docker 方式下这份配置由共享栈提供：`docker-stack/conf/nginx/sites/telegram-bot.conf`，
-生产把 `location /` 切到 `web/dist` 静态托管并加 HTTPS（该文件末尾有注释示例）。
+Docker 方式下这份配置**由 `deploy.sh` 生成**：`/opt/docker-stack/conf/nginx/sites/<项目目录名>.conf`
+（`server_name` = 真实域名，`location /` 托管 `web/dist`，`/api` 走 php-fpm，`/app` 反代 reverb），
+改完 `deploy.env` 重跑 `./deploy.sh app` 即可，脚本会自动 `nginx -t` 并 reload。
+
+仓库里 `docker-stack/conf/nginx/sites/` 下的都是模板：
+`_template.conf.example`（通用骨架）、`_dev.conf.example`（本机开发，server_name tgbot.local，
+前端反代 5173 dev server）。带 `.example` 后缀不会被 `sites/*.conf` 加载。
 
 ---
 

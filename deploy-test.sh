@@ -72,6 +72,10 @@ REVERB_APP_ID="${REVERB_APP_ID:-160452}"
 REVERB_APP_KEY="${REVERB_APP_KEY:-}"
 REVERB_APP_SECRET="${REVERB_APP_SECRET:-}"
 
+# 本地 Telegram Bot API Server（TDLib）身份：my.telegram.org 申请
+TELEGRAM_API_ID="${TELEGRAM_API_ID:-}"
+TELEGRAM_API_HASH="${TELEGRAM_API_HASH:-}"
+
 # ============================================================================
 # 派生变量
 # ============================================================================
@@ -108,6 +112,21 @@ ensure_env_var() {
     fi
 }
 
+# 读 .env 里某个 key 的当前值（不存在返回空）
+env_val() {
+    grep -m1 "^$2=" "$1" 2>/dev/null | cut -d= -f2- || true
+}
+
+# 确保某个 key 在 .env 里存在：已存在则保留原值（保护手改），只在缺失时补默认值
+ensure_env_default() {
+    local file="$1" key="$2" value="$3"
+    touch "$file"
+    if grep -q "^${key}=" "$file" 2>/dev/null; then
+        return 0
+    fi
+    printf '%s=%s\n' "$key" "$value" >> "$file"
+}
+
 # ============================================================================
 # 1. 共享栈（只起 mysql，不起 nginx / redis）
 # ============================================================================
@@ -138,7 +157,6 @@ MYSQL_DATABASE=$DB_DATABASE
 MYSQL_USER=$DB_USERNAME
 MYSQL_PASSWORD=$DB_PASSWORD
 MYSQL_PORT=3306
-REDIS_PORT=6379
 PGSQL_USER=stack
 PGSQL_PASSWORD=stack123456
 PGSQL_DATABASE=stack
@@ -215,30 +233,40 @@ fetch_code() {
 # 3. .env（测试）
 # ============================================================================
 write_envs() {
-    if [ ! -s "$PROJECT_HOST_DIR/.env" ]; then
-        log "生成 Laravel .env（测试）"
-        local apikey reverb_key reverb_secret token
-        apikey="${EXTERNAL_API_KEY:-$(rand)}"
-        reverb_key="${REVERB_APP_KEY:-$(rand)}"
-        reverb_secret="${REVERB_APP_SECRET:-$(rand)}"
-        token="${TELETHON_CALLBACK_TOKEN:-$(rand)}"
-        cat > "$PROJECT_HOST_DIR/.env" <<EOF
+    local env_file="$PROJECT_HOST_DIR/.env"
+
+    local apikey reverb_key reverb_secret token vite_port wss_url tmpl
+    apikey="${EXTERNAL_API_KEY:-$(rand)}"
+    reverb_key="${REVERB_APP_KEY:-$(rand)}"
+    reverb_secret="${REVERB_APP_SECRET:-$(rand)}"
+    token="${TELETHON_CALLBACK_TOKEN:-$(rand)}"
+    vite_port=$([ "$PROTO" = "https" ] && echo 443 || echo 80)
+    wss_url=$([ "$PROTO" = "https" ] && echo "wss://$DOMAIN/app" || echo "ws://$DOMAIN/app")
+    tmpl="$(mktemp)"
+
+    # 老 .env 里已有主密钥时，派生值必须沿用同一套，不能另生成
+    local cur_apikey cur_rkey cur_rsecret
+    cur_apikey="$(env_val "$env_file" EXTERNAL_API_KEY)"
+    cur_rkey="$(env_val "$env_file" REVERB_APP_KEY)"
+    cur_rsecret="$(env_val "$env_file" REVERB_APP_SECRET)"
+    if [ -n "$cur_apikey" ];  then apikey="$cur_apikey";         fi
+    if [ -n "$cur_rkey" ];    then reverb_key="$cur_rkey";       fi
+    if [ -n "$cur_rsecret" ]; then reverb_secret="$cur_rsecret"; fi
+
+    # ---- 静态默认值：与仓库根目录 .env.example 逐键对齐（与 deploy.sh 同一份清单）----
+    cat > "$tmpl" <<'ENVTMPL'
 APP_NAME=机器人管理系统(测试)
 APP_ENV=production
 APP_KEY=
 APP_DEBUG=false
-APP_URL=$APP_URL
 
 LOG_CHANNEL=stack
+LOG_DEPRECATIONS_CHANNEL=null
 LOG_LEVEL=error
 
 DB_CONNECTION=mysql
 DB_HOST=mysql
 DB_PORT=3306
-DB_DATABASE=$DB_DATABASE
-DB_USERNAME=$DB_USERNAME
-DB_PASSWORD="$DB_PASSWORD"
-DB_PREFIX=$DB_PREFIX
 
 BROADCAST_DRIVER=reverb
 CACHE_DRIVER=file
@@ -246,6 +274,8 @@ FILESYSTEM_DISK=local
 QUEUE_CONNECTION=redis
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
+
+MEMCACHED_HOST=127.0.0.1
 
 REDIS_HOST=redis
 REDIS_PASSWORD=null
@@ -259,10 +289,80 @@ MAIL_USERNAME=null
 MAIL_PASSWORD=null
 MAIL_ENCRYPTION=null
 MAIL_FROM_ADDRESS="hello@example.com"
-MAIL_FROM_NAME="\${APP_NAME}"
+MAIL_FROM_NAME=机器人管理系统(测试)
 
+# S3 / 通用 AWS 凭证（下面的 OCR 复用同一对 key，所以只写一份）
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_DEFAULT_REGION=us-east-1
+AWS_BUCKET=
+AWS_USE_PATH_STYLE_ENDPOINT=false
+
+# Pusher（本项目实际用 Reverb，这里只占位，保持与 .env.example 一致）
+PUSHER_APP_ID=
+PUSHER_APP_KEY=
+PUSHER_APP_SECRET=
+PUSHER_HOST=
+PUSHER_PORT=443
+PUSHER_SCHEME=https
+PUSHER_APP_CLUSTER=mt1
+VITE_PUSHER_APP_KEY=
+VITE_PUSHER_HOST=
+VITE_PUSHER_PORT=
+VITE_PUSHER_SCHEME=
+VITE_PUSHER_APP_CLUSTER=
+
+ALIOSS_BUCKET=
+ALIOSS_ACCESS_ID=
+ALIOSS_ACCESS_SECRET=
+ALIOSS_ENDPOINT=
+ALIOSS_UPLOAD_DIR=
+
+# Telegram 业务开关
+TELEGRAM_MEDIA_DOWNLOAD_TIMEOUT=30
+TELEGRAM_QUEUE_DEFAULT=default
+TELEGRAM_QUEUE_OCR=ocr
+TELEGRAM_TRANSLATE_ENABLED=true
+TELEGRAM_TRANSLATE_SOURCE=zh
+TELEGRAM_TRANSLATE_CACHE_TTL=43200
+
+# OCR / 翻译（AWS Textract / Translate）
+AWS_REGION=us-east-1
+AWS_OCR_DEFAULT=textract
+AWS_OCR_TIMEOUT=15
+AWS_OCR_MAX_BYTES=9437184
+AWS_TRANSLATE_TIMEOUT=10
+
+# Telethon（Python MTProto 服务）
+TELETHON_BASE_URL=http://telegram-py:8081
+TELETHON_TIMEOUT=120
+TELETHON_MEDIA_PATH=/data/media
+
+# 回调验签（新接入的上游建议配）
+TELEGRAM_HOOK_SECRET=
+TELEGRAM_HOOK_SIGN_ALGO=hmac_sha256
+TELEGRAM_HOOK_SIGN_FIELD=sign
+TELEGRAM_HOOK_SIGN_TTL=300
+TELEGRAM_INTERACTIVE_TTL=86400
+ENVTMPL
+
+    if [ ! -s "$env_file" ]; then
+        log "生成 Laravel .env（测试）"
+        cat "$tmpl" > "$env_file"
+
+        cat >> "$env_file" <<EOF
+
+APP_URL=$APP_URL
+
+DB_DATABASE=$DB_DATABASE
+DB_USERNAME=$DB_USERNAME
+DB_PASSWORD=$DB_PASSWORD
+DB_PREFIX=$DB_PREFIX
+
+# 外部 API 校验密钥（与前端 VITE_API_KEY 一致）
 EXTERNAL_API_KEY=$apikey
 
+# Reverb WebSocket
 REVERB_APP_ID=$REVERB_APP_ID
 REVERB_APP_KEY=$reverb_key
 REVERB_APP_SECRET=$reverb_secret
@@ -270,44 +370,81 @@ REVERB_HOST=$DOMAIN
 REVERB_PORT=8080
 REVERB_SCHEME=http
 
+# 前端（构建时注入，改完必须重新 build）
 VITE_BASE_URL=$APP_URL/api/
 VITE_APP_NAME=机器人后台管理(测试)
-VITE_REVERB_APP_KEY="$reverb_key"
+VITE_REVERB_APP_KEY=$reverb_key
 VITE_REVERB_HOST=$DOMAIN
-VITE_REVERB_PORT=$([ "$PROTO" = "https" ] && echo 443 || echo 80)
+VITE_REVERB_PORT=$vite_port
 VITE_REVERB_SCHEME=$PROTO
-VITE_WSS_URL=$([ "$PROTO" = "https" ] && echo "wss://$DOMAIN/app" || echo "ws://$DOMAIN/app")
+VITE_WSS_URL=$wss_url
 VITE_API_KEY=$apikey
 
 SANCTUM_STATEFUL_DOMAINS=$DOMAIN
 SESSION_DOMAIN=$DOMAIN
 
-TELETHON_BASE_URL=http://telegram-py:8081
-TELETHON_TIMEOUT=120
+# 本地 Telegram Bot API Server（TDLib）身份：my.telegram.org 申请
+TELEGRAM_API_ID=$TELEGRAM_API_ID
+TELEGRAM_API_HASH=$TELEGRAM_API_HASH
+# 留空 = 走官方 https://api.telegram.org/bot
+TELEGRAM_BASE_BOT_URL=
+
 TELETHON_CALLBACK_TOKEN=$token
-TELETHON_MEDIA_PATH=/data/media
 
-TELEGRAM_HOOK_SECRET=
-TELEGRAM_HOOK_SIGN_ALGO=hmac_sha256
-TELEGRAM_HOOK_SIGN_FIELD=sign
-TELEGRAM_HOOK_SIGN_TTL=300
-TELEGRAM_INTERACTIVE_TTL=86400
-
+# compose 变量（部署脚本写入，勿删）
 PROJECTS_ROOT=$PROJECTS_ROOT
 PROJECT_DIR=$PROJECT_DIR
-TELETHON_CALLBACK_TOKEN=$token
 EOF
         log "Laravel .env（测试）已生成"
     else
-        log "Laravel .env 已存在，跳过生成"
+        log "Laravel .env 已存在，补齐缺失项（对齐 .env.example）"
+        while IFS='=' read -r k v; do
+            case "$k" in
+                ''|\#*) continue ;;
+            esac
+            grep -q "^${k}=" "$env_file" || printf '%s=%s\n' "$k" "$v" >> "$env_file"
+        done < "$tmpl"
     fi
+    rm -f "$tmpl"
 
-    ensure_env_var "$PROJECT_HOST_DIR/.env" PROJECTS_ROOT "$PROJECTS_ROOT"
-    ensure_env_var "$PROJECT_HOST_DIR/.env" PROJECT_DIR   "$PROJECT_DIR"
+    # ---- 部署参数类：缺失才补，已存在保留原值 ----
+    ensure_env_default "$env_file" APP_URL                  "$APP_URL"
+    ensure_env_default "$env_file" DB_DATABASE              "$DB_DATABASE"
+    ensure_env_default "$env_file" DB_USERNAME              "$DB_USERNAME"
+    ensure_env_default "$env_file" DB_PASSWORD              "$DB_PASSWORD"
+    ensure_env_default "$env_file" DB_PREFIX                "$DB_PREFIX"
+    ensure_env_default "$env_file" EXTERNAL_API_KEY         "$apikey"
+    ensure_env_default "$env_file" REVERB_APP_ID            "$REVERB_APP_ID"
+    ensure_env_default "$env_file" REVERB_APP_KEY           "$reverb_key"
+    ensure_env_default "$env_file" REVERB_APP_SECRET        "$reverb_secret"
+    ensure_env_default "$env_file" REVERB_HOST              "$DOMAIN"
+    ensure_env_default "$env_file" REVERB_PORT              8080
+    ensure_env_default "$env_file" REVERB_SCHEME            http
+    ensure_env_default "$env_file" VITE_BASE_URL            "$APP_URL/api/"
+    ensure_env_default "$env_file" VITE_APP_NAME            "机器人后台管理(测试)"
+    ensure_env_default "$env_file" VITE_REVERB_APP_KEY      "$reverb_key"
+    ensure_env_default "$env_file" VITE_REVERB_HOST         "$DOMAIN"
+    ensure_env_default "$env_file" VITE_REVERB_PORT         "$vite_port"
+    ensure_env_default "$env_file" VITE_REVERB_SCHEME       "$PROTO"
+    ensure_env_default "$env_file" VITE_WSS_URL             "$wss_url"
+    ensure_env_default "$env_file" VITE_API_KEY             "$apikey"
+    ensure_env_default "$env_file" SANCTUM_STATEFUL_DOMAINS "$DOMAIN"
+    ensure_env_default "$env_file" SESSION_DOMAIN           "$DOMAIN"
+    ensure_env_default "$env_file" TELEGRAM_API_ID          "$TELEGRAM_API_ID"
+    ensure_env_default "$env_file" TELEGRAM_API_HASH        "$TELEGRAM_API_HASH"
+    ensure_env_default "$env_file" TELEGRAM_BASE_BOT_URL    ""
+
+    # ---- docker-compose.yml 用 .env 做变量替换，这几个必须与实际路径/密钥一致 ----
+    ensure_env_var "$env_file" PROJECTS_ROOT "$PROJECTS_ROOT"
+    ensure_env_var "$env_file" PROJECT_DIR   "$PROJECT_DIR"
+
+    # Telethon 回调要带能命中本项目 vhost 的 Host（生产 vhost 的 server_name 就是 $DOMAIN）
+    ensure_env_var "$env_file" TELETHON_CALLBACK_HOST "$DOMAIN"
+
     local cb_token
-    cb_token="$(grep -m1 '^TELETHON_CALLBACK_TOKEN=' "$PROJECT_HOST_DIR/.env" | cut -d= -f2- || true)"
-    [ -n "$cb_token" ] || cb_token="${TELETHON_CALLBACK_TOKEN:-$(rand)}"
-    ensure_env_var "$PROJECT_HOST_DIR/.env" TELETHON_CALLBACK_TOKEN "$cb_token"
+    cb_token="$(grep -m1 '^TELETHON_CALLBACK_TOKEN=' "$env_file" | cut -d= -f2- || true)"
+    [ -n "$cb_token" ] || cb_token="$token"
+    ensure_env_var "$env_file" TELETHON_CALLBACK_TOKEN "$cb_token"
 
     log "写入 web/.env.production（测试）"
     local reverb_key_v apikey_v

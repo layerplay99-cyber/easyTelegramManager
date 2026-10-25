@@ -168,6 +168,11 @@ EOF
         log "共享栈 .env 已存在，跳过"
     fi
 
+    # 同 deploy.sh：路径写错会让 nginx 挂到空目录（静态文件全读不到 → 500），强制对齐。
+    # 填宿主路径（/opt），不是容器内的 /opt/projects。
+    ensure_env_var "$STACK_ROOT/.env" STACK_ROOT    "$STACK_ROOT"
+    ensure_env_var "$STACK_ROOT/.env" PROJECTS_ROOT "$PROJECTS_ROOT"
+
     if [ "$SKIP_IMAGE_BUILD" != "1" ]; then
         log "构建公共镜像 telegram-bot-php / telegram-bot-node（首次较慢）"
         stack_compose build php node

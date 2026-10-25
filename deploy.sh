@@ -195,6 +195,13 @@ EOF
         log "共享栈 .env 已存在，跳过"
     fi
 
+    # 这两个路径决定 nginx 挂哪个目录（${PROJECTS_ROOT}:/opt/projects:ro），写错的话
+    # nginx 容器里的 /opt/projects 会是空的（宿主机没这个目录时 Docker 还会自动建一个空的），
+    # 静态文件全读不到 → try_files rewrite cycle → 全站 500。所以每次都强制对齐实际路径。
+    # 注意：这里要填「宿主」路径（/opt），不是容器内的 /opt/projects。
+    ensure_env_var "$STACK_ROOT/.env" STACK_ROOT    "$STACK_ROOT"
+    ensure_env_var "$STACK_ROOT/.env" PROJECTS_ROOT "$PROJECTS_ROOT"
+
     if [ "$SKIP_IMAGE_BUILD" != "1" ]; then
         log "构建公共镜像 telegram-bot-php / telegram-bot-node（首次较慢）"
         stack_compose build php node

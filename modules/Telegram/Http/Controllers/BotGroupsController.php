@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\TelegramApiUsers;
+use Modules\Telegram\Services\Group\GroupCleanupService;
 
 
 class BotGroupsController extends Controller
@@ -138,14 +139,27 @@ class BotGroupsController extends Controller
         return ['language' => $language];
     }
 
+    /**
+     * 删除群：硬删群本体，并清掉这个群的所有关联配置
+     *
+     * 原来只调 deleteBy()（软删 bot_groups 自己），group_configs、
+     * service_peoples、merchant_routes、feature_data 等全部留成孤儿，
+     * 群重新进来时还会带着一堆旧配置"复活"。
+     */
     public function destroy(int|string $id): mixed
     {
         $group = $this->model->firstBy($id);
 
-        if ($group) {
-            app(DataScope::class)->assertVisible($group);
+        if (! $group) {
+            return $this->model->deleteBy($id);
         }
 
-        return $this->model->deleteBy($id);
+        app(DataScope::class)->assertVisible($group);
+
+        // chat_id + bot_id 定位：deleteGroup() 会带上 bot_id 精确清理，
+        // 群里还有别的机器人时不会误删它们的绑定
+        app(GroupCleanupService::class)->deleteGroup((string) $group->chat_id, $group->bot_id);
+
+        return true;
     }
 }

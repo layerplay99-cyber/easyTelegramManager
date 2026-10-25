@@ -4,12 +4,12 @@ namespace Modules\Telegram\Services\Feature;
 
 use Illuminate\Support\Facades\Cache;
 use Modules\Telegram\Models\Bots;
-use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\GroupAdmins;
 use Modules\Telegram\Models\GroupMembers;
 use Modules\Telegram\Services\Bot\BotApiFactory;
 use Modules\Telegram\Services\FeatureOperateService;
+use Modules\Telegram\Services\Group\GroupCleanupService;
 use Modules\Telegram\Services\GroupWelcomeService;
 use Modules\Telegram\Services\LogMessageService;
 use Telegram\Bot\Api;
@@ -91,6 +91,13 @@ class ListenBotInGroupService
     public function ensureChatSynced($bot, $chatId): void
     {
         if (! $bot || empty($bot->api_token) || ! $chatId) {
+            return;
+        }
+
+        // 刚被删掉的群（机器人被踢 / 后台人工删除）不再自动重建，
+        // 否则只要机器人还在群里，下一条 update 就会把它拉回来 —— 表现为"删了又冒出来"。
+        // 机器人重新入群时 handleMyChatMember() 会清掉这个标记。
+        if (app(GroupCleanupService::class)->isDeleted($chatId, $bot->id)) {
             return;
         }
 
@@ -234,6 +241,10 @@ class ListenBotInGroupService
 
         // 原来只处理 administrator，机器人以普通成员身份进群时不会入库
         if (in_array($newStatus, ['member', 'administrator', 'creator', 'restricted'])) {
+            // 明确的入群信号：清掉「已删除」标记，允许这个群重新入库
+            // （之前被踢过或后台删过，墓碑会一直拦着 ensureChatSynced）
+            app(GroupCleanupService::class)->clearDeletedMark($chatId, $bot->id);
+
             $this->syncChatInfo($chatId, $bot->id);
             $this->syncChatAdmins($chatId);
             $this->syncBindFeature($chatId, $bot->id);
@@ -420,19 +431,11 @@ class ListenBotInGroupService
             return;
         }
 
-        // 只清理属于本机器人的绑定关系
-        BotGroups::where('chat_id', $chatId)
-            ->where('bot_id', $bot->id)
-            ->forceDelete();
-
-        FeaturesBinds::where('chat_id', $chatId)
-            ->where('bot_id', $bot->id)
-            ->forceDelete();
-
-        GroupAdmins::where('chat_id', $chatId)->forceDelete();
-        GroupMembers::where('chat_id', $chatId)->forceDelete();
-
-        Cache::forget("telegram:chat:synced:{$bot->id}:{$chatId}");
+        // 群本体 + 这个群的所有配置/绑定一起清（只删 bot_groups 会留一堆孤儿数据）：
+        //   group_configs、service_peoples、group_admins、group_members、
+        //   features_binds、merchant_routes、interactive_sessions、feature_data(群级)
+        // bot 维度的数据只删本机器人的，群里还有别的机器人时不误伤。
+        $deleted = app(GroupCleanupService::class)->deleteGroup($chatId, $bot->id);
 
         $this->logMessageService->createLaravelLog(
             'telegram_events',
@@ -440,8 +443,9 @@ class ListenBotInGroupService
                 'chat_id' => $chatId,
                 'bot_id' => $bot->id,
                 'bot_username' => $member ? ($member->username ?? '') : '',
+                'deleted' => $deleted,
             ],
-            "机器人被踢出群，已删除相关数据",
+            "机器人被踢出群，已删除群及关联数据",
         );
     }
 

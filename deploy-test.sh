@@ -614,14 +614,15 @@ reload_nginx() {
 # "The bootstrap/cache directory must be present and writable"。
 ensure_writable_dirs() {
     log "确保 storage / bootstrap/cache 存在且属主为 www-data（php-fpm 运行用户）"
-    php_exec "mkdir -p bootstrap/cache \
-        storage/framework/cache/data \
-        storage/framework/sessions \
-        storage/framework/testing \
-        storage/framework/views \
-        storage/logs \
-        && chown -R www-data:www-data storage bootstrap/cache \
-        && chmod -R ug+rwX storage bootstrap/cache"
+    # 同 deploy.sh：用绝对路径，docker exec 的工作目录不可靠
+    php_exec "mkdir -p $CONTAINER_DIR/bootstrap/cache \
+        $CONTAINER_DIR/storage/framework/cache/data \
+        $CONTAINER_DIR/storage/framework/sessions \
+        $CONTAINER_DIR/storage/framework/testing \
+        $CONTAINER_DIR/storage/framework/views \
+        $CONTAINER_DIR/storage/logs \
+        && chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache \
+        && chmod -R ug+rwX $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache"
 }
 
 # CatchAdmin 安装 / 升级（见 docs/deployment.md 第 3 节）
@@ -686,7 +687,7 @@ deploy_app() {
     php_exec "php artisan telegram:sync-features"
 
     # 上面是 root 执行的，缓存文件会变成 root 属主，php-fpm(www-data) 写不了
-    php_exec "chown -R www-data:www-data storage bootstrap/cache"
+    php_exec "chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache"
 
     build_frontend
 
@@ -713,7 +714,7 @@ update_app() {
     run_install
     php_exec "php artisan optimize:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache"
     php_exec "php artisan telegram:sync-features"
-    php_exec "chown -R www-data:www-data storage bootstrap/cache"
+    php_exec "chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache"
     build_frontend
     app_compose restart queue reverb
     reload_nginx

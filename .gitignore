@@ -30,5 +30,9 @@ composer.lock
 /.workflow
 /web/.yarn
 /web/dist
-/bootstrap/cache
+# 只忽略目录内容，目录本身要进 git（靠 bootstrap/cache/.gitignore 占位）：
+# 整目录被忽略的话，clone 下来没有 bootstrap/cache，Laravel 会报
+# "The .../bootstrap/cache directory must be present and writable"
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
 /.codebuddy

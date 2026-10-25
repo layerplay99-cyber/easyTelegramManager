@@ -15,7 +15,7 @@
 | 适合 | 开发、测试，以及希望环境可复现的部署 | 已有 LNMP 环境、要求直接管进程的生产机 |
 | 入口 | `http://tgbot.local`（开发机 `/etc/hosts` 指向宿主） | 自己配域名 + HTTPS |
 | 迁移怎么跑 | `docker exec tgbot-php php artisan catch:migrate xxx --force` | 直接在项目目录 `php artisan catch:migrate xxx --force` |
-| 前端 | `tgbot-frontend` 容器跑 `yarn build --watch`，产物进 `web/dist` | 宿主机 `yarn build` |
+| 前端 | 部署时执行一次 `docker exec tgbot-frontend sh -c "yarn install && yarn build"`，产物进 `web/dist`（容器本身只装依赖后挂住，不常驻编译） | 宿主机 `yarn build` |
 
 > 两种方式**后端安装步骤完全一致**（`app:install` + 模块安装），差别只在"命令在哪跑、
 > 基础设施谁提供"。第 3 节之后的通用章节（`.env` / 前端 / 上线检查）对两者都适用。
@@ -75,7 +75,7 @@ cd telegram-bot
 | 容器 | 镜像 | 作用 |
 |---|---|---|
 | `tgbot-php` | `telegram-bot-php:8.4` | php-fpm，跑 artisan / 接收 webhook |
-| `tgbot-frontend` | `telegram-bot-node:20` | `yarn build --watch`，持续产出 `web/dist` |
+| `tgbot-frontend` | `telegram-bot-node:20` | 装依赖后挂住；构建由部署时执行一次 `yarn build`，产出 `web/dist` |
 | `tgbot-queue` | `telegram-bot-php:8.4` | 队列 worker |
 | `tgbot-reverb` | `telegram-bot-php:8.4` | WebSocket（`reverb:start`，8080） |
 | `tgbot-telethon` | `telegram-bot-telethon`（本地构建） | Python Telethon 服务，8081 |
@@ -189,8 +189,9 @@ docker exec -w /var/www tgbot-php php artisan catch:migrate telegram --force
 docker exec -w /var/www tgbot-php php artisan catch:migrate cms --force
 docker exec -w /var/www tgbot-php php artisan catch:migrate system --force
 docker exec -w /var/www tgbot-php php artisan config:clear
-# 前端容器是 build --watch，代码 pull 后会自动重新构建
-docker compose restart queue reverb
+# 前端要手动构建一次（容器不再常驻 build --watch）
+docker exec tgbot-frontend sh -c "yarn install && yarn build"
+docker compose restart queue queue-ocr reverb
 ```
 
 ### 3.7 Docker 排错
@@ -460,7 +461,8 @@ yarn build          # = vite build --mode production，产物 web/dist
 | 模式 | 命令 | 产物 | nginx 该怎么配 |
 |---|---|---|---|
 | **开发服务器** | `yarn dev --host 0.0.0.0 --port 5173` | **无 dist**（仅内存编译，带 HMR） | `location /` 必须**反代**到 `http://tgbot-frontend:5173` |
-| **构建模式**（Docker 当前） | `yarn build --watch` | **产出 `web/dist`** | `location /` 用 `root .../web/dist` + `try_files` |
+| **构建模式**（Docker 当前） | `yarn build`（部署时执行一次） | **产出 `web/dist`** | `location /` 用 `root .../web/dist` + `try_files` |
+| **构建 + 监听** | `yarn build --watch` | 产出 `web/dist`，但常驻一个 node 进程持续编译 | 同上；内存紧张的机器别用 |
 
 若 nginx 用 `try_files $uri $uri/ /index.html` 读静态文件、但前端跑的是 `yarn dev`（dist 不存在），就会触发：
 
@@ -475,7 +477,8 @@ ls -l /var/www/telegram-bot/web/dist/index.html   # 不存在就是没构建
 ```
 
 首次构建约需 **90 秒**，期间 `dist/index.html` 尚不存在，访问会 500 —— 等 `built in xxxms` 出现后再访问。
-Docker 方式下 `tgbot-frontend` 跑的是 `build --watch`，代码变化会自动重新构建。
+Docker 方式下前端**不常驻编译**：容器起来只 `yarn install`，构建由 `./deploy.sh app`（或手动
+`docker exec tgbot-frontend sh -c "yarn install && yarn build"`）执行一次。改了前端代码要重新构建才生效。
 
 #### 前端容器启动日志中的「无害噪声」
 

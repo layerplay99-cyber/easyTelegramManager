@@ -693,7 +693,8 @@ deploy_app() {
 }
 
 build_frontend() {
-    log "构建前端（在 frontend 容器内）"
+    # 同 deploy.sh：容器内一次性构建，不留常驻的 build --watch 进程
+    log "构建前端（一次性）"
     docker exec tgbot-frontend sh -c "yarn install && yarn build"
 }
 

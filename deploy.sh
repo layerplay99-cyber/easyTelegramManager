@@ -751,7 +751,9 @@ deploy_app() {
 }
 
 build_frontend() {
-    log "构建前端（在 frontend 容器内，node_modules 是独立卷，不能在宿主机构建）"
+    # frontend 容器本身不做构建（command 只装依赖后挂住），这里按需执行一次 yarn build。
+    # 必须在容器内构建：node_modules 是独立命名卷，宿主机上没有。
+    log "构建前端（一次性，构建完就结束，不留常驻编译进程）"
     docker exec tgbot-frontend sh -c "yarn install && yarn build"
     log "前端产物：$(ls -1 "$PROJECT_HOST_DIR/web/dist" 2>/dev/null | wc -l) 个文件"
 }

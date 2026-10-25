@@ -5,7 +5,9 @@
 #   cd /opt/docker-stack
 #   cp .env.example .env        # 设 STACK_ROOT / PROJECTS_ROOT（PROJECTS_ROOT 要与本项目一致）
 #   docker compose build php node
-#   docker compose up -d mysql redis pgsql nginx node
+#   docker compose up -d mysql pgsql nginx node
+#                          ↑ 这里没有 redis：redis 由本项目自带（见下面 redis 服务），
+#                            共享栈里已经没有这个服务了，写上会报 no such service: redis
 #
 # 本项目 .env 需设置：
 #   PROJECTS_ROOT=/var/www        # 与共享栈 .env 的 PROJECTS_ROOT 保持一致（即项目代码所在的根目录）

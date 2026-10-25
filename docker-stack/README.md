@@ -1,7 +1,14 @@
 # 公共 Docker 栈（Shared Docker Stack）
 
-把 `php / node / mysql / redis / pgsql / nginx` 六类环境集中成一套**共享栈**，
+把 `php / node / mysql / pgsql / nginx` 五类环境集中成一套**共享栈**，
 部署在 Linux 宿主的 `/opt` 共用区，所有项目只跑各自的 app 容器并接入同一个网络。
+
+> **Redis 不在共享栈里**：历史上共享栈提供过 `redis`，后来移除了——共享栈的
+> redis 与宿主上其它项目的 redis 抢数据目录/端口会起不来（曾 `Exited 139`），
+> 而且项目在 `stack` 网络上抢不到 `redis` 这个别名，导致队列推不进去。
+> 现在**每个项目自带一个 redis 容器**（本项目：`tgbot-redis`，独占命名卷、
+> 不映射宿主端口，靠服务名 `redis` 在 `stack` 网络提供别名）。
+> 所以启动命令里**没有** `redis`，写上会报 `no such service: redis`。
 
 ```
 /opt/docker-stack/      <- 本目录（共享栈定义，部署到这里）
@@ -10,13 +17,13 @@
 
 ## 设计要点
 
-- **单一共享栈 + 项目接入**：共享栈长期运行 `mysql / redis / pgsql / nginx` 和
+- **单一共享栈 + 项目接入**：共享栈长期运行 `mysql / pgsql / nginx` 和
   一个常驻 `node` 环境；`php` / `node` 同时被打成基础镜像
   （`stack-php:8.4` / `stack-node:20`）。每个项目只定义自己的 app 容器
   （php-fpm、队列、reverb、telegram、前端），引用公共镜像并通过 `external`
   网络 `stack` 接入。
 - **宿主路径全部在 `/opt` 共用区**：配置、数据卷、项目代码都在 `/opt` 下，
-  多项目共用，互不干扰（MySQL/PG 用不同库，Redis 用不同 DB 号）。
+  多项目共用，互不干扰（MySQL/PG 用不同库）。Redis 各项目自带，天然隔离。
 - **共享 Nginx 按域名路由**：把项目 vhost 放到 `conf/nginx/sites/` 即可，
   静态资源与 `SCRIPT_FILENAME` 都从 `/opt/projects` 读取，路径与各容器一致。
 
@@ -38,14 +45,16 @@ cp .env.example .env
 docker compose build php node
 
 # 5. 启动共享基础设施
-docker compose up -d mysql redis pgsql nginx node
+#    注意没有 redis：共享栈已不再提供 redis，改由各项目自带（本项目是 tgbot-redis），
+#    写上去会报 "no such service: redis"
+docker compose up -d mysql pgsql nginx node
 
 # 6. 校验
 docker compose ps
 ```
 
 > 其它项目要复用本栈，只需把它们的 app 容器接入 `stack` 网络，
-> 并在 `conf/nginx/sites/` 放一份 vhost，无需再起一套 mysql/redis/nginx。
+> 并在 `conf/nginx/sites/` 放一份 vhost，无需再起一套 mysql/nginx（redis 各项目自带）。
 
 ## 二、接入一个项目（以 telegram-bot 为例）
 
@@ -94,7 +103,7 @@ docker compose up -d
 |---------|-----------------------------------------------------|
 | MySQL   | 每个项目用独立 `database`（`stack` 用户可建库）      |
 | PGSQL   | 每个项目用独立 `database`（`stack` 超级用户可建库）  |
-| Redis   | 每个项目用不同 DB 号（0-15），或通过不同 key 前缀    |
+| Redis   | 不在共享栈内，各项目自带容器，天然隔离              |
 | Nginx   | 不同 `server_name` 路由到不同项目容器                |
 
 ## 五、与原 per-project 配置的差异
@@ -143,7 +152,7 @@ docker compose exec nginx nginx -s reload
 - **`The "PROJECTS_ROOT" variable is not set`**：项目 `.env` 里缺少 `PROJECTS_ROOT`
   （`.env` 被 gitignore，部署时容易漏）。补上 `PROJECTS_ROOT` 与 `PROJECT_DIR` 即可。
 - **`pull access denied for stack-php` / `No such image: stack-php:8.4`**：公共镜像还没构建。
-  共享栈必须先 `docker compose build php node` 再 `up -d mysql redis pgsql nginx node`，
+  共享栈必须先 `docker compose build php node` 再 `up -d mysql pgsql nginx node`（无 redis），
   项目 compose 用的是 `image: stack-php:8.4` 本地镜像，不会自己 build，也不会去拉 registry。
 - **502 / `Primary script unknown`**：nginx 的 `SCRIPT_FILENAME` 路径与 php 容器挂载路径不一致。
   核对共享栈 `PROJECTS_ROOT` 与项目 `PROJECTS_ROOT`/`PROJECT_DIR` 是否一致，

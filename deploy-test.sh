@@ -655,17 +655,22 @@ deploy_app() {
 
     remove_shared_redis
 
-    log "启动项目容器（含内部 nginx，不占宿主 80/443）"
-    app_compose up -d
+    # 同 deploy.sh：先只起 php，装完 vendor 再起 queue / reverb，
+    # 否则它们会在 composer install 之前空转报 vendor/autoload.php 不存在并反复重启。
+    log "启动 php（先装依赖，再起常驻容器）"
+    app_compose up -d php
 
     ensure_writable_dirs
 
-    php_exec "composer install --no-dev --optimize-autoloader"
+    php_exec "COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader"
 
     if ! grep -q '^APP_KEY=base64:' "$PROJECT_HOST_DIR/.env" 2>/dev/null; then
         log "生成 APP_KEY"
         php_exec "php artisan key:generate --force"
     fi
+
+    log "启动其余容器（含内部 nginx，不占宿主 80/443）"
+    app_compose up -d
 
     run_install
 
@@ -698,7 +703,7 @@ build_frontend() {
 update_app() {
     fetch_code
     ensure_writable_dirs
-    php_exec "composer install --no-dev --optimize-autoloader"
+    php_exec "COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader"
     run_install
     php_exec "php artisan optimize:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache"
     php_exec "php artisan telegram:sync-features"

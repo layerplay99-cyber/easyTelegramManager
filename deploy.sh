@@ -707,20 +707,27 @@ deploy_app() {
 
     remove_shared_redis
 
-    log "启动项目容器"
-    # 若这一步重建了 php，它的内网 IP 会变 → 靠后面的 reload_nginx() 刷新 nginx；
-    # 别把 reload 那一步删掉。
-    app_compose up -d
+    # 先只起 php：queue / queue-ocr / reverb 的 command 就是 php artisan ...，
+    # vendor 还没装时它们会报 "Failed opening required .../vendor/autoload.php"，
+    # 而 restart: unless-stopped 会让它们崩溃→重启→再崩溃，首次部署刷满屏日志。
+    # 等 composer install 完再 up 全部，就不会有这段空转。
+    log "启动 php（先装依赖，再起常驻容器）"
+    app_compose up -d php
 
     ensure_writable_dirs
 
     log "安装 PHP 依赖"
-    php_exec "composer install --no-dev --optimize-autoloader"
+    php_exec "COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader"
 
     if ! grep -q '^APP_KEY=base64:' "$PROJECT_HOST_DIR/.env" 2>/dev/null; then
         log "生成 APP_KEY"
         php_exec "php artisan key:generate --force"
     fi
+
+    log "启动其余容器（queue / queue-ocr / reverb / frontend / telegram-py …）"
+    # 若这一步重建了 php，它的内网 IP 会变 → 靠后面的 reload_nginx() 刷新 nginx；
+    # 别把 reload 那一步删掉。
+    app_compose up -d
 
     run_install
 
@@ -757,7 +764,7 @@ update_app() {
     ensure_writable_dirs
 
     log "更新依赖"
-    php_exec "composer install --no-dev --optimize-autoloader"
+    php_exec "COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader"
 
     run_install
 

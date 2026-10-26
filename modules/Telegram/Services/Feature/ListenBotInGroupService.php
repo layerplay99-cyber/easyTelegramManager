@@ -202,8 +202,12 @@ class ListenBotInGroupService
             // 保存机器人成员记录
             $this->saveMember($chatId, $member);
 
-            // 同步绑定功能到群组和机器人
-            $this->syncBindFeature($chatId, $bot->id);
+            // ⚠️ 不要在这里调 syncBindFeature()：它会把系统里所有 enabled=1 的
+            //    bot 类功能按 enabled=1 写进这个群（而且不按 bot_id 过滤），
+            //    等于新群自动全选，与「机器人白名单 > 群子集」冲突 ——
+            //    机器人没配功能、群里却显示一堆已配置功能就是这么来的。
+            //    入群只登记群，用哪些功能由后台在群里手动添加。
+            //    （ensureChatSynced() 里同样不调，见那里更详细的说明）
 
             Cache::put(
                 "telegram:chat:synced:{$bot->id}:{$chatId}",
@@ -247,7 +251,8 @@ class ListenBotInGroupService
 
             $this->syncChatInfo($chatId, $bot->id);
             $this->syncChatAdmins($chatId);
-            $this->syncBindFeature($chatId, $bot->id);
+
+            // 同上：不自动绑功能，保持「机器人白名单 > 群子集」
         }
     }
 
@@ -449,14 +454,7 @@ class ListenBotInGroupService
         );
     }
 
-    /**
-     * 同步绑定功能到群组和机器人
-     * @param $chatId
-     * @param $botId
-     * @return void
-     */
-    protected function syncBindFeature($chatId, $botId): void
-    {
-        $this->featureOperateService->bindFeature($chatId, $botId, 'bot');
-    }
+    // 原来这里有个 syncBindFeature()，入群时把 bot 类功能全量绑到群上，
+    // 与「机器人白名单 > 群子集」冲突，已移除（详见 handleBotJoined() 的注释）。
+    // 群要用哪些功能，由后台在群里手动添加。
 }

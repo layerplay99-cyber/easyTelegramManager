@@ -74,10 +74,24 @@ class BotsController extends Controller
      */
     public function update(int|string $id, BotsRequest $request): mixed
     {
+        $bot = $this->model->find($id);
+
+        if (! $bot) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Bot not found',
+            ], 404);
+        }
+
         // 修改机器人的「三方上游」仅限超级管理员：
         // 上游涉及地址与 Token，是成本与安全边界，普通用户随意切换会导致
         // 请求打到别人的上游、或把自己的机器人绑到未授权的上游上。
-        if ($request->has('third_config_id') && ! $this->isSuperAdmin()) {
+        //
+        // ⚠️ 判断条件是「值真的变了」，不能只看字段在不在请求里：
+        //    编辑表单会把整个对象回传（third_config_id 为空时也会带上这个键），
+        //    $request->has() 对值为 null/'' 同样返回 true，于是没动过上游、
+        //    表单里也根本没有上游下拉框的普通用户，一保存就被拦成 403。
+        if ($this->isThirdConfigChanged($request, $bot) && ! $this->isSuperAdmin()) {
             return response()->json([
                 'status' => 'error',
                 'message' => '只有超级管理员才能修改机器人的三方上游',
@@ -97,21 +111,32 @@ class BotsController extends Controller
         // updateBy → filterData 会把 null 转成空串，MySQL 直接报
         // 1366 Incorrect integer value，整个编辑表单一个字都存不进去。
         if ($request->has('third_config_id')) {
-            $bot = $this->model->find($id);
-
-            if (! $bot) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Bot not found',
-                ], 404);
-            }
-
             $bot->forceFill(['third_config_id' => $request->input('third_config_id') ?: null])->save();
 
             return $this->model->updateBy($id, $request->except('third_config_id'));
         }
 
         return $this->model->updateBy($id, $request->all());
+    }
+
+    /**
+     * 这次请求有没有真的改动「三方上游」
+     *
+     * 空值（null / ''）和 0 都按「没设上游」处理，避免表单回传空值时被判成改动。
+     */
+    protected function isThirdConfigChanged(BotsRequest $request, mixed $bot): bool
+    {
+        if (! $request->has('third_config_id')) {
+            return false;
+        }
+
+        // 0 / null / '' 一律按「没设上游」算，否则 0 与 '' 会被误判成改动
+        $normalize = static fn ($v): string => ($v === null || $v === '' || (int) $v === 0)
+            ? ''
+            : (string) $v;
+
+        return $normalize($bot->third_config_id ?? null)
+            !== $normalize($request->input('third_config_id'));
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Providers;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 
@@ -37,7 +38,44 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        $this->protectCreatorIdOnUpdate();
         //$this->listenSql();
+    }
+
+    /**
+     * 更新时保留数据归属（creator_id），不让操作人把数据"改到自己名下"
+     *
+     * 框架 BaseOperate::filterData() 里有一段：
+     *     if ($this->isFillCreatorId && in_array('creator_id', $this->getFillable())) {
+     *         $data['creator_id'] = Auth::guard(getGuardName())->id();
+     *     }
+     * 而 updateBy() 走的也是 filterData()，于是「谁改一次，数据就归谁」——
+     * 超级管理员帮人改一条机器人，这条机器人就从创建者名下消失了
+     * （DataScope 按 creator_id 归属链过滤，创建者再也查不到）。
+     *
+     * 约定：超管/上级可以改任何数据的内容，但不能顺手改走归属。
+     * 归属要变更得走明确的「转移/分配」入口，而不是编辑保存的副作用。
+     *
+     * 只拦 updating（模型 save），不拦 creating —— 新建时本来就该记当前操作人。
+     * 原值为 0/null（无主数据）时不拦，允许把它认领到当前用户名下。
+     */
+    private function protectCreatorIdOnUpdate(): void
+    {
+        Event::listen('eloquent.updating: *', function (string $event, array $models): void {
+            foreach ($models as $model) {
+                if (! method_exists($model, 'getOriginal') || ! $model->isDirty('creator_id')) {
+                    continue;
+                }
+
+                $original = $model->getOriginal('creator_id');
+
+                if ($original === null || (int) $original === 0) {
+                    continue;
+                }
+
+                $model->setAttribute('creator_id', $original);
+            }
+        });
     }
 
     private function listenSql()

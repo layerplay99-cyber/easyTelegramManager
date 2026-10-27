@@ -66,12 +66,34 @@ class ListenBotInGroupService
             // 先初始化 telegram API（使用传入的 bot）
             $this->telegram = app(BotApiFactory::class)->forBot($bot);
 
-            if ($update->has('message')) {
+            // ⚠️ 不能写 $update->has('xxx')：这个 SDK 的 Update/BaseObject 没有 has() 方法，
+            //    未定义的方法会落到 BaseObject::__call()，而它对非 get 开头的方法
+            //    一律 `return false` —— 判断恒为 false，下面所有分支从来没进去过
+            //    （机器人被踢出群却不清数据，就是这个原因）。
+            //    正确写法：属性 isset()（BaseObject 有 __isset/__get）或 getXxx()。
+            if ($update->getMessage() !== null) {
                 $this->handleMessage($bot, $update->message);
             }
 
-            if ($update->has('my_chat_member')) {
-                $this->handleMyChatMember($bot, $update->my_chat_member);
+            // 机器人自己的成员状态变化：进群 / 被踢 / 权限变更
+            if (isset($update->myChatMember)) {
+                $this->handleMyChatMember($bot, $update->myChatMember);
+            }
+
+            // chat_member：群成员状态变化（机器人关掉隐私模式时，自己的变化也走这里）。
+            // 只处理「离开/被踢」：群里任何人的进出都会发这条，若走完整的入群同步，
+            // 会平白多出 getChat + getChatAdministrators 两轮 API 调用。
+            // handleBotKicked() 内部会校验被踢的是不是本机器人，别人退群不会误删群。
+            if (isset($update->chatMember)) {
+                $chatMember = $update->chatMember;
+
+                if (in_array($chatMember->new_chat_member->status ?? null, ['kicked', 'left'], true)) {
+                    $this->handleBotKicked(
+                        $bot,
+                        $chatMember->chat->id ?? null,
+                        $chatMember->new_chat_member->user ?? null
+                    );
+                }
             }
         } catch (\Throwable $e) {
             $this->logMessageService->createLaravelLog(

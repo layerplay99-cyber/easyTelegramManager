@@ -24,16 +24,23 @@ class FeatureManager
      */
     public function handleUpdate(int $botId, $update): void
     {
-        if ($update->has('message') || $update->has('callback_query') || $update->has('inline_query')) {
+        // ⚠️ 同 ListenBotInGroupService::handleUpdate()：Update 对象没有 has() 方法，
+        //    $update->has(...) 经 __call() 恒返回 false，这里以前一行都不会触发。
+        //    同理 $update->get('xxx') 也不对（getPropertyValue 取的是空属性名），
+        //    一律改用属性访问。
+        if ($update->getMessage() !== null
+            || isset($update->callbackQuery)
+            || isset($update->inlineQuery)
+        ) {
             $this->handleInteraction($botId, $update);
         }
 
-        if ($update->has('my_chat_member')) {
-            $this->handleMyChatMember($update->get('my_chat_member'));
+        if (isset($update->myChatMember)) {
+            $this->handleMyChatMember($update->myChatMember);
         }
 
-        if ($update->has('chat_member')) {
-            $this->handleChatMember($update->get('chat_member'));
+        if (isset($update->chatMember)) {
+            $this->handleChatMember($update->chatMember);
         }
     }
 

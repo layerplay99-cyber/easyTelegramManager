@@ -90,8 +90,10 @@ readonly class HandleTelegramUpdateListener implements ShouldQueue
 
     private function isGroupMembershipEvent($update): bool
     {
-        return $update->has('my_chat_member') ||
-            (isset($update?->message->new_chat_members) ||
-             isset($update?->message->left_chat_member));
+        // 同上：Update 没有 has() 方法，$update->has(...) 恒为 false
+        return isset($update->myChatMember) ||
+            (($update->getMessage() !== null) &&
+             (isset($update->message->new_chat_members) ||
+              isset($update->message->left_chat_member)));
     }
 }

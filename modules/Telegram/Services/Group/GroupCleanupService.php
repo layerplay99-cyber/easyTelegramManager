@@ -41,13 +41,31 @@ class GroupCleanupService
     public const TOMBSTONE_TTL_DAYS = 30;
 
     /**
+     * 墓碑来源：机器人被踢出群
+     *
+     * 这类墓碑可以被「机器人确实又回到群里」这个事实推翻
+     * （见 ListenBotInGroupService::ensureChatSynced()）。
+     */
+    public const REASON_KICKED = 'kicked';
+
+    /**
+     * 墓碑来源：后台人工删除
+     *
+     * 机器人多半还好好地在群里，所以**不能**用成员状态推翻它 ——
+     * 否则后台刚删完，下一条消息就把群又同步回来了（"删了又冒出来"）。
+     * 只能等 TTL 到期，或机器人重新入群事件来清。
+     */
+    public const REASON_MANUAL = 'manual';
+
+    /**
      * 硬删一个群及其全部关联数据
      *
      * @param int|string      $chatId Telegram 群 ID
      * @param int|string|null $botId  机器人 ID；传 null 时按 chat_id 全删（不区分机器人）
+     * @param string          $reason 删除原因，决定墓碑能否被自动推翻
      * @return array<string, int> 各类数据的删除条数，便于打日志/排查
      */
-    public function deleteGroup(int|string $chatId, int|string|null $botId = null): array
+    public function deleteGroup(int|string $chatId, int|string|null $botId = null, string $reason = self::REASON_MANUAL): array
     {
         $counts = [
             'groups'          => 0,
@@ -135,7 +153,7 @@ class GroupCleanupService
         $this->flushCache($chatId, $botId, $featureIds);
 
         // 墓碑：别让兜底同步把它重建回来
-        $this->markDeleted($chatId, $botId);
+        $this->markDeleted($chatId, $botId, $reason);
 
         return $counts;
     }
@@ -182,11 +200,11 @@ class GroupCleanupService
     /**
      * 打删除标记：兜底同步看到就跳过，避免刚删的群被重建
      */
-    public function markDeleted(int|string $chatId, int|string|null $botId = null): void
+    public function markDeleted(int|string $chatId, int|string|null $botId = null, string $reason = self::REASON_MANUAL): void
     {
         Cache::put(
             self::tombstoneKey($botId, $chatId),
-            time(),
+            ['at' => time(), 'reason' => $reason],
             now()->addDays(self::TOMBSTONE_TTL_DAYS)
         );
     }
@@ -194,6 +212,28 @@ class GroupCleanupService
     public function isDeleted(int|string $chatId, int|string|null $botId = null): bool
     {
         return Cache::has(self::tombstoneKey($botId, $chatId));
+    }
+
+    /**
+     * 墓碑的来源（kicked / manual）；没有墓碑返回 null
+     *
+     * 旧格式（直接存 time() 整数）按 manual 处理，保证升级过程不会误判。
+     */
+    public function deletedReason(int|string $chatId, int|string|null $botId = null): ?string
+    {
+        $value = Cache::get(self::tombstoneKey($botId, $chatId));
+
+        // 没有墓碑
+        if ($value === null) {
+            return null;
+        }
+
+        // 旧格式：直接存的是 time() 整数，按 manual 处理（不会被成员状态推翻）
+        if (! is_array($value) || empty($value['reason'])) {
+            return self::REASON_MANUAL;
+        }
+
+        return (string) $value['reason'];
     }
 
     /**

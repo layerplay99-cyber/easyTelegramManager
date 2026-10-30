@@ -118,9 +118,32 @@ class ListenBotInGroupService
 
         // 刚被删掉的群（机器人被踢 / 后台人工删除）不再自动重建，
         // 否则只要机器人还在群里，下一条 update 就会把它拉回来 —— 表现为"删了又冒出来"。
-        // 机器人重新入群时 handleMyChatMember() 会清掉这个标记。
-        if (app(GroupCleanupService::class)->isDeleted($chatId, $bot->id)) {
-            return;
+        //
+        // ⚠️ 但不能无条件信墓碑：清墓碑只写在 handleMyChatMember() 的入群分支里，
+        //    那条 update 一旦没被成功处理（队列失败 / webhook 抖动 / 处理顺序颠倒），
+        //    标记就会挡住后面所有 update —— 表现为"机器人重新进群了，群列表却再也加不回来"。
+        //    所以「被踢」产生的墓碑允许用 Telegram 的真实成员状态推翻：
+        //    机器人确实又回到群里了，就清掉墓碑继续同步。
+        //    「后台人工删除」的墓碑不能这么干 —— 那种情况机器人本来就在群里，
+        //    一探测就会立刻把刚删的群重建回来。
+        $cleanup = app(GroupCleanupService::class);
+
+        if ($cleanup->isDeleted($chatId, $bot->id)) {
+            $recoverable = $cleanup->deletedReason($chatId, $bot->id) === GroupCleanupService::REASON_KICKED
+                && $this->isBotStillInChat($bot, $chatId);
+
+            if (! $recoverable) {
+                return;
+            }
+
+            $cleanup->clearDeletedMark($chatId, $bot->id);
+
+            $this->logMessageService->createLaravelLog(
+                'telegram_events',
+                ['chat_id' => $chatId, 'bot_id' => $bot->id],
+                '机器人已重新回到该群，清除删除标记并恢复同步',
+                'info'
+            );
         }
 
         $cacheKey = "telegram:chat:synced:{$bot->id}:{$chatId}";
@@ -162,6 +185,29 @@ class ListenBotInGroupService
                 ['chat_id' => $chatId, 'bot_id' => $bot->id, 'trace' => $e->getTraceAsString()],
                 "兜底同步群信息失败: {$e->getMessage()}",
             );
+        }
+    }
+
+    /**
+     * 机器人现在是不是还在这个群里（以 Telegram 侧为准）
+     *
+     * 只在墓碑存在时才调，且机器人已被踢时基本收不到该群的 update，调用量可忽略。
+     * 接口报错一律按「不在」处理 —— 拿不到确定答案时保持现状，不冒险重建。
+     */
+    protected function isBotStillInChat($bot, $chatId): bool
+    {
+        try {
+            // 用 isset() 而不是 ?? ：$telegram 是非可空强类型属性，未初始化时
+            // 直接读会抛 Error（虽然被下面 catch 兜住，但那样就永远返回 false 了）
+            $telegram = isset($this->telegram) ? $this->telegram : app(BotApiFactory::class)->forBot($bot);
+            $member = $telegram->getChatMember([
+                'chat_id' => $chatId,
+                'user_id' => $telegram->getMe()->getId(),
+            ]);
+
+            return in_array((string) ($member->status ?? ''), ['creator', 'administrator', 'member', 'restricted'], true);
+        } catch (\Throwable $e) {
+            return false;
         }
     }
 
@@ -222,6 +268,12 @@ class ListenBotInGroupService
                 ],
                 "机器人加入群组",
             );
+
+            // 明确的入群信号：清掉「已删除」标记。
+            // 与 handleMyChatMember() 重复是有意的 —— 两条入群 update
+            // （my_chat_member 和 message.new_chat_members）到达顺序不定，
+            // 任何一条没被处理成功都会让墓碑一直拦着兜底同步。
+            app(GroupCleanupService::class)->clearDeletedMark($chatId, $bot->id);
 
             // 同步群信息（使用 bots 表主键，不能用 Telegram 的 bot uid）
             $this->syncChatInfo($chatId, $bot->id);
@@ -517,7 +569,13 @@ class ListenBotInGroupService
         //   group_configs、service_peoples、group_admins、group_members、
         //   features_binds、merchant_routes、interactive_sessions、feature_data(群级)
         // bot 维度的数据只删本机器人的，群里还有别的机器人时不误伤。
-        $deleted = app(GroupCleanupService::class)->deleteGroup($chatId, $bot->id);
+        // reason=REASON_KICKED：被踢的墓碑允许在机器人重新入群时被真实成员状态推翻，
+        // 与后台人工删除（REASON_MANUAL，必须一直拦到机器人重新入群事件）区分开。
+        $deleted = app(GroupCleanupService::class)->deleteGroup(
+            $chatId,
+            $bot->id,
+            GroupCleanupService::REASON_KICKED
+        );
 
         // 一条都没删掉：群里多半没有「bot_id = 本机器人」的行（群挂在了别的机器人名下，
         // 或压根没入库）。这种静默失败最难查，留一条带现场数据的日志。

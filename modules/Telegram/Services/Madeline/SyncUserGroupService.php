@@ -82,11 +82,13 @@ class SyncUserGroupService
     public function syncUserLeft(string $appId, string $groupId, int $userId): void
     {
         try {
+            // 同 ListenBotInGroupService::markMemberLeft()：left_at 是 unix int 列，
+            // Query Builder 的 update() 不走模型日期转换，只能传整数时间戳
             GroupMembers::where('chat_id', $groupId)
                 ->where('user_id', $userId)
                 ->update([
                     'status' => 'left',
-                    'left_at' => now(),
+                    'left_at' => now()->timestamp,
                 ]);
 
             $this->logMessageService->createLaravelLog('syncUserJoinLeft', [

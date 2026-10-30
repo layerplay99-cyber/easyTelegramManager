@@ -190,12 +190,20 @@ class ListenBotInGroupService
         // 成员离开群
         if (!empty($message->left_chat_member)) {
             $member = $message->left_chat_member;
-            $this->markMemberLeft($chatId, $member);
 
+            // ⚠️ 顺序不能反：踢出清理必须先跑。
+            //    markMemberLeft() 写 left_at 时抛过 SQL 1265（见其注释），
+            //    异常被 handleUpdate() 的 catch 接住，后面的 handleBotKicked()
+            //    一次都执行不到 —— 表现为「机器人被踢了，群列表却还在」。
+            //    另外 handleBotKicked() 会连 group_members 一起删，
+            //    先删再标记最多是更新 0 行，反过来就会漏删整个群。
+            //
             // 机器人被踢出群（注意：可能是别的机器人被踢）
             if ($member->is_bot) {
                 $this->handleBotKicked($bot, $chatId, $member);
             }
+
+            $this->markMemberLeftSafely($chatId, $member);
         }
     }
 
@@ -388,7 +396,8 @@ class ListenBotInGroupService
                 'username' => $member->username ?? '',
                 'status' => 'member',
                 'is_bot' => $member->is_bot ? 1 : 0,
-                'joined_at' => now(),
+                // 见 markMemberLeft()：这两列是 unix int，只写整数时间戳
+                'joined_at' => now()->timestamp,
                 'left_at' => null,
             ]
         );
@@ -420,7 +429,37 @@ class ListenBotInGroupService
     }
 
     /**
+     * 标记成员离开群组（失败只记日志，不向上抛）
+     *
+     * 成员进出群是「记账」性质，写失败不值得连累同一次 update 里的其它处理
+     * （历史上它抛的 SQL 1265 直接把机器人被踢的清理逻辑拦掉了）。
+     */
+    protected function markMemberLeftSafely($chatId, $member): void
+    {
+        try {
+            $this->markMemberLeft($chatId, $member);
+        } catch (\Throwable $e) {
+            $this->logMessageService->createLaravelLog(
+                'telegram_errors',
+                [
+                    'chat_id' => $chatId,
+                    'user_id' => $member->id ?? null,
+                    'trace' => $e->getTraceAsString(),
+                ],
+                "标记成员离开群组失败: {$e->getMessage()}",
+                'warning'
+            );
+        }
+    }
+
+    /**
      * 标记成员离开群组
+     *
+     * ⚠️ left_at 是 unix int 列（迁移 fix_timestamp_columns_to_unix_int 改的），
+     *    这里走的是 Query Builder 的 update()，不经过 Eloquent，
+     *    模型上的 getDates()/日期 cast 对它一律无效 —— 传 now()（Carbon）
+     *    会被 PDO 直接格式化成 'Y-m-d H:i:s' 写进 int 列，MySQL 报
+     *    「1265 Data truncated」。必须自己传整数时间戳。
      */
     protected function markMemberLeft($chatId, $member): void
     {
@@ -428,7 +467,7 @@ class ListenBotInGroupService
             ->where('user_id', $member->id)
             ->update([
                 'status' => 'left',
-                'left_at' => now(),
+                'left_at' => now()->timestamp,
             ]);
     }
 
@@ -445,7 +484,23 @@ class ListenBotInGroupService
             $selfId = $telegram->getMe()->getId();
 
             if ($member && (int) $member->id !== (int) $selfId) {
-                // 被踢的是别的机器人，只标记成员离开即可
+                // 被踢的是别的机器人，只标记成员离开即可。
+                //
+                // 这条日志同时用来兜「webhook 匹配错机器人」：url_token 重复时
+                // WebHookController::where('url_token', ...)->first() 只会取到第一条，
+                // 被踢的机器人和 $bot 对不上，群里数据就永远删不掉。
+                $this->logMessageService->createLaravelLog(
+                    'telegram_events',
+                    [
+                        'chat_id' => $chatId,
+                        'bot_id' => $bot->id,
+                        'kicked_user_id' => $member->id,
+                        'self_user_id' => $selfId,
+                    ],
+                    '群里有别的机器人被移出，与本机器人无关，跳过清理',
+                    'info'
+                );
+
                 return;
             }
         } catch (\Throwable $e) {
@@ -463,6 +518,23 @@ class ListenBotInGroupService
         //   features_binds、merchant_routes、interactive_sessions、feature_data(群级)
         // bot 维度的数据只删本机器人的，群里还有别的机器人时不误伤。
         $deleted = app(GroupCleanupService::class)->deleteGroup($chatId, $bot->id);
+
+        // 一条都没删掉：群里多半没有「bot_id = 本机器人」的行（群挂在了别的机器人名下，
+        // 或压根没入库）。这种静默失败最难查，留一条带现场数据的日志。
+        if (($deleted['groups'] ?? 0) === 0) {
+            $this->logMessageService->createLaravelLog(
+                'telegram_errors',
+                [
+                    'chat_id' => $chatId,
+                    'bot_id' => $bot->id,
+                    'rows_in_db' => \Modules\Telegram\Models\BotGroups::where('chat_id', $chatId)
+                        ->get(['id', 'bot_id', 'chat_id'])
+                        ->toArray(),
+                ],
+                "机器人被踢出群，但未匹配到要删除的群记录",
+                'warning'
+            );
+        }
 
         $this->logMessageService->createLaravelLog(
             'telegram_events',

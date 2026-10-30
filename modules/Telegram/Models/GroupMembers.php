@@ -97,6 +97,12 @@ class GroupMembers extends Model
      * 登记后由基类 $dateFormat='U' 统一格式化为 Unix 整数。
      *
      * 注意：不能用 'datetime' / 'timestamp' cast——它们同样会输出字符串。
+     *
+     * ⚠️ 本方法只对 Eloquent 的写入路径生效（save()/fill()/updateOrCreate()）。
+     *    Query Builder 的 ->update([...]) 完全绕过模型，传 Carbon 会被 PDO
+     *    直接格式化成 'Y-m-d H:i:s' 写进 int 列，报 1265 Data truncated。
+     *    走 Builder 更新的地方（ListenBotInGroupService::markMemberLeft()、
+     *    SyncUserGroupService::syncUserLeft()）必须自己传 now()->timestamp。
      */
     public function getDates(): array
     {

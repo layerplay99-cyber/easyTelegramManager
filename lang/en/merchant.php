@@ -43,14 +43,14 @@ return [
 
     'warn' => [
         'success' => 'Success. Current low balance alert threshold: :amount',
-        'usage' => 'Invalid amount. Usage: /yujing <amount>',
+        'usage' => 'Invalid amount. Usage: /yj <amount>',
         'failed' => 'Failed to set low balance alert: ',
     ],
 
     'limit_set' => [
         'success' => 'Success. Payout orders above :amount require secondary confirmation',
         'zero' => 'Success. Secondary confirmation for payout orders is disabled',
-        'usage' => 'Invalid amount. Usage: /xiane <amount> (0 to disable)',
+        'usage' => 'Invalid amount. Usage: /xe <amount> (0 to disable)',
         'failed' => 'Failed to set payout limit: ',
     ],
 

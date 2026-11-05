@@ -38,7 +38,7 @@ class SetWarnFunds extends AbstractMerchantFeature implements EndpointProvider
 
     public static function featureDescription(): string
     {
-        return '设置当前群绑定商户的余额预警线，按群语种回复（/yujing <金额>）';
+        return '设置当前群绑定商户的余额预警线，按群语种回复（/yj <金额>）';
     }
 
     public static function endpoints(): array
@@ -69,8 +69,8 @@ class SetWarnFunds extends AbstractMerchantFeature implements EndpointProvider
     {
         return [
             [
-                'command' => 'yujing',
-                'usage' => '/yujing <金额>',
+                'command' => 'yj',
+                'usage' => '/yj <金额>',
                 'description' => '设置余额不足提醒的预警金额（按群语种回复）',
                 // 校验放在 handle()（amountArg），错误文案走语言包
                 'params' => [

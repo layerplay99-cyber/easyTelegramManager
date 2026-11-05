@@ -37,7 +37,7 @@ class SetPayoutLimit extends AbstractMerchantFeature implements EndpointProvider
 
     public static function featureDescription(): string
     {
-        return '设置代付订单二次确认的金额门槛，0 为取消，按群语种回复（/xiane <金额>）';
+        return '设置代付订单二次确认的金额门槛，0 为取消，按群语种回复（/xe <金额>）';
     }
 
     public static function endpoints(): array
@@ -64,8 +64,8 @@ class SetPayoutLimit extends AbstractMerchantFeature implements EndpointProvider
     {
         return [
             [
-                'command' => 'xiane',
-                'usage' => '/xiane <金额>',
+                'command' => 'xe',
+                'usage' => '/xe <金额>',
                 'description' => '设置代付订单二次确认限额，0 为取消（按群语种回复）',
                 // 校验放在 handle()（amountArg），错误文案走语言包
                 'params' => [

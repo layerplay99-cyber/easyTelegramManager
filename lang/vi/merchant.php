@@ -43,14 +43,14 @@ return [
 
     'warn' => [
         'success' => 'Thiết lập thành công. Ngưỡng cảnh báo số dư hiện tại: :amount',
-        'usage' => 'Số tiền không hợp lệ. Cú pháp: /yujing <số tiền>',
+        'usage' => 'Số tiền không hợp lệ. Cú pháp: /yj <số tiền>',
         'failed' => 'Thiết lập cảnh báo số dư thất bại: ',
     ],
 
     'limit_set' => [
         'success' => 'Thiết lập thành công. Đơn chi tiền trên :amount cần xác nhận lần hai',
         'zero' => 'Thiết lập thành công. Đã hủy xác nhận lần hai cho đơn chi tiền',
-        'usage' => 'Số tiền không hợp lệ. Cú pháp: /xiane <số tiền> (0 để hủy)',
+        'usage' => 'Số tiền không hợp lệ. Cú pháp: /xe <số tiền> (0 để hủy)',
         'failed' => 'Thiết lập hạn mức chi tiền thất bại: ',
     ],
 

@@ -40,7 +40,7 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
 
     public static function featureDescription(): string
     {
-        return '查询代付订单二次确认的金额门槛，按群语种回复（/chaxiane）';
+        return '查询代付订单二次确认的金额门槛，按群语种回复（/xq）';
     }
 
     public static function endpoints(): array
@@ -65,8 +65,8 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
     {
         return [
             [
-                'command' => 'chaxiane',
-                'usage' => '/chaxiane',
+                'command' => 'xq',
+                'usage' => '/xq',
                 'description' => '查询当前代付订单二次确认限额（按群语种回复）',
                 'params' => [],
             ],

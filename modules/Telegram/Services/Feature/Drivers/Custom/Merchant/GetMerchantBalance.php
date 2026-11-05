@@ -56,11 +56,16 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                 'params_schema' => [
                     ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
                 ],
+                // 上游实际返回的是钱包对象，没有 balance 字段
                 'response_schema' => [
-                    'balance' => '余额',
-                    'currency' => '币种',
+                    'data.id' => '钱包记录ID',
+                    'data.available_funds' => '可用余额',
+                    'data.locked_funds' => '冻结余额',
+                    'data.warn_funds' => '余额预警线',
+                    'data.currency.code' => '币种代码',
+                    'data.currency.symbol' => '币种符号',
                 ],
-                'remark' => '按商户号查询余额',
+                'remark' => '按商户号查询余额；可用余额取 data.available_funds',
             ],
             'merchant.trade' => [
                 'name' => '查询交易明细',
@@ -183,7 +188,7 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                 'type'     => 'template',
                 'required' => false,
                 'default'  => '',
-                'hint'     => '留空按群语种自动翻译；填写则固定使用该文案。可用变量 {{data.balance}} 等上游字段',
+                'hint'     => '留空按群语种自动翻译；填写则固定使用该文案。可用变量：{{data.available_funds}} {{data.locked_funds}} {{data.warn_funds}} {{data.currency.code}} {{data.currency.symbol}} {{data.balance}}（归一化余额）',
             ],
         ];
     }
@@ -213,18 +218,34 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
 
         app(LogMessageService::class)->createLaravelLog('upstream-api-error', $data);
 
-        // 3) 后台填了模板就按模板渲染（自定义内容不翻译），否则按群语种出文案
+        // 3) 上游「查询余额」与「设置余额预警」返回的是同一个钱包结构：
+        //    {"data":{"id":158,"available_funds":"978479062.00","locked_funds":"0.00",
+        //             "warn_funds":null,"currency":{"code":"VND","symbol":"₫"}}}
+        //    没有 balance 字段 —— 之前取 data.balance 得到 null，
+        //    群里就显示「余额：- VND」（币种能取到是因为 currency.code 存在）。
+        $wallet = data_get($data, 'data');
+        $wallet = is_array($wallet) ? $wallet : $data;
+
+        $balance = $wallet['available_funds']
+            ?? $wallet['balance']
+            ?? $wallet['available_balance']
+            ?? null;
+
+        $currency = $wallet['currency'] ?? null;
+
+        if (is_array($currency)) {
+            $currency = $currency['code'] ?? $currency['symbol'] ?? null;
+        }
+
+        // 4) 后台填了模板就按模板渲染（自定义内容不翻译），否则按群语种出文案
         $custom = $this->customText($context, 'reply_template');
 
         if ($custom !== '') {
-            return $this->localizedReply($this->render($custom, $data, $context), $data);
-        }
+            // 补一个归一化的 data.balance，兼容按旧字段写的自定义模板
+            $renderData = $data;
+            data_set($renderData, 'data.balance', $balance);
 
-        $balance = data_get($data, 'data.balance') ?? data_get($data, 'balance');
-        $currency = data_get($data, 'data.currency') ?? data_get($data, 'currency');
-
-        if (is_array($currency)) {
-            $currency = data_get($currency, 'code');
+            return $this->localizedReply($this->render($custom, $renderData, $context), $data);
         }
 
         $text = trim($this->t($context, 'balance.value', [

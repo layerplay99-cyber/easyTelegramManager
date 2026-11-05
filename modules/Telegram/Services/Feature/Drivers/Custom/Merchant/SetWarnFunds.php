@@ -15,17 +15,11 @@ use Modules\Telegram\Contracts\FeatureResult;
  *   {"user_id": "<商户ID>", "warn_funds": "<金额>"}
  *
  * 回复按输入金额渲染，不取上游返回的 warn_funds —— 上游响应里这个字段可能是
- * NULL（异步生效），群里要看到的是本次实际提交的值。
+ * NULL（异步生效），群里要看到的是本次实际提交的值。文案按群语种取自语言包。
  */
 class SetWarnFunds extends AbstractMerchantFeature implements EndpointProvider
 {
     private const ENDPOINT = 'merchant.warn.funds';
-
-    private const DEFAULT_TEMPLATE = '设置成功，当前余额预警线为：{{warn_funds}}';
-
-    private const TEMPLATE_HINT = '可用变量：{{warn_funds}}（本次设置的金额）{{merchant_id}} {{user_id}} '
-        . '{{data.available_funds}} {{data.locked_funds}} {{data.warn_funds}} '
-        . '{{currency.code}} {{currency.symbol}} {{raw_json}}';
 
     public static function key(): string
     {
@@ -44,7 +38,7 @@ class SetWarnFunds extends AbstractMerchantFeature implements EndpointProvider
 
     public static function featureDescription(): string
     {
-        return '设置当前群绑定商户的余额预警线（/yujing <金额>）';
+        return '设置当前群绑定商户的余额预警线，按群语种回复（/yujing <金额>）';
     }
 
     public static function endpoints(): array
@@ -77,37 +71,23 @@ class SetWarnFunds extends AbstractMerchantFeature implements EndpointProvider
             [
                 'command' => 'yujing',
                 'usage' => '/yujing <金额>',
-                'description' => '设置余额不足提醒的预警金额',
+                'description' => '设置余额不足提醒的预警金额（按群语种回复）',
+                // 校验放在 handle()（amountArg），错误文案走语言包
                 'params' => [
-                    ['name' => 'warn_funds', 'required' => true, 'desc' => '预警金额', 'pattern' => '^\d+(\.\d{1,2})?$'],
+                    ['name' => 'warn_funds', 'desc' => '预警金额'],
                 ],
-                'reply_template' => self::DEFAULT_TEMPLATE,
             ],
         ];
     }
 
     public static function defaultConfig(): array
     {
-        return static::commonDefaultConfig(self::ENDPOINT, [
-            'reply_template' => self::DEFAULT_TEMPLATE,
-        ]);
+        return static::commonDefaultConfig(self::ENDPOINT);
     }
 
     public static function configSchema(): array
     {
-        return array_merge(
-            static::commonConfigSchema(self::ENDPOINT, '默认 POST api/webhook/users/warn/funds，JSON body'),
-            [
-                [
-                    'key' => 'reply_template',
-                    'label' => '回复模板',
-                    'type' => 'template',
-                    'required' => false,
-                    'default' => self::DEFAULT_TEMPLATE,
-                    'hint' => self::TEMPLATE_HINT,
-                ],
-            ]
-        );
+        return static::commonConfigSchema(self::ENDPOINT, '默认 POST api/webhook/users/warn/funds，JSON body');
     }
 
     public function handle(FeatureContext $context): FeatureResult
@@ -115,13 +95,13 @@ class SetWarnFunds extends AbstractMerchantFeature implements EndpointProvider
         $merchantId = $this->resolveMerchantId($context);
 
         if ($merchantId === '') {
-            return $this->fail($this->notBoundTip($context));
+            return $this->localizedFail($this->notBoundTip($context));
         }
 
         $warnFunds = $this->amountArg($context);
 
         if ($warnFunds === null) {
-            return $this->fail('金额不正确，用法：/yujing <金额>');
+            return $this->localizedFail($this->t($context, 'warn.usage'));
         }
 
         $data = $this->callUpstream($context, self::ENDPOINT, [
@@ -130,17 +110,11 @@ class SetWarnFunds extends AbstractMerchantFeature implements EndpointProvider
         ], 'POST');
 
         if (isset($data['_error'])) {
-            return $this->fail('设置余额预警失败：' . $data['_error']);
+            return $this->localizedFail($this->t($context, 'warn.failed') . $data['_error']);
         }
 
-        $vars = $this->responseVars($data, [
-            'merchant_id' => $merchantId,
-            'user_id' => $merchantId,
-            'warn_funds' => $warnFunds,
-        ]);
-
-        return $this->reply(
-            $this->renderText($context, 'reply_template', self::DEFAULT_TEMPLATE, $vars),
+        return $this->localizedReply(
+            $this->t($context, 'warn.success', ['amount' => $warnFunds]),
             $data
         );
     }

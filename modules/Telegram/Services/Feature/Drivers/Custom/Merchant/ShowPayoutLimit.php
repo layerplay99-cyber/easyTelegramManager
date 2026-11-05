@@ -21,10 +21,6 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
 {
     private const ENDPOINT = 'merchant.limit.show';
 
-    private const DEFAULT_TEMPLATE = '当前商户代付订单二次确认限制金额为：{{limit_money}}';
-
-    private const ZERO_TEMPLATE = '当前商户代付订单二次确认限制金额为：{{default_limit}}';
-
     private const DEFAULT_LIMIT = '50000000';
 
     public static function key(): string
@@ -44,7 +40,7 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
 
     public static function featureDescription(): string
     {
-        return '查询代付订单二次确认的金额门槛（/chaxiane）';
+        return '查询代付订单二次确认的金额门槛，按群语种回复（/chaxiane）';
     }
 
     public static function endpoints(): array
@@ -71,9 +67,8 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
             [
                 'command' => 'chaxiane',
                 'usage' => '/chaxiane',
-                'description' => '查询当前代付订单二次确认限额',
+                'description' => '查询当前代付订单二次确认限额（按群语种回复）',
                 'params' => [],
-                'reply_template' => self::DEFAULT_TEMPLATE,
             ],
         ];
     }
@@ -81,8 +76,6 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
     public static function defaultConfig(): array
     {
         return static::commonDefaultConfig(self::ENDPOINT, [
-            'reply_template' => self::DEFAULT_TEMPLATE,
-            'zero_reply_template' => self::ZERO_TEMPLATE,
             'default_limit' => self::DEFAULT_LIMIT,
         ]);
     }
@@ -92,22 +85,6 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
         return array_merge(
             static::commonConfigSchema(self::ENDPOINT, '默认 POST api/webhook/user/limit/show，JSON body'),
             [
-                [
-                    'key' => 'reply_template',
-                    'label' => '回复模板（有设置限额）',
-                    'type' => 'template',
-                    'required' => false,
-                    'default' => self::DEFAULT_TEMPLATE,
-                    'hint' => '可用变量：{{limit_money}} {{default_limit}} {{merchant_id}} {{user_id}} {{raw_json}}',
-                ],
-                [
-                    'key' => 'zero_reply_template',
-                    'label' => '回复模板（未设置限额）',
-                    'type' => 'template',
-                    'required' => false,
-                    'default' => self::ZERO_TEMPLATE,
-                    'hint' => '上游返回 0 或空时使用；可用变量同上',
-                ],
                 [
                     'key' => 'default_limit',
                     'label' => '未设置时的默认限额',
@@ -125,7 +102,7 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
         $merchantId = $this->resolveMerchantId($context);
 
         if ($merchantId === '') {
-            return $this->fail($this->notBoundTip($context));
+            return $this->localizedFail($this->notBoundTip($context));
         }
 
         $data = $this->callUpstream($context, self::ENDPOINT, [
@@ -133,7 +110,7 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
         ], 'POST');
 
         if (isset($data['_error'])) {
-            return $this->fail('查询代付限额失败：' . $data['_error']);
+            return $this->localizedFail($this->t($context, 'limit_show.failed') . $data['_error']);
         }
 
         // 兼容上游把返回值包在 data 里的情况
@@ -145,17 +122,11 @@ class ShowPayoutLimit extends AbstractMerchantFeature implements EndpointProvide
             $defaultLimit = self::DEFAULT_LIMIT;
         }
 
-        $vars = $this->responseVars($data, [
-            'merchant_id' => $merchantId,
-            'user_id' => $merchantId,
-            'limit_money' => $hasLimit ? (string) $limit : $defaultLimit,
-            'default_limit' => $defaultLimit,
-        ]);
-
-        $text = $hasLimit
-            ? $this->renderText($context, 'reply_template', self::DEFAULT_TEMPLATE, $vars)
-            : $this->renderText($context, 'zero_reply_template', self::ZERO_TEMPLATE, $vars);
-
-        return $this->reply($text, $data);
+        return $this->localizedReply(
+            $this->t($context, 'limit_show.success', [
+                'amount' => $hasLimit ? (string) $limit : $defaultLimit,
+            ]),
+            $data
+        );
     }
 }

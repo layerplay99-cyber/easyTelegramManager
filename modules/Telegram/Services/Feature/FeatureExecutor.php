@@ -340,6 +340,14 @@ class FeatureExecutor
             return $result->message;
         }
 
+        // 功能自己已按群语种生成了完整单语文案（如商户类命令，文案取自
+        // lang/{locale}/merchant.php）。这类结果带 skip_localize，
+        // 不要再追加一段译文 —— 否则会变成「群语种 + 又被翻一遍」。
+        // 其它功能保持原来的双语行为不变。
+        if (! empty($result->meta['skip_localize'])) {
+            return $result->message;
+        }
+
         try {
             return app(ReplyTranslator::class)->bilingual(
                 $result->message,

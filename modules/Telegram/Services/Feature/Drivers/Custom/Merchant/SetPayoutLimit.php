@@ -14,15 +14,11 @@ use Modules\Telegram\Contracts\FeatureResult;
  * 上游：POST /api/webhook/user/limit/set  With Token，JSON body
  *   {"user_id": "<商户ID>", "limit_money": "<金额>"}
  *
- * 金额传 0 表示取消二次确认，走单独一条回复文案（后台可配）。
+ * 金额传 0 表示取消二次确认，走单独一条文案；两条文案都按群语种取自语言包。
  */
 class SetPayoutLimit extends AbstractMerchantFeature implements EndpointProvider
 {
     private const ENDPOINT = 'merchant.limit.set';
-
-    private const DEFAULT_TEMPLATE = '设置成功，当前商户代付订单金额大于：{{limit_money}}时需要二次确认';
-
-    private const ZERO_TEMPLATE = '设置成功，当前商户代付取消二次确认';
 
     public static function key(): string
     {
@@ -41,7 +37,7 @@ class SetPayoutLimit extends AbstractMerchantFeature implements EndpointProvider
 
     public static function featureDescription(): string
     {
-        return '设置代付订单二次确认的金额门槛，0 为取消二次确认（/xiane <金额>）';
+        return '设置代付订单二次确认的金额门槛，0 为取消，按群语种回复（/xiane <金额>）';
     }
 
     public static function endpoints(): array
@@ -70,46 +66,23 @@ class SetPayoutLimit extends AbstractMerchantFeature implements EndpointProvider
             [
                 'command' => 'xiane',
                 'usage' => '/xiane <金额>',
-                'description' => '设置代付订单二次确认限额，0 为取消',
+                'description' => '设置代付订单二次确认限额，0 为取消（按群语种回复）',
+                // 校验放在 handle()（amountArg），错误文案走语言包
                 'params' => [
-                    ['name' => 'limit_money', 'required' => true, 'desc' => '限额金额', 'pattern' => '^\d+(\.\d{1,2})?$'],
+                    ['name' => 'limit_money', 'desc' => '限额金额'],
                 ],
-                'reply_template' => self::DEFAULT_TEMPLATE,
             ],
         ];
     }
 
     public static function defaultConfig(): array
     {
-        return static::commonDefaultConfig(self::ENDPOINT, [
-            'reply_template' => self::DEFAULT_TEMPLATE,
-            'zero_reply_template' => self::ZERO_TEMPLATE,
-        ]);
+        return static::commonDefaultConfig(self::ENDPOINT);
     }
 
     public static function configSchema(): array
     {
-        return array_merge(
-            static::commonConfigSchema(self::ENDPOINT, '默认 POST api/webhook/user/limit/set，JSON body'),
-            [
-                [
-                    'key' => 'reply_template',
-                    'label' => '回复模板（设置了限额）',
-                    'type' => 'template',
-                    'required' => false,
-                    'default' => self::DEFAULT_TEMPLATE,
-                    'hint' => '可用变量：{{limit_money}} {{merchant_id}} {{user_id}} {{raw_json}}',
-                ],
-                [
-                    'key' => 'zero_reply_template',
-                    'label' => '回复模板（取消二次确认）',
-                    'type' => 'template',
-                    'required' => false,
-                    'default' => self::ZERO_TEMPLATE,
-                    'hint' => 'limit_money 为 0 时使用；可用变量同上',
-                ],
-            ]
-        );
+        return static::commonConfigSchema(self::ENDPOINT, '默认 POST api/webhook/user/limit/set，JSON body');
     }
 
     public function handle(FeatureContext $context): FeatureResult
@@ -117,13 +90,13 @@ class SetPayoutLimit extends AbstractMerchantFeature implements EndpointProvider
         $merchantId = $this->resolveMerchantId($context);
 
         if ($merchantId === '') {
-            return $this->fail($this->notBoundTip($context));
+            return $this->localizedFail($this->notBoundTip($context));
         }
 
         $limitMoney = $this->amountArg($context);
 
         if ($limitMoney === null) {
-            return $this->fail('金额不正确，用法：/xiane <金额>（0 表示取消二次确认）');
+            return $this->localizedFail($this->t($context, 'limit_set.usage'));
         }
 
         $data = $this->callUpstream($context, self::ENDPOINT, [
@@ -132,20 +105,14 @@ class SetPayoutLimit extends AbstractMerchantFeature implements EndpointProvider
         ], 'POST');
 
         if (isset($data['_error'])) {
-            return $this->fail('设置代付限额失败：' . $data['_error']);
+            return $this->localizedFail($this->t($context, 'limit_set.failed') . $data['_error']);
         }
-
-        $vars = $this->responseVars($data, [
-            'merchant_id' => $merchantId,
-            'user_id' => $merchantId,
-            'limit_money' => $limitMoney,
-        ]);
 
         // 0 = 取消二次确认，文案与「设置了某个金额」完全不同
         $text = (float) $limitMoney === 0.0
-            ? $this->renderText($context, 'zero_reply_template', self::ZERO_TEMPLATE, $vars)
-            : $this->renderText($context, 'reply_template', self::DEFAULT_TEMPLATE, $vars);
+            ? $this->t($context, 'limit_set.zero')
+            : $this->t($context, 'limit_set.success', ['amount' => $limitMoney]);
 
-        return $this->reply($text, $data);
+        return $this->localizedReply($text, $data);
     }
 }

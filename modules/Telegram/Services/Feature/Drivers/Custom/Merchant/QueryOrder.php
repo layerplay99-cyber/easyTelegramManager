@@ -15,40 +15,38 @@ use Modules\Telegram\Contracts\FeatureResult;
  *   userId = 本群绑定的商户号（merchant_routes / group_configs.mid）
  *   id     = 命令参数订单ID
  *
- * 代收（Receive money）与代付（Send money）、以及 Successful / Processing /
- * Pending 三种状态返回的参数个数都不一样，所以：
- *   · 回复模板在后台可配，默认模板里列全所有字段；
- *   · 没返回的字段渲染成 '-'，开启「隐藏空值行」后整行自动删掉；
- *   · 可以分别为代收 / 代付配专用模板（留空则用通用模板）；
- *   · 另外提供 type_cn（代付/代收）、status_cn（成功/处理中/待处理）两个中文变量。
+ * 上游返回什么字段就显示什么字段，不写死字段清单、也不在后台配模板：
+ *   · FIELD_ORDER 只决定已知字段的排列顺序，没列进去的字段追加在后面；
+ *   · 字段名去 lang/{locale}/merchant.php 找译文，找不到的用原始字段名；
+ *   · type / status 的英文枚举值翻译成中文/英文/越南语/泰语；
+ *   · 要过滤字段就改 HIDDEN_FIELDS（人工在代码里处理）。
  */
 class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
 {
     private const ENDPOINT = 'merchant.trade.query';
 
-    private const DEFAULT_TEMPLATE = "📋 订单信息\n"
-        . "类型：{{type_cn}}\n"
-        . "订单号：{{reference_id}}\n"
-        . "商户订单号：{{transaction_id}}\n"
-        . "创建时间：{{created_time}}\n"
-        . "金额：{{amount}}\n"
-        . "手续费：{{fees}}\n"
-        . "合计：{{total}}\n"
-        . "余额：{{balance}}\n"
-        . "币种：{{currency_code}}\n"
-        . "收款人姓名：{{payee_name}}\n"
-        . "收款人账号：{{payee_account}}\n"
-        . "状态：{{status_cn}}\n"
-        . "付款时间：{{paid_time}}\n"
-        . "提供商ID：{{provider_id}}\n"
-        . "结算金额：{{settlement_amount}}\n"
-        . "结算时间：{{settled_time}}";
+    /** 已知字段的显示顺序（不影响内容，上游多返回的字段会追加在后面） */
+    private const FIELD_ORDER = [
+        'type',
+        'reference_id',
+        'transaction_id',
+        'created_time',
+        'amount',
+        'fees',
+        'total',
+        'balance',
+        'currency_code',
+        'payee_name',
+        'payee_account',
+        'status',
+        'paid_time',
+        'provider_id',
+        'settlement_amount',
+        'settled_time',
+    ];
 
-    private const TEMPLATE_HINT = '可用变量：{{type}} {{type_cn}} {{reference_id}} {{transaction_id}} '
-        . '{{created_time}} {{amount}} {{fees}} {{total}} {{balance}} {{currency_code}} '
-        . '{{payee_name}} {{payee_account}} {{status}} {{status_cn}} {{paid_time}} '
-        . '{{provider_id}} {{settlement_amount}} {{settled_time}} {{merchant_id}} {{order_id}} {{raw_json}}；'
-        . '上游若包了 data 层也可写 {{data.amount}}；缺失字段显示 -';
+    /** 要过滤掉哪些字段，人工在这里改 */
+    private const HIDDEN_FIELDS = ['_error', '_raw', 'raw_json'];
 
     public static function key(): string
     {
@@ -67,12 +65,9 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
 
     public static function featureDescription(): string
     {
-        return '按订单ID查询代收/代付订单详情，回复模板可在后台配置（/cx <订单ID>）';
+        return '按订单ID查询代收/代付订单，上游返回什么字段就显示什么，字段名按群语种翻译（/cx <订单ID>）';
     }
 
-    /**
-     * 本功能用到的上游接口规范
-     */
     public static function endpoints(): array
     {
         return [
@@ -102,7 +97,7 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
                     'settlement_amount' => '结算金额',
                     'settled_time' => '结算时间',
                 ],
-                'remark' => '代收/代付、不同状态返回的字段个数不同，缺失字段按空值处理',
+                'remark' => '代收/代付、不同状态返回的字段个数不同，按实际返回字段逐行显示',
             ],
         ];
     }
@@ -113,61 +108,26 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
             [
                 'command' => 'cx',
                 'usage' => '/cx <订单ID>',
-                'description' => '查询代收/代付订单详情',
+                'description' => '查询代收/代付订单详情（按群语种回复）',
+                // 不声明 required/pattern：那两种校验的错误文案由通用管线写死中文。
+                // 参数合法性统一在 handle() 里判，保证群内回复全都走语言包。
                 'params' => [
-                    ['name' => 'order_id', 'required' => true, 'desc' => '订单ID', 'pattern' => '^\S+$'],
+                    ['name' => 'order_id', 'desc' => '订单ID'],
                 ],
-                'reply_template' => self::DEFAULT_TEMPLATE,
             ],
         ];
     }
 
     public static function defaultConfig(): array
     {
-        return static::commonDefaultConfig(self::ENDPOINT, [
-            'reply_template' => self::DEFAULT_TEMPLATE,
-            'reply_template_receive' => '',
-            'reply_template_send' => '',
-            'hide_empty_lines' => true,
-        ]);
+        return static::commonDefaultConfig(self::ENDPOINT);
     }
 
     public static function configSchema(): array
     {
-        return array_merge(
-            static::commonConfigSchema(self::ENDPOINT, '默认 GET api/webhook/users/{userId}/trades/{id}；可在「上游接口配置」里覆盖'),
-            [
-                [
-                    'key' => 'reply_template',
-                    'label' => '回复模板（通用）',
-                    'type' => 'template',
-                    'required' => false,
-                    'default' => self::DEFAULT_TEMPLATE,
-                    'hint' => self::TEMPLATE_HINT,
-                ],
-                [
-                    'key' => 'reply_template_receive',
-                    'label' => '回复模板（代收专用）',
-                    'type' => 'template',
-                    'required' => false,
-                    'hint' => 'Receive money 时使用；留空则用通用模板。变量同通用模板',
-                ],
-                [
-                    'key' => 'reply_template_send',
-                    'label' => '回复模板（代付专用）',
-                    'type' => 'template',
-                    'required' => false,
-                    'hint' => 'Send money 时使用；留空则用通用模板。变量同通用模板',
-                ],
-                [
-                    'key' => 'hide_empty_lines',
-                    'label' => '隐藏空值行',
-                    'type' => 'switch',
-                    'required' => false,
-                    'default' => true,
-                    'hint' => '把「字段：-」这种上游没返回的整行删掉，代收/代付字段不一致时回复更干净',
-                ],
-            ]
+        return static::commonConfigSchema(
+            self::ENDPOINT,
+            '默认 GET api/webhook/users/{userId}/trades/{id}；可在「上游接口配置」里覆盖。回复字段名按群语种自动翻译'
         );
     }
 
@@ -176,13 +136,13 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
         $merchantId = $this->resolveMerchantId($context);
 
         if ($merchantId === '') {
-            return $this->fail($this->notBoundTip($context));
+            return $this->localizedFail($this->notBoundTip($context));
         }
 
         $orderId = trim((string) ($context->arg(0) ?? ''));
 
         if ($orderId === '') {
-            return $this->fail('请提供订单ID，用法：/cx <订单ID>');
+            return $this->localizedFail($this->t($context, 'order.usage'));
         }
 
         // GET 的路径占位由 callEndpoint 填充，两个参数不会再重复拼到 query 上
@@ -192,53 +152,101 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
         ], 'GET');
 
         if (isset($data['_error'])) {
-            return $this->fail('查询订单失败：' . $data['_error']);
+            return $this->localizedFail($this->t($context, 'order.failed') . $data['_error']);
         }
 
-        $vars = $this->responseVars($data, [
-            'merchant_id' => $merchantId,
-            'order_id' => $orderId,
-        ]);
+        $lines = [];
+        $separator = $this->fieldSeparator($context);
 
-        $rawType = data_get($vars, 'type', '');
-        $rawStatus = data_get($vars, 'status', '');
-        $type = strtolower(trim(is_scalar($rawType) ? (string) $rawType : ''));
-        $status = strtolower(trim(is_scalar($rawStatus) ? (string) $rawStatus : ''));
-
-        $vars['type_cn'] = match ($type) {
-            'send money' => '代付',
-            'receive money' => '代收',
-            default => (string) (is_scalar($rawType) ? $rawType : ''),
-        };
-
-        $vars['status_cn'] = match ($status) {
-            'successful' => '成功',
-            'processing' => '处理中',
-            'pending' => '待处理',
-            default => (string) (is_scalar($rawStatus) ? $rawStatus : ''),
-        };
-
-        // 代收 / 代付可各配一份模板，没配就退回通用模板
-        $specificKey = match ($type) {
-            'receive money' => 'reply_template_receive',
-            'send money' => 'reply_template_send',
-            default => '',
-        };
-
-        $specific = $specificKey !== '' ? trim((string) $context->config($specificKey, '')) : '';
-
-        $text = $specific !== ''
-            ? $this->render($specific, $vars, $context)
-            : $this->renderText($context, 'reply_template', self::DEFAULT_TEMPLATE, $vars);
-
-        if ((bool) $context->config('hide_empty_lines', true)) {
-            $text = $this->stripEmptyLines($text);
+        foreach ($this->orderedFields($this->businessRow($data)) as $field => $value) {
+            $lines[] = $this->fieldLabel($context, (string) $field)
+                . $separator
+                . $this->formatValue($context, (string) $field, $value);
         }
 
-        if (trim($text) === '') {
-            $text = '未查询到订单 ' . $orderId . ' 的信息';
+        if ($lines === []) {
+            return $this->localizedReply($this->t($context, 'order.not_found', ['id' => $orderId]), $data);
         }
 
-        return $this->reply($text, $data);
+        return $this->localizedReply(
+            $this->t($context, 'order.title') . "\n" . implode("\n", $lines),
+            $data
+        );
+    }
+
+    /**
+     * 剥掉上游常见的 { code, message, data: {...} } 包装，最多两层
+     */
+    protected function businessRow(array $response): array
+    {
+        $row = $response;
+
+        for ($i = 0; $i < 2; $i++) {
+            $inner = data_get($row, 'data');
+
+            if (! is_array($inner) || $inner === []) {
+                break;
+            }
+
+            $row = $inner;
+        }
+
+        return $row;
+    }
+
+    /**
+     * 已知字段按 FIELD_ORDER 排，其余（上游新增/未收录的字段）按原顺序追加
+     */
+    protected function orderedFields(array $row): array
+    {
+        $ordered = [];
+
+        foreach (self::FIELD_ORDER as $field) {
+            if (array_key_exists($field, $row)) {
+                $ordered[$field] = $row[$field];
+            }
+        }
+
+        foreach ($row as $field => $value) {
+            $field = (string) $field;
+
+            if (in_array($field, self::HIDDEN_FIELDS, true) || array_key_exists($field, $ordered)) {
+                continue;
+            }
+
+            $ordered[$field] = $value;
+        }
+
+        return $ordered;
+    }
+
+    /**
+     * 值格式化：空值给 '-'，数组转 JSON，type/status 枚举按群语种翻译
+     */
+    protected function formatValue(FeatureContext $context, string $field, mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '-';
+        }
+
+        if (is_bool($value)) {
+            return $this->t($context, $value ? 'common.yes' : 'common.no');
+        }
+
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE) ?: '-';
+        }
+
+        if (! is_scalar($value)) {
+            return '-';
+        }
+
+        $text = (string) $value;
+
+        return match ($field) {
+            'type' => $this->valueLabel($context, 'type_values', $text),
+            'status' => $this->valueLabel($context, 'status_values', $text),
+            default => $text,
+        };
     }
 }

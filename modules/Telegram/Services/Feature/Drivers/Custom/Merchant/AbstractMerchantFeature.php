@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\Telegram\Services\Feature\Drivers\Custom\Merchant;
 
 use Modules\Telegram\Contracts\FeatureContext;
+use Modules\Telegram\Contracts\FeatureResult;
+use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
 use Modules\Telegram\Services\MerchantRouteService;
@@ -12,22 +14,29 @@ use Modules\Telegram\Services\MerchantRouteService;
 /**
  * 商户类功能公共基类
  *
- * 这一组功能都是「群里发命令 → 拿本群绑定的商户号 → 调上游 → 用后台模板回复」。
- * 公共部分收在这里：上游选择、商户号解析、未绑定提示、响应变量归一化、模板渲染。
+ * 这一组功能都是「群里发命令 → 拿本群绑定的商户号 → 调上游 → 按群语种回复」。
+ * 公共部分收在这里：上游选择、商户号解析、语言包取词、单语结果封装。
+ *
+ * ⚠️ 语种只认后台「群设置 → 语种配置」（BotGroups::languageOf()），
+ *    值 zh / en / vi / th；语言包目录里中文是 zh_CN，需要映射。
+ *    文案在 lang/{locale}/merchant.php，不在代码里写死。
+ *
+ * ⚠️ 统一管线 FeatureExecutor::localize() 会给回复追加一段译文（双语）。
+ *    这几个功能自己已经按群语种生成了完整单语文案，所以返回值统一带
+ *    skip_localize，避免「群语种 + 又被翻译一遍」。
  *
  * ⚠️ 本类刻意不 implements EndpointProvider：PlatformEndpointRegistry::providers()
  *    会扫描 Services/ 下所有实现了该接口的类（包括抽象类），接口定义放在各自
  *    用到它的功能类里更清楚，删功能时定义也随之消失。
- *
- * ⚠️ 抽象类会被 CustomFeatureRegistry / DriverRegistry 的 isAbstract() 跳过，
- *    不会在后台多出一个没有命令的功能。
+ *    抽象类也会被两个注册器的 isAbstract() 跳过，不会多出一个空功能。
  */
 abstract class AbstractMerchantFeature extends BaseCustomFeature
 {
-    protected const DEFAULT_NOT_BOUND_TIP = '本群还没有绑定商户号';
-
-    /** 老版本默认值里把命令写死了，运行时识别后按新默认值处理 */
-    private const LEGACY_NOT_BOUND_TIP = '本群还没有绑定商户号，请先执行 /bm <商户号>';
+    /** 旧版写死在 features.config 里的中文默认提示，遇到就当作「没自定义」 */
+    private const LEGACY_NOT_BOUND_TIPS = [
+        '本群还没有绑定商户号',
+        '本群还没有绑定商户号，请先执行 /bm <商户号>',
+    ];
 
     public static function category(): string
     {
@@ -49,21 +58,15 @@ abstract class AbstractMerchantFeature extends BaseCustomFeature
         return ['command'];
     }
 
-    /**
-     * 功能默认配置里公共的那几项
-     */
     protected static function commonDefaultConfig(string $endpointCode, array $extra = []): array
     {
         return array_merge([
             'upstream_id' => null,
             'endpoint_code' => $endpointCode,
-            'not_bound_tip' => self::DEFAULT_NOT_BOUND_TIP,
+            'not_bound_tip' => '',
         ], $extra);
     }
 
-    /**
-     * 后台配置表单里公共的那几项
-     */
     protected static function commonConfigSchema(string $endpointCode, string $endpointHint = ''): array
     {
         return [
@@ -91,10 +94,109 @@ abstract class AbstractMerchantFeature extends BaseCustomFeature
                 'label' => '未绑定商户号时的提示',
                 'type' => 'text',
                 'required' => false,
-                'default' => self::DEFAULT_NOT_BOUND_TIP,
-                'hint' => '可写 {{bind_usage}} 指定绑定命令出现的位置；不写则自动追加在末尾',
+                'default' => '',
+                'hint' => '留空则按群语种自动翻译；填写则固定使用该文案（不会翻译）。可写 {{bind_usage}} 指定绑定命令位置',
             ],
         ];
+    }
+
+    /**
+     * 群语种 → Laravel 语言包目录名
+     *
+     * 用显式 locale 调 __()，不碰 app()->setLocale()：webhook / 队列里没有
+     * Accept-Language 头，改全局 locale 会污染同一进程里的其它任务。
+     */
+    protected function locale(FeatureContext $context): string
+    {
+        $lang = strtolower(trim(BotGroups::languageOf($context->chatId)));
+        $allowed = array_map('strval', array_keys((array) config('telegram.ocr.languages', ['zh' => ''])));
+
+        if (! in_array($lang, $allowed, true)) {
+            $lang = 'zh';
+        }
+
+        return $lang === 'zh' ? 'zh_CN' : $lang;
+    }
+
+    /**
+     * 取一条当前群语种的文案（支持 :name 占位）
+     */
+    protected function t(FeatureContext $context, string $key, array $replace = []): string
+    {
+        $full = 'merchant.' . $key;
+        $locale = $this->locale($context);
+        $line = __($full, $replace, $locale);
+
+        if (is_array($line)) {
+            return '';
+        }
+
+        $line = (string) $line;
+
+        // 缺译时回退中文，再缺就把 key 原样吐出来便于发现
+        if ($line === $full && $locale !== 'zh_CN') {
+            $line = (string) __($full, $replace, 'zh_CN');
+        }
+
+        return $line === $full ? $key : $line;
+    }
+
+    /**
+     * 订单字段名 → 当前群语种的标签
+     *
+     * 上游返回了字典里没有的字段时，直接用原始字段名当标签 ——
+     * 「上游返回什么就显示什么」，不因为没翻译就丢字段。
+     */
+    protected function fieldLabel(FeatureContext $context, string $field): string
+    {
+        $full = 'merchant.fields.' . $field;
+        $label = __($full, [], $this->locale($context));
+
+        if (! is_string($label) || $label === $full) {
+            return $field;
+        }
+
+        return $label;
+    }
+
+    /**
+     * 把 type / status 的英文枚举值翻成当前群语种
+     */
+    protected function valueLabel(FeatureContext $context, string $group, string $value): string
+    {
+        $map = __('merchant.' . $group, [], $this->locale($context));
+
+        if (! is_array($map)) {
+            return $value;
+        }
+
+        foreach ($map as $key => $label) {
+            if (strcasecmp((string) $key, $value) === 0) {
+                return (string) $label;
+            }
+        }
+
+        return $value;
+    }
+
+    protected function fieldSeparator(FeatureContext $context): string
+    {
+        $separator = $this->t($context, 'field_separator');
+
+        return $separator === 'field_separator' ? ': ' : $separator;
+    }
+
+    /**
+     * 单语成功回复 / 失败回复：跳过统一管线的双语追加
+     */
+    protected function localizedReply(string $text, array $data = []): FeatureResult
+    {
+        return FeatureResult::reply($text, $data, ['skip_localize' => true]);
+    }
+
+    protected function localizedFail(string $text): FeatureResult
+    {
+        return FeatureResult::fail($text, ['skip_localize' => true]);
     }
 
     /**
@@ -102,8 +204,6 @@ abstract class AbstractMerchantFeature extends BaseCustomFeature
      *
      * 绑定关系的唯一数据源是 merchant_routes（/bd 写的就是它）；
      * 其次是 FeatureExecutor::withDefaultMerchant() 注入的 group_configs.mid。
-     * 不能只读 $context->value('merchant_id')：feature_data 按功能分桶，
-     * 本功能那一桶里通常什么都没有。
      */
     protected function resolveMerchantId(FeatureContext $context): string
     {
@@ -117,21 +217,28 @@ abstract class AbstractMerchantFeature extends BaseCustomFeature
     }
 
     /**
-     * 未绑定提示：绑定命令按后台实际配置动态拼，不写死 /bm
+     * 未绑定提示：后台填了固定文案就用它，留空按群语种翻译
+     * 绑定命令按后台实际配置动态拼，不写死 /bm
      */
     protected function notBoundTip(FeatureContext $context): string
     {
-        $tip = (string) $context->config('not_bound_tip', self::DEFAULT_NOT_BOUND_TIP);
+        $custom = trim((string) $context->config('not_bound_tip', ''));
 
-        if ($tip === self::LEGACY_NOT_BOUND_TIP || trim($tip) === '') {
-            $tip = self::DEFAULT_NOT_BOUND_TIP;
+        if (in_array($custom, self::LEGACY_NOT_BOUND_TIPS, true)) {
+            $custom = '';
         }
 
+        $tip = $custom !== '' ? $custom : $this->t($context, 'common.not_bound');
         $usage = $this->bindUsage();
+
+        if ($usage === '') {
+            return $tip;
+        }
+
         $tip = str_replace('{{bind_usage}}', $usage, $tip);
 
-        if ($usage !== '' && ! str_contains($tip, $usage)) {
-            $tip .= '，请先执行 ' . $usage;
+        if (! str_contains($tip, $usage)) {
+            $tip .= $this->t($context, 'common.not_bound_suffix', ['usage' => $usage]);
         }
 
         return $tip;
@@ -158,10 +265,7 @@ abstract class AbstractMerchantFeature extends BaseCustomFeature
     }
 
     /**
-     * 调上游接口
-     *
-     * 路径模板里的占位符、With Token、Bearer 头、JSON body 全部由
-     * BaseCustomFeature::callEndpoint() 统一处理（上游配置在后台）。
+     * 调上游接口：路径占位、With Token、Bearer 头、JSON body 全由 callEndpoint 处理
      */
     protected function callUpstream(FeatureContext $context, string $endpointCode, array $params, string $method): array
     {
@@ -176,44 +280,6 @@ abstract class AbstractMerchantFeature extends BaseCustomFeature
     }
 
     /**
-     * 把上游响应整理成模板变量
-     *
-     * 上游有的把业务字段直接放顶层，有的包一层 data，个别还包两层。
-     * 这里三种写法都照顾到，模板里 {{amount}} / {{data.amount}} 都能取到。
-     * $extra 是命令输入（如 warn_funds），优先级最高 —— 上游可能回 NULL，
-     * 回复里要显示的是用户刚设置的值，不是那个 NULL。
-     */
-    protected function responseVars(array $response, array $extra = []): array
-    {
-        $vars = $response;
-
-        $inner = data_get($response, 'data');
-        if (is_array($inner)) {
-            $vars = array_merge($vars, $inner);
-            $vars['data'] = $inner;
-
-            $deeper = data_get($inner, 'data');
-            if (is_array($deeper)) {
-                $vars = array_merge($vars, $deeper);
-            }
-        }
-
-        return array_merge($vars, $extra, [
-            'raw_json' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-        ]);
-    }
-
-    /**
-     * 后台留空模板时用代码里的默认文案
-     */
-    protected function renderText(FeatureContext $context, string $key, string $default, array $vars): string
-    {
-        $template = (string) $context->config($key, '');
-
-        return $this->render(trim($template) !== '' ? $template : $default, $vars, $context);
-    }
-
-    /**
      * 取第一个命令参数作为金额，保留原始字符串（避免 99999.00 被格式化）
      */
     protected function amountArg(FeatureContext $context): ?string
@@ -225,22 +291,5 @@ abstract class AbstractMerchantFeature extends BaseCustomFeature
         }
 
         return $raw;
-    }
-
-    /**
-     * 清掉「字段：-」这种没有值的行
-     *
-     * 代收/代付、不同状态返回的参数个数不一样，模板里全部字段都写上时，
-     * 缺的会被 TemplateRenderer 渲染成 '-'。按行删掉比让群里看十几行 '-' 干净。
-     */
-    protected function stripEmptyLines(string $text): string
-    {
-        $lines = preg_split('/\R/u', $text) ?: [];
-        $lines = array_values(array_filter(
-            $lines,
-            fn (string $line) => ! preg_match('/^\s*[^:：]*[:：]\s*-+\s*$/u', $line)
-        ));
-
-        return trim(implode("\n", $lines));
     }
 }

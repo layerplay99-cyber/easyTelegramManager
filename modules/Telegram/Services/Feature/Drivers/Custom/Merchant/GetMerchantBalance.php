@@ -7,10 +7,9 @@ namespace Modules\Telegram\Services\Feature\Drivers\Custom\Merchant;
 use Modules\Telegram\Contracts\EndpointProvider;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
-use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
 use Modules\Telegram\Services\LogMessageService;
-use Modules\Telegram\Services\MerchantRouteService;
+use Modules\Telegram\Services\Translate\LocalizedReply;
 
 /**
  * 示例：查询商户余额（自定义功能参考实现）
@@ -23,11 +22,16 @@ use Modules\Telegram\Services\MerchantRouteService;
  *
  * 本例演示的场景：
  *   用户在群里执行 /ye → 取出该群已绑定的 merchant_id（来自 merchant_routes，
- *   也就是「绑定商户号」功能写入的那张表）→ 调三方余额接口 → 用模板渲染回复。
+ *   也就是「绑定商户号」功能写入的那张表）→ 调三方余额接口 → 按群语种回复。
  *   如果该群还没绑定商户号，提示里会按后台实际配置的绑定命令动态显示。
+ *
+ * 商户号解析 / 未绑定提示 / 绑定命令 / 多语文案全部走 LocalizedReply trait，
+ * 与其它 6 个商户功能共用，不在这里重复实现。
  */
 class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
 {
+    use LocalizedReply;
+
     /**
      * 执行器标识（写入 features.driver）
      */
@@ -106,7 +110,7 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
 
     public static function featureDescription(): string
     {
-        return '调用三方余额接口，查询当前群已绑定商户的余额（示例功能）';
+        return '调用三方余额接口，查询当前群已绑定商户的余额，按群语种回复（示例功能）';
     }
 
     /**
@@ -118,9 +122,8 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
             [
                 'command'        => 'ye',
                 'usage'          => '/ye',
-                'description'    => '查询当前群绑定商户的余额',
+                'description'    => '查询当前群绑定商户的余额（按群语种回复）',
                 'params'         => [],
-                'reply_template' => '余额：{{data.balance}} 元',
             ],
         ];
     }
@@ -128,24 +131,15 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
     /**
      * 默认配置（首次注册时写入 features.config）
      *
-     * 不给默认三方配置（那是每个用户自己的），但把平台接口与回复模板预设好，
-     * 注册后只需在后台选一下接口即可用。
+     * 回复模板/提示留空走语言包；库里存着的旧中文默认值由 customText() 识别。
      */
-    /**
-     * 提示里写死的旧命令：库里 features.config 还存着这份，运行时按它识别并替换
-     */
-    private const LEGACY_NOT_BOUND_TIP = '本群还没有绑定商户号，请先执行 /bm <商户号>';
-
-    private const DEFAULT_NOT_BOUND_TIP = '本群还没有绑定商户号';
-
     public static function defaultConfig(): array
     {
         return [
             'upstream_id' => null,
             'endpoint_code' => 'merchant.balance',
-            // 不写死命令：命令名在后台随时可改，写死就会提示一个不存在的 /bm
-            'not_bound_tip' => self::DEFAULT_NOT_BOUND_TIP,
-            'reply_template' => '余额：{{data.balance}} 元',
+            'not_bound_tip' => '',
+            'reply_template' => '',
         ];
     }
 
@@ -180,8 +174,16 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                 'label'    => '未绑定时的提示',
                 'type'     => 'text',
                 'required' => false,
-                'default'  => '本群还没有绑定商户号',
-                'hint'     => '留空用默认文案；可写 {{bind_usage}} 指定命令出现的位置，不写则自动追加在末尾（绑定命令改了这边会跟着变）',
+                'default'  => '',
+                'hint'     => '留空按群语种自动翻译；填写则固定使用该文案。可写 {{bind_usage}} 指定命令位置',
+            ],
+            [
+                'key'      => 'reply_template',
+                'label'    => '回复模板',
+                'type'     => 'template',
+                'required' => false,
+                'default'  => '',
+                'hint'     => '留空按群语种自动翻译；填写则固定使用该文案。可用变量 {{data.balance}} 等上游字段',
             ],
         ];
     }
@@ -191,11 +193,11 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
      */
     public function handle(FeatureContext $context): FeatureResult
     {
-        // 1) 取出该群已绑定的商户号
+        // 1) 取出该群已绑定的商户号（trait 提供，与 /bd 写的是同一张表）
         $merchantId = $this->resolveMerchantId($context);
 
         if ($merchantId === '') {
-            return $this->fail($this->notBoundTip($context));
+            return $this->localizedFail($this->notBoundTip($context));
         }
 
         // 2) 调平台接口（上游由机器人绑定，各用户不同）
@@ -206,81 +208,30 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
         );
 
         if (isset($data['_error'])) {
-            return $this->fail('查询余额失败：' . $data['_error']);
+            return $this->localizedFail($this->t($context, 'balance.failed') . $data['_error']);
         }
 
-        // 3) 用命令声明的模板渲染回复
-        $template = (string) $context->config('reply_template', '{{_raw}}');
+        app(LogMessageService::class)->createLaravelLog('upstream-api-error', $data);
 
-        app(LogMessageService::class)->createLaravelLog('upstream-api-error',$data);
-        return $this->reply($this->render($template, $data, $context), $data);
-    }
+        // 3) 后台填了模板就按模板渲染（自定义内容不翻译），否则按群语种出文案
+        $custom = $this->customText($context, 'reply_template');
 
-    /**
-     * 该群绑定的商户号
-     *
-     * ⚠️ 不能读 $context->value('merchant_id')：feature_data 是按功能分桶存的，
-     * $context->value() 只能读到「本功能」那一桶，而商户号是「绑定商户号」那个功能
-     * 用 putData() 写进它自己桶里的 —— 这里读必然是空的，
-     * 表现就是「/bd 明明绑成功了，/ye 却说没绑定」。
-     * 绑定关系的唯一数据源是 merchant_routes（/bd 写的就是它）。
-     */
-    protected function resolveMerchantId(FeatureContext $context): string
-    {
-        $bound = app(MerchantRouteService::class)->forChat((string) $context->chatId);
-
-        if ($bound !== []) {
-            return trim((string) reset($bound));
+        if ($custom !== '') {
+            return $this->localizedReply($this->render($custom, $data, $context), $data);
         }
 
-        // 兼容旧数据：本功能自己存过的也算数
-        return trim((string) ($context->value('merchant_id') ?? ''));
-    }
+        $balance = data_get($data, 'data.balance') ?? data_get($data, 'balance');
+        $currency = data_get($data, 'data.currency') ?? data_get($data, 'currency');
 
-    /**
-     * 未绑定时的提示：命令部分按后台实际配置动态拼，不写死
-     */
-    protected function notBoundTip(FeatureContext $context): string
-    {
-        $tip = (string) $context->config('not_bound_tip', self::DEFAULT_NOT_BOUND_TIP);
-
-        // 库里还存着写死 /bm 的旧默认值时，按新默认值处理，不用去后台手工改
-        if ($tip === self::LEGACY_NOT_BOUND_TIP) {
-            $tip = self::DEFAULT_NOT_BOUND_TIP;
+        if (is_array($currency)) {
+            $currency = data_get($currency, 'code');
         }
 
-        if ($tip === '') {
-            $tip = self::DEFAULT_NOT_BOUND_TIP;
-        }
+        $text = trim($this->t($context, 'balance.value', [
+            'balance' => is_scalar($balance) ? (string) $balance : '-',
+            'currency' => is_scalar($currency) ? (string) $currency : '',
+        ]));
 
-        $usage = $this->bindUsage();
-
-        $tip = str_replace('{{bind_usage}}', $usage, $tip);
-
-        if ($usage !== '' && ! str_contains($tip, $usage)) {
-            $tip .= '，请先执行 ' . $usage;
-        }
-
-        return $tip;
-    }
-
-    /**
-     * 「绑定商户号」功能当前实际用的命令（后台可改，写死就一定会错）
-     */
-    protected function bindUsage(): string
-    {
-        $command = FeatureCommands::query()
-            ->where('enabled', true)
-            ->whereHas('feature', fn ($q) => $q->where('driver', BindMerchant::key()))
-            ->orderBy('id')
-            ->first();
-
-        if (! $command) {
-            return '';
-        }
-
-        $usage = trim((string) ($command->usage ?? ''));
-
-        return $usage !== '' ? $usage : '/' . $command->command;
+        return $this->localizedReply($text, $data);
     }
 }

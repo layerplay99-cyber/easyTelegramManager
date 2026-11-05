@@ -59,6 +59,29 @@ return [
         'failed' => 'Failed to query payout limit: ',
     ],
 
+    'bind' => [
+        'admin_only' => 'Only group admins can bind a merchant ID',
+        'not_bound_usage' => 'No merchant ID is bound to this group. Usage: :usage',
+        'bound' => '✅ Merchant ID bound to this group: :merchant_id',
+        'check_failed' => 'Failed to verify merchant: ',
+        'not_exists' => 'Merchant ID does not exist',
+    ],
+
+    'balance' => [
+        'value' => 'Balance: :balance :currency',
+        'failed' => 'Failed to query balance: ',
+    ],
+
+    'operator' => [
+        'admin_only' => 'Only group admins can change trade operators',
+        'saved' => '✅ Trade operators set: :summary',
+        'cleared' => 'Reset to default: group admins only',
+        'no_target' => 'No valid user ID or username found',
+        'unknown' => '(:names not found in group members; will match by username)',
+        'describe_default' => 'No operators specified; group admins only by default. Use :usage to set.',
+        'describe_list' => 'Current operators: :list (group admins are always allowed)',
+    ],
+
     'common' => [
         'not_bound' => 'No merchant ID is bound to this group',
         'not_bound_suffix' => '. Please run :usage first',

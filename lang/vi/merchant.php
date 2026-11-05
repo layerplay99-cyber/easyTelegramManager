@@ -59,6 +59,29 @@ return [
         'failed' => 'Truy vấn hạn mức chi tiền thất bại: ',
     ],
 
+    'bind' => [
+        'admin_only' => 'Chỉ quản trị viên nhóm mới được gắn mã thương gia',
+        'not_bound_usage' => 'Nhóm này chưa được gắn mã thương gia. Cú pháp: :usage',
+        'bound' => '✅ Mã thương gia đã gắn cho nhóm: :merchant_id',
+        'check_failed' => 'Kiểm tra thương gia thất bại: ',
+        'not_exists' => 'Mã thương gia không tồn tại',
+    ],
+
+    'balance' => [
+        'value' => 'Số dư: :balance :currency',
+        'failed' => 'Truy vấn số dư thất bại: ',
+    ],
+
+    'operator' => [
+        'admin_only' => 'Chỉ quản trị viên nhóm mới được thiết lập người thao tác',
+        'saved' => '✅ Đã thiết lập người thao tác: :summary',
+        'cleared' => 'Đã khôi phục mặc định: chỉ quản trị viên nhóm',
+        'no_target' => 'Không tìm thấy ID người dùng hoặc tên người dùng hợp lệ',
+        'unknown' => '(:names không có trong danh sách thành viên; sẽ khớp theo tên người dùng)',
+        'describe_default' => 'Chưa chỉ định người thao tác, mặc định chỉ quản trị viên nhóm. Dùng :usage để thiết lập.',
+        'describe_list' => 'Người thao tác hiện tại: :list (quản trị viên nhóm luôn được phép)',
+    ],
+
     'common' => [
         'not_bound' => 'Nhóm này chưa được gắn mã thương gia',
         'not_bound_suffix' => '. Vui lòng chạy :usage trước',

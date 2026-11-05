@@ -13,6 +13,7 @@ use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
 use Modules\Telegram\Services\LogMessageService;
 use Modules\Telegram\Services\MerchantRouteService;
 use Modules\Telegram\Services\OperatorPolicy;
+use Modules\Telegram\Services\Translate\LocalizedReply;
 
 /**
  * /bd <商户号> —— 把当前群绑定到商户号
@@ -24,9 +25,13 @@ use Modules\Telegram\Services\OperatorPolicy;
  *   · 上游回调来时按商户号反查，多商户多 bot 各走各的
  *
  * 不带参数 = 查看本群当前绑定。
+ * 群内文案按「群设置 → 语种配置」取自 lang/{locale}/merchant.php，
+ * 后台仍可填固定的 reply_template / not_exists_tip 覆盖（填了就不翻译）。
  */
 class BindMerchant extends BaseCustomFeature implements EndpointProvider
 {
+    use LocalizedReply;
+
     public static function key(): string
     {
         return 'custom.bind_merchant';
@@ -71,7 +76,7 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
 
     public static function featureDescription(): string
     {
-        return '把当前群绑定到商户号（/bd <商户号>）';
+        return '把当前群绑定到商户号，按群语种回复（/bd <商户号>）';
     }
 
     public static function category(): string
@@ -90,11 +95,10 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
             [
                 'command' => 'bd',
                 'usage' => '/bd <商户号>',
-                'description' => '绑定/查看本群的商户号',
+                'description' => '绑定/查看本群的商户号（按群语种回复）',
                 'params' => [
                     ['name' => 'merchant_id', 'required' => false, 'desc' => '商户号，留空表示查看'],
                 ],
-                'reply_template' => '✅ 本群已绑定商户号：{{merchant_id}}',
             ],
         ];
     }
@@ -106,8 +110,9 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
             'allow_overwrite' => true,
             'upstream_id' => null,
             'endpoint_code' => 'merchant.check',
-            'not_exists_tip' => '该商户不存在',
-            'reply_template' => '✅ 本群已绑定商户号：{{merchant_id}}',
+            // 留空走语言包；库里存着的旧中文默认值由 customText() 识别
+            'not_exists_tip' => '',
+            'reply_template' => '',
         ];
     }
 
@@ -151,14 +156,16 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
                 'label' => '商户不存在时的提示',
                 'type' => 'text',
                 'required' => false,
-                'default' => '该商户不存在',
+                'default' => '',
+                'hint' => '留空按群语种自动翻译；填写则固定使用该文案',
             ],
             [
                 'key' => 'reply_template',
                 'label' => '回复模板',
                 'type' => 'template',
                 'required' => false,
-                'default' => '✅ 本群已绑定商户号：{{merchant_id}}',
+                'default' => '',
+                'hint' => '留空按群语种自动翻译；填写则固定使用该文案。可用变量 {{merchant_id}}',
             ],
         ];
     }
@@ -171,7 +178,7 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
 
         // 绑定关系决定了「通知发到哪、谁能在群里点按钮」，默认只给管理员
         if ($context->config('require_admin', true) && ! $policy->isGroupAdmin($chatId, $context->userId, $context->bot)) {
-            return $this->fail('只有群管理员可以绑定商户号');
+            return $this->localizedFail($this->t($context, 'bind.admin_only'));
         }
 
         // 只认命令实参：不带参数就是「查看」，绝不能拿已存数据 / 群配置里兜底的
@@ -184,26 +191,18 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
             $local = $this->localMerchantId($context, $chatId);
 
             return $local === ''
-                ? $this->reply('本群还没有绑定商户号，用法：/bd <商户号>')
-                : $this->reply($this->render(
-                    $this->template($context),
-                    ['merchant_id' => $local],
-                    $context
-                ));
+                ? $this->localizedReply($this->t($context, 'bind.not_bound_usage', [
+                    'usage' => $this->bindUsage() ?: '/bd',
+                ]))
+                : $this->boundReply($context, $local);
         }
 
         // 带参数：本地已经绑的就是这个号 → 直接用本地记录，不再向上游确认
         if (in_array($merchantId, $routes->forChat($chatId), true)) {
-            return $this->reply($this->render(
-                $this->template($context),
-                ['merchant_id' => $merchantId],
-                $context
-            ));
+            return $this->boundReply($context, $merchantId);
         }
 
         // 先向上游确认这个商户号是否真的存在（用后台选的接口 + 上游）
-        // 请求返回里判存在的字段名各家不同，这里按常见的几种兜一下，
-        // 具体怎么判交给上游约定：拿到响应后照自己的返回结构改这段即可。
         $check = $this->callEndpoint(
             (string) $context->config('endpoint_code', 'merchant.check'),
             ['merchant_id' => $merchantId],
@@ -211,11 +210,13 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
         );
 
         if (isset($check['_error'])) {
-            return $this->fail('校验商户失败：' . $check['_error']);
+            return $this->localizedFail($this->t($context, 'bind.check_failed') . $check['_error']);
         }
 
         if (! $this->merchantExists($check)) {
-            return $this->fail((string) $context->config('not_exists_tip', '该商户不存在'));
+            return $this->localizedFail(
+                $this->customText($context, 'not_exists_tip') ?: $this->t($context, 'bind.not_exists')
+            );
         }
 
         // 上游：功能配置 > 绑定级 > 机器人级（与 callEndpoint 一致，
@@ -234,7 +235,7 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
                 (bool) $context->config('allow_overwrite', true)
             );
         } catch (\Throwable $e) {
-            return $this->fail($e->getMessage());
+            return $this->localizedFail($e->getMessage());
         }
 
         // 同时写一份到功能数据，方便 {{@merchant_id}} 在别的功能里直接引用
@@ -244,11 +245,21 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
         // （前端读的就是 group_configs.mid，两张表指的是同一个商户号）
         $this->syncGroupConfig($context, $chatId, $merchantId);
 
-        return $this->reply($this->render(
-            $this->template($context),
-            ['merchant_id' => $merchantId],
-            $context
-        ));
+        return $this->boundReply($context, $merchantId);
+    }
+
+    /**
+     * 绑定成功 / 查看绑定时的回复
+     */
+    protected function boundReply(FeatureContext $context, string $merchantId): FeatureResult
+    {
+        $custom = $this->customText($context, 'reply_template');
+
+        $text = $custom !== ''
+            ? $this->render($custom, ['merchant_id' => $merchantId], $context)
+            : $this->t($context, 'bind.bound', ['merchant_id' => $merchantId]);
+
+        return $this->localizedReply($text);
     }
 
     /**
@@ -309,16 +320,6 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
                 'error'
             );
         }
-    }
-
-    /**
-     * 回复模板
-     */
-    protected function template(FeatureContext $context): string
-    {
-        $template = (string) $context->config('reply_template', '');
-
-        return $template !== '' ? $template : '✅ 本群已绑定商户号：{{merchant_id}}';
     }
 
     /**

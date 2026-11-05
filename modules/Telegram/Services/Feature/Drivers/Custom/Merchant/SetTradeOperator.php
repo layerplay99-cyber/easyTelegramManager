@@ -8,6 +8,7 @@ use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
 use Modules\Telegram\Services\OperatorPolicy;
+use Modules\Telegram\Services\Translate\LocalizedReply;
 
 /**
  * /trsq —— 设置「哪些人可以点交易按钮」
@@ -20,9 +21,12 @@ use Modules\Telegram\Services\OperatorPolicy;
  * 旧实现只有「管理员才能点」一种写死的判断，且判定松散。现在：
  *   · 名单按群存，配合会话里的权限快照，改了名单不影响已发出的按钮
  *   · 没设置过 = 默认群管理员
+ *   · 群内文案按「群设置 → 语种配置」取自 lang/{locale}/merchant.php
  */
 class SetTradeOperator extends BaseCustomFeature
 {
+    use LocalizedReply;
+
     public static function key(): string
     {
         return 'custom.set_trade_operator';
@@ -40,7 +44,7 @@ class SetTradeOperator extends BaseCustomFeature
 
     public static function featureDescription(): string
     {
-        return '设置哪些人可以点击交易通知里的按钮（/trsq <用户ID|@用户名> … / clear）';
+        return '设置哪些人可以点击交易通知里的按钮，按群语种回复（/trsq <用户ID|@用户名> … / clear）';
     }
 
     public static function category(): string
@@ -59,11 +63,10 @@ class SetTradeOperator extends BaseCustomFeature
             [
                 'command' => 'trsq',
                 'usage' => '/trsq <用户ID|@用户名> …',
-                'description' => '设置可点击交易按钮的人，clear 恢复默认（群管理员）',
+                'description' => '设置可点击交易按钮的人，clear 恢复默认（按群语种回复）',
                 'params' => [
                     ['name' => 'targets', 'required' => false, 'desc' => '用户ID 或 @用户名，空格分隔'],
                 ],
-                'reply_template' => '✅ 已设置操作人：{{summary}}',
             ],
         ];
     }
@@ -72,7 +75,8 @@ class SetTradeOperator extends BaseCustomFeature
     {
         return [
             'require_admin' => true,
-            'reply_template' => '✅ 已设置操作人：{{summary}}',
+            // 留空走语言包；库里存着的旧中文默认值由 customText() 识别
+            'reply_template' => '',
         ];
     }
 
@@ -91,7 +95,8 @@ class SetTradeOperator extends BaseCustomFeature
                 'label' => '回复模板',
                 'type' => 'template',
                 'required' => false,
-                'default' => '✅ 已设置操作人：{{summary}}',
+                'default' => '',
+                'hint' => '留空按群语种自动翻译；填写则固定使用该文案。可用变量 {{summary}}',
             ],
         ];
     }
@@ -102,7 +107,7 @@ class SetTradeOperator extends BaseCustomFeature
         $policy = app(OperatorPolicy::class);
 
         if ($context->config('require_admin', true) && ! $policy->isGroupAdmin($chatId, $context->userId, $context->bot)) {
-            return $this->fail('只有群管理员可以设置操作人');
+            return $this->localizedFail($this->t($context, 'operator.admin_only'));
         }
 
         $tokens = array_values(array_filter(array_map(
@@ -112,49 +117,51 @@ class SetTradeOperator extends BaseCustomFeature
 
         // 查看
         if (! $tokens) {
-            return $this->reply($this->describe($policy->settings($chatId)));
+            return $this->localizedReply($this->describe($context, $policy->settings($chatId)));
         }
 
         // 恢复默认
         if (count($tokens) === 1 && strtolower($tokens[0]) === 'clear') {
             $policy->clear($chatId);
 
-            return $this->reply('已恢复默认：仅群管理员可点击');
+            return $this->localizedReply($this->t($context, 'operator.cleared'));
         }
 
         $parsed = $policy->parseTargets($chatId, $tokens);
 
         if (! $parsed['ids'] && ! $parsed['names']) {
-            return $this->fail('没有识别到有效的用户ID或用户名');
+            return $this->localizedFail($this->t($context, 'operator.no_target'));
         }
 
         $policy->save($chatId, $parsed['ids'], $parsed['names']);
 
-        $summary = implode('、', array_merge(
+        $summary = implode(', ', array_merge(
             array_map(fn ($id) => (string) $id, $parsed['ids']),
             array_map(fn ($n) => '@' . $n, $parsed['names'])
         ));
 
-        $text = $this->render(
-            (string) $context->config('reply_template', '✅ 已设置操作人：{{summary}}'),
-            ['summary' => $summary],
-            $context
-        );
+        $custom = $this->customText($context, 'reply_template');
+
+        $text = $custom !== ''
+            ? $this->render($custom, ['summary' => $summary], $context)
+            : $this->t($context, 'operator.saved', ['summary' => $summary]);
 
         if ($parsed['unknown']) {
-            $text .= "\n（" . implode('、', $parsed['unknown']) . " 在群成员里没查到，将按用户名匹配）";
+            $text .= "\n" . $this->t($context, 'operator.unknown', [
+                'names' => implode(', ', $parsed['unknown']),
+            ]);
         }
 
-        return $this->reply($text);
+        return $this->localizedReply($text);
     }
 
     /**
      * @param array<string, mixed> $settings
      */
-    private function describe(array $settings): string
+    private function describe(FeatureContext $context, array $settings): string
     {
         if (($settings['mode'] ?? 'admin') !== 'whitelist') {
-            return '当前未指定操作人，默认仅群管理员可点击。用 /trsq <用户ID|@用户名> 指定。';
+            return $this->t($context, 'operator.describe_default', ['usage' => '/trsq']);
         }
 
         $list = array_merge(
@@ -163,7 +170,7 @@ class SetTradeOperator extends BaseCustomFeature
         );
 
         return $list
-            ? '当前操作人：' . implode('、', $list) . '（群管理员同样可点击）'
-            : '当前未指定操作人，默认仅群管理员可点击。';
+            ? $this->t($context, 'operator.describe_list', ['list' => implode(', ', $list)])
+            : $this->t($context, 'operator.describe_default', ['usage' => '/trsq']);
     }
 }

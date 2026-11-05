@@ -65,6 +65,29 @@ return [
         'failed' => '查询代付限额失败：',
     ],
 
+    'bind' => [
+        'admin_only' => '只有群管理员可以绑定商户号',
+        'not_bound_usage' => '本群还没有绑定商户号，用法：:usage',
+        'bound' => '✅ 本群已绑定商户号：:merchant_id',
+        'check_failed' => '校验商户失败：',
+        'not_exists' => '该商户不存在',
+    ],
+
+    'balance' => [
+        'value' => '余额：:balance :currency',
+        'failed' => '查询余额失败：',
+    ],
+
+    'operator' => [
+        'admin_only' => '只有群管理员可以设置操作人',
+        'saved' => '✅ 已设置操作人：:summary',
+        'cleared' => '已恢复默认：仅群管理员可点击',
+        'no_target' => '没有识别到有效的用户ID或用户名',
+        'unknown' => '（:names 在群成员里没查到，将按用户名匹配）',
+        'describe_default' => '当前未指定操作人，默认仅群管理员可点击。用 :usage 指定。',
+        'describe_list' => '当前操作人：:list（群管理员同样可点击）',
+    ],
+
     'common' => [
         'not_bound' => '本群还没有绑定商户号',
         'not_bound_suffix' => '，请先执行 :usage',

@@ -11,9 +11,12 @@ use Modules\Telegram\Contracts\FeatureResult;
 /**
  * /cx <订单ID> —— 查询订单（代收 / 代付）
  *
- * 上游：GET /api/webhook/users/{userId}/trades/{id}  With Token
- *   userId = 本群绑定的商户号（merchant_routes / group_configs.mid）
- *   id     = 命令参数订单ID
+ * 上游：GET /api/webhook/users/{merchant_id}/trades/{id}  With Token
+ *   {merchant_id} = 本群绑定的商户号（merchant_routes / group_configs.mid），
+ *                   由后台 path 模板占位，与其它商户接口统一命名
+ *   {id}          = 命令参数订单ID，由本类 rawurlencode 后追加到路径末尾，
+ *                   不写进 path 模板、不进 query
+ *   最终 URL：/api/webhook/users/1/trades/202605487749548
  *
  * 上游返回什么字段就显示什么字段，不写死字段清单、也不在后台配模板：
  *   · FIELD_ORDER 只决定已知字段的排列顺序，没列进去的字段追加在后面；
@@ -74,10 +77,12 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
             'merchant.trade.query' => [
                 'name' => '查询订单',
                 'method' => 'GET',
-                'path_template' => 'api/webhook/users/{userId}/trades/{id}',
+                // 只写到 trades：末尾的 /{订单ID} 由 QueryOrder 追加，
+                // 后台给每个上游配路径时不用（也不该）带 {id}
+                'path_template' => 'api/webhook/users/{merchant_id}/trades',
                 'params_schema' => [
-                    ['name' => 'userId', 'required' => true, 'desc' => '商户ID（路径参数）', 'map_to' => 'merchant_id'],
-                    ['name' => 'id', 'required' => true, 'desc' => '订单ID（路径参数）', 'map_to' => 'order_id'],
+                    ['name' => 'merchant_id', 'required' => true, 'desc' => '商户ID（path 占位）'],
+                    ['name' => 'id', 'required' => true, 'desc' => '订单ID（代码追加到路径末尾，不写进 path 模板）'],
                 ],
                 'response_schema' => [
                     'type' => 'Send money=代付 / Receive money=代收',
@@ -97,7 +102,7 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
                     'settlement_amount' => '结算金额',
                     'settled_time' => '结算时间',
                 ],
-                'remark' => '代收/代付、不同状态返回的字段个数不同，按实际返回字段逐行显示',
+                'remark' => 'path 只写到 trades，末尾 /{订单ID} 由 QueryOrder 追加；代收/代付、不同状态返回字段个数不同，按实际返回逐行显示',
             ],
         ];
     }
@@ -127,7 +132,7 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
     {
         return static::commonConfigSchema(
             self::ENDPOINT,
-            '默认 GET api/webhook/users/{userId}/trades/{id}；可在「上游接口配置」里覆盖。回复字段名按群语种自动翻译'
+            '默认 GET api/webhook/users/{merchant_id}/trades，订单号由代码追加；「上游接口配置」里若覆盖路径，末尾不要写 /{id}。回复字段名按群语种自动翻译'
         );
     }
 
@@ -145,11 +150,17 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
             return $this->localizedFail($this->t($context, 'order.usage'));
         }
 
-        // GET 的路径占位由 callEndpoint 填充，两个参数不会再重复拼到 query 上
-        $data = $this->callUpstream($context, self::ENDPOINT, [
-            'userId' => $merchantId,
-            'id' => $orderId,
-        ], 'GET');
+        // 商户号走 path 里的 {merchant_id} 占位（与其它商户接口命名一致）；
+        // 订单号是资源 ID，在类里 rawurlencode 后追加到路径末尾：
+        //   api/webhook/users/1/trades + 202605487749548
+        // 两者都不进 GET 的 query，最终就是纯路径 URL。
+        $data = $this->callUpstream(
+            $context,
+            self::ENDPOINT,
+            ['merchant_id' => $merchantId],
+            'GET',
+            rawurlencode($orderId)
+        );
 
         if (isset($data['_error'])) {
             return $this->localizedFail($this->t($context, 'order.failed') . $data['_error']);

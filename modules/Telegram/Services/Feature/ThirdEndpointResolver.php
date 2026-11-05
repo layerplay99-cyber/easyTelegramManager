@@ -101,6 +101,24 @@ class ThirdEndpointResolver
         return rtrim((string) $third->api_url, '/') . '/' . ltrim($path, '/');
     }
 
+    /**
+     * 给路径追加一段动态资源 ID
+     *
+     * 这类 ID（订单号等）是 URL 的一部分，不该写成后台 path 模板里的占位符，
+     * 也不该进 GET 的 query —— 由功能代码拼好并 rawurlencode 后传进来。
+     * 例：api/webhook/users/1/trades + 202605487749548
+     *     → api/webhook/users/1/trades/202605487749548
+     *
+     * @param string $segment 已编码的单个路径段（调用方负责 rawurlencode）
+     */
+    public static function appendSegment(string $path, string $segment): string
+    {
+        $path = trim($path);
+        $segment = ltrim(trim($segment), '/');
+
+        return $segment === '' ? $path : rtrim($path, '/') . '/' . $segment;
+    }
+
     private static function pickString(?string $override, string $fallback): string
     {
         $value = trim((string) $override);

@@ -289,14 +289,17 @@ abstract class BaseCustomFeature implements FeatureDriver
      * 接口按平台 code 引用（全局统一）。因此不同用户执行同一功能时
      * 行为一致，只是请求各自的上游。
      *
-     * @param array<string, mixed> $params 路径/查询参数
+     * @param array<string, mixed> $params     路径占位/查询参数
+     * @param string               $pathSuffix 追加到路径末尾的动态资源段（已 rawurlencode），
+     *                                        例如订单号；不会进 query
      * @return array<string, mixed>
      */
     protected function callEndpoint(
         string $endpointCode,
         array $params = [],
         ?FeatureContext $context = null,
-        string $method = 'GET'
+        string $method = 'GET',
+        string $pathSuffix = ''
     ): array {
         $endpoint = ThirdApiEndpoints::query()
             ->where('code', $endpointCode)
@@ -354,6 +357,12 @@ abstract class BaseCustomFeature implements FeatureDriver
         $path = (string) preg_replace_callback('/\{([A-Za-z0-9_]+)\}/', function ($m) use ($params) {
             return rawurlencode((string) ($params[$m[1]] ?? ''));
         }, $path);
+
+        // 动态资源 ID（订单号等）由功能代码拼好并编码后追加到路径末尾。
+        // 它不写进后台 path 模板，也不放进 $params，所以不会重复出现在 query 上。
+        if ($pathSuffix !== '') {
+            $path = ThirdEndpointResolver::appendSegment($path, $pathSuffix);
+        }
 
         $url = ThirdEndpointResolver::buildUrl($third, $path);
 

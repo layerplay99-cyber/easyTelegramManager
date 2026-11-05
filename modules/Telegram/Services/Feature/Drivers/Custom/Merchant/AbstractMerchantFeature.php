@@ -90,15 +90,21 @@ abstract class AbstractMerchantFeature extends BaseCustomFeature
     /**
      * 调上游接口：路径占位、With Token、Bearer 头、JSON body 全由 callEndpoint 处理
      */
-    protected function callUpstream(FeatureContext $context, string $endpointCode, array $params, string $method): array
-    {
+    protected function callUpstream(
+        FeatureContext $context,
+        string $endpointCode,
+        array $params,
+        string $method,
+        string $pathSuffix = ''
+    ): array {
         $code = trim((string) $context->config('endpoint_code', ''));
 
         return $this->callEndpoint(
             $code !== '' ? $code : $endpointCode,
             $params,
             $context,
-            $method
+            $method,
+            $pathSuffix
         );
     }
 

@@ -56,16 +56,11 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                 'params_schema' => [
                     ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
                 ],
-                // 上游实际返回的是钱包对象，没有 balance 字段
                 'response_schema' => [
-                    'data.id' => '钱包记录ID',
-                    'data.available_funds' => '可用余额',
-                    'data.locked_funds' => '冻结余额',
-                    'data.warn_funds' => '余额预警线',
-                    'data.currency.code' => '币种代码',
-                    'data.currency.symbol' => '币种符号',
+                    'balance' => '余额',
+                    'currency' => '币种',
                 ],
-                'remark' => '按商户号查询余额；可用余额取 data.available_funds',
+                'remark' => '按商户号查询余额',
             ],
             'merchant.trade' => [
                 'name' => '查询交易明细',
@@ -188,7 +183,7 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                 'type'     => 'template',
                 'required' => false,
                 'default'  => '',
-                'hint'     => '留空按群语种自动翻译；填写则固定使用该文案。可用变量：{{data.available_funds}} {{data.locked_funds}} {{data.warn_funds}} {{data.currency.code}} {{data.currency.symbol}} {{data.balance}}（归一化余额）',
+                'hint'     => '留空按群语种自动翻译；填写则固定使用该文案。可用变量 {{data.balance}} 等上游字段',
             ],
         ];
     }
@@ -241,7 +236,8 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
         $custom = $this->customText($context, 'reply_template');
 
         if ($custom !== '') {
-            // 补一个归一化的 data.balance，兼容按旧字段写的自定义模板
+            // 把各上游的真实余额字段映射到标准变量 data.balance，
+            // 让后台按平台标准文档写的模板（{{data.balance}}）在任何上游下都能取到值
             $renderData = $data;
             data_set($renderData, 'data.balance', $balance);
 

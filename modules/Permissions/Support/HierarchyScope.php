@@ -42,28 +42,38 @@ class HierarchyScope
             return null;
         }
 
-        if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+        if (MerchantContext::isPlatformSuperAdmin($user)) {
             return null;
         }
 
         $keyName = $model->getKeyName();
         $parentColumn = $model->getParentIdColumn();
 
+        // 租户收窄：商户用户只能在自己商户内取种子 / 展开子树，
+        // 不能顺着 parent_id 爬到平台超管建的角色或部门上。
+        $tenantId = Tenancy::supports($model) ? (int) ($user->tenant_id ?? 0) : null;
+
+        $seedQuery = $model->newQuery();
+
+        if ($tenantId !== null) {
+            $seedQuery->where(Tenancy::COLUMN, $tenantId);
+        }
+
         // 第一维：归属链上直接创建的节点（不含无主节点）
         $seeds = $this->dataScope
-            ->applyOwnership($model->newQuery(), $user, null, false)
+            ->applyOwnership($seedQuery, $user, null, false)
             ->pluck($keyName)
             ->map(fn ($id) => (int) $id)
             ->all();
 
         // 第二维：这些节点的整棵子树
-        return $this->withDescendants($model, $seeds, $parentColumn);
+        return $this->withDescendants($model, $seeds, $parentColumn, $tenantId);
     }
 
     /**
      * 取种子节点的整棵子树（含种子本身）
      */
-    protected function withDescendants(Model $model, array $ids, string $parentColumn): array
+    protected function withDescendants(Model $model, array $ids, string $parentColumn, ?int $tenantId = null): array
     {
         if (empty($ids)) {
             return [];
@@ -73,7 +83,13 @@ class HierarchyScope
 
         $children = [];
 
-        foreach ($model->newQuery()->select([$keyName, $parentColumn])->get() as $row) {
+        $treeQuery = $model->newQuery()->select([$keyName, $parentColumn]);
+
+        if ($tenantId !== null) {
+            $treeQuery->where(Tenancy::COLUMN, $tenantId);
+        }
+
+        foreach ($treeQuery->get() as $row) {
             $children[(int) $row->getAttribute($parentColumn)][] = (int) $row->getKey();
         }
 

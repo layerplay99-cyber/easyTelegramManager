@@ -27,8 +27,8 @@
                 {{ $t('bots.webhookAutoUse') }}{{ platformWebhookUrl }}
             </div>
         </el-form-item>
-        <!-- 三方上游：仅超级管理员可见/可改（后端也已硬校验） -->
-        <el-form-item v-if="isSuperAdmin" :label="$t('bots.thirdUpstream')" prop="third_config_id">
+        <!-- 新建时只定默认上游；要绑多个上游到列表页「配置上游」里加 -->
+        <el-form-item v-if="isSuperAdmin" :label="$t('bots.defaultUpstream')" prop="third_config_id">
             <el-select
                 v-model="formData.third_config_id"
                 :placeholder="$t('bots.thirdUnspecifiedCreate')"
@@ -46,6 +46,9 @@
             </el-select>
             <div class="text-xs text-gray-500 mt-1">
                 {{ $t('bots.thirdTip') }}
+            </div>
+            <div class="text-xs text-blue-500 mt-1">
+                {{ $t('bots.multiUpstreamTip') }}
             </div>
         </el-form-item>
         <el-form-item :label="$t('bots.description')" prop="description">

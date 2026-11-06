@@ -380,19 +380,20 @@ class WalletService
     /**
      * 该业务由哪个上游承接
      *
-     * 后台在功能配置里选（features.config.upstream_id），
-     * 没有就用功能绑定上的上游，都没有就直接报错——绝不允许"不知道发给谁"还下单。
+     * features.config.upstream_id 是跨机器人共享的全局配置，已废弃；
+     * 上游 id 一律由 UpstreamResolver 解析后传进来（$featureKey 保留是为了
+     * 兼容已有调用点，不再参与解析）。
+     *
+     * 绝不允许"不知道发给谁"还下单。
      */
     public function upstreamFor(string $featureKey, ?int $fallbackThirdConfigId = null): ThirdApiConfig
     {
-        $feature = $this->findFeature($featureKey);
-
-        $id = (int) data_get($feature?->config, 'upstream_id') ?: (int) $fallbackThirdConfigId;
+        $id = (int) $fallbackThirdConfigId;
 
         $upstream = $id > 0 ? ThirdApiConfig::query()->find($id) : null;
 
         if (! $upstream) {
-            throw new \Exception('未配置承接该业务的上游，请在后台「功能列表 → 该功能的配置」里选择上游');
+            throw new \Exception('未配置承接该业务的上游，请在「机器人 → 可绑定上游」与功能绑定里配置');
         }
 
         return $upstream;

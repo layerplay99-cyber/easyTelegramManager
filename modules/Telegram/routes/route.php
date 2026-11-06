@@ -16,8 +16,23 @@ use Modules\Telegram\Http\Controllers\ThirdConfigEndpointsController;
 use Modules\Telegram\Http\Controllers\BotGroupGroupController;
 use Modules\Telegram\Http\Controllers\TelegramApiUserController;
 use Modules\Telegram\Http\Controllers\MessageTemplateController;
+use Modules\Telegram\Http\Controllers\MerchantsController;
+use Modules\Telegram\Http\Controllers\UpstreamBindingController;
 
 Route::prefix('telegram')->group(function(){
+
+	// 平台商户（租户）：只有平台超管能维护
+	Route::apiResource('merchants', MerchantsController::class);
+
+	// 机器人 ↔ 多上游、上游 ↔ 功能
+	Route::get('bots/{id}/upstreams', [UpstreamBindingController::class, 'botUpstreams'])
+		->name('bots.upstreams.index');
+	Route::put('bots/{id}/upstreams', [UpstreamBindingController::class, 'saveBotUpstreams'])
+		->name('bots.upstreams.save');
+	Route::get('third/config/{id}/features', [UpstreamBindingController::class, 'configFeatures'])
+		->name('third-config.features.index');
+	Route::put('third/config/{id}/features', [UpstreamBindingController::class, 'saveConfigFeatures'])
+		->name('third-config.features.save');
 
 	Route::apiResource('phone', PhoneController::class);
 	Route::apiResource('s/can/log', SCanLogController::class);
@@ -42,6 +57,9 @@ Route::prefix('telegram')->group(function(){
     // 命令批量查询：必须注册在 features/{id}/commands 之前，
     // 否则 'features/commands' 会被 {id} 抢先匹配成 feature_id='commands'
     Route::get('features/commands', [FeaturesController::class, 'commands']);
+    // 功能配置弹框的全量元信息（不分页，必须注册在 features/{feature} 之前）
+    Route::get('features/upstream-meta', [UpstreamBindingController::class, 'featureMeta'])
+        ->name('features.upstream-meta');
 
     Route::apiResource('features', FeaturesController::class);
     Route::apiResource('feature/bind', FeatureBindsController::class);
@@ -58,6 +76,13 @@ Route::prefix('telegram')->group(function(){
         'update'  => 'third-config.update',
         'destroy' => 'third-config.destroy',
     ]);
+
+    // 三方入站密钥对：生成时一次性返回明文，吊销后立即失效。
+    // 显式命名避开 route:cache 时的重名（third-config.* 已被 apiResource 占用）。
+    Route::post('third/config/{id}/keys', [ThridConfigController::class, 'generateKeys'])
+        ->name('third-config.keys.generate');
+    Route::delete('third/config/{id}/keys', [ThridConfigController::class, 'revokeKey'])
+        ->name('third-config.keys.revoke');
 
     // 三方接口（从上游配置里拆出来的「接口」层，可被多个功能复用）
     Route::apiResource('third/endpoint', ThirdApiEndpointsController::class);

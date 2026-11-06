@@ -20,6 +20,7 @@
           <Theme />
           <!-- <Notification /> -->
         </div>
+        <Tenant />
         <Profile />
       </div>
     </div>
@@ -31,5 +32,6 @@ import { useAppStore } from '@/stores/modules/app'
 import Notification from './notification.vue'
 import MenuSearch from './menuSearch.vue'
 import Tabs from './tabs.vue'
+import Tenant from './tenant.vue'
 const store = useAppStore()
 </script>

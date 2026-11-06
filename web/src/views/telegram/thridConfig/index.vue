@@ -15,6 +15,19 @@
                 <el-table-column prop="token" :label="$t('third.token')" />
                 <el-table-column prop="public_key" :label="$t('third.publicKey')" />
                 <el-table-column prop="secrept_key" :label="$t('third.secretKey')" />
+                <el-table-column prop="access_key" :label="$t('third.accessKey')" min-width="220" />
+                <el-table-column prop="key_status" :label="$t('third.keyStatus')">
+                    <template #default="scope">
+                        <el-tag v-if="scope.row.key_status === 1" type="success">{{ $t('third.keyActive') }}</el-tag>
+                        <el-tag v-else-if="scope.row.key_status === 2" type="danger">{{ $t('third.keyRevoked') }}</el-tag>
+                        <span v-else>{{ $t('third.keyNone') }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="tenant_id" :label="$t('third.tenant')" width="100">
+                    <template #default="scope">
+                        {{ scope.row.tenant_id || $t('third.platformShared') }}
+                    </template>
+                </el-table-column>
                 <el-table-column prop="created_at" :label="$t('system.createTime')" />
                 <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
                 <el-table-column :label="$t('system.operation')" width="280">

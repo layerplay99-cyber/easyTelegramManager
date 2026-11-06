@@ -6,6 +6,7 @@ use Catch\Middleware\AuthMiddleware;
 use Illuminate\Support\Facades\Route;
 use Modules\Telegram\Http\Controllers\Api\CollectPhoneApiController;
 use Modules\Telegram\Http\Controllers\Api\HookController;
+use Modules\Telegram\Http\Controllers\Api\UpstreamOpenController;
 use Modules\Telegram\Http\Controllers\Api\TelethonEventController;
 use Modules\Telegram\Http\Controllers\Api\WebHookController;
 use Modules\Telegram\Http\Controllers\BotsController;
@@ -114,5 +115,13 @@ Route::prefix('api')->group(function () {
         Route::post('member', [TelethonEventController::class, 'member'])
             ->middleware(['throttle:120,1'])
             ->name('api.telethon.event.member');
+    });
+
+    // 三方 → 平台 的开放接口：按 thirdapi_config 下发的密钥对验签。
+    // 与 validate.apikey（前端 / 内部采集器）并存；webhook/pull、hooks/{token}、
+    // collect/*、tg/user/*、bot/send/group 都不经过这里，群发链路不受影响。
+    Route::prefix('upstream/v1')->middleware(['validate.upstream', 'throttle:120,1'])->group(function () {
+        Route::post('ping', [UpstreamOpenController::class, 'ping'])
+            ->name('api.upstream.ping');
     });
 });

@@ -22,6 +22,7 @@ use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
 use Modules\Telegram\Services\Feature\DriverRegistry;
 use Modules\Telegram\Services\Feature\PlatformEndpointRegistry;
+use Modules\Telegram\Services\Feature\UpstreamResolver;
 use Modules\Telegram\Services\Ocr\OcrManager;
 use Modules\Telegram\Contracts\UpdateIntent;
 
@@ -96,7 +97,31 @@ class FeaturesController extends Controller
             }
 
             if ($request->query('mode') === 'multiple') {
-                $query->select(['id', 'name', 'category']);
+                $query->select([
+                    'id', 'name', 'category', 'description', 'needs_upstream', 'driver',
+                ]);
+
+                // 机器人已经配了可绑定上游时，左侧可选功能收窄为：
+                //   官方 API / 本地功能（永远可选） ∪ 这些上游声明支持的功能。
+                // 候选池为空的历史机器人不做过滤，避免老配置突然全空。
+                if ($request->filled('bot_id')) {
+                    $candidateIds = app(UpstreamResolver::class)->candidateIds((int) $request->input('bot_id'));
+
+                    if ($candidateIds !== []) {
+                        $supported = \Modules\Telegram\Models\ThirdConfigFeature::query()
+                            ->whereIn('third_config_id', $candidateIds)
+                            ->pluck('feature_id')
+                            ->all();
+
+                        $query->where(function ($q) use ($supported) {
+                            $q->where('needs_upstream', false);
+
+                            if ($supported !== []) {
+                                $q->orWhereIn('id', $supported);
+                            }
+                        });
+                    }
+                }
 
                 // 群「配置功能」只能从机器人已分配的功能里挑。
                 // 用 only_assigned=1 + bot_id=X 取白名单，靠前端过滤不保险：
@@ -124,12 +149,36 @@ class FeaturesController extends Controller
             }
 
             return $query;
-        })->getList()->through(function ($feature) {
+        })->getList()->through(function ($feature) use ($request) {
             //附带展示用的中文名：执行器名 + 触发方式名。
             // 由后端直接给出，避免前端再发一次 drivers 请求导致显示英文 key。
             $driverLabels = DriverRegistry::labelMap();
             $feature->driver_label = $driverLabels[$feature->driver] ?? $feature->driver;
             $feature->trigger_label = $feature->trigger;
+
+            if ($request->query('mode') === 'multiple') {
+                $feature->needs_upstream = (bool) $feature->needs_upstream;
+                $feature->upstream_endpoints = \Modules\Telegram\Models\FeatureUpstreamEndpoint::query()
+                    ->where('feature_id', $feature->id)
+                    ->pluck('endpoint_code')
+                    ->values()
+                    ->all();
+
+                $botId = (int) $request->input('bot_id', 0);
+                $allowedIds = ($botId > 0 && $feature->needs_upstream)
+                    ? app(UpstreamResolver::class)->allowedIds($botId, (int) $feature->id)
+                    : [];
+
+                $feature->allowed_config_ids = $allowedIds;
+                $feature->allowed_configs = $allowedIds === []
+                    ? []
+                    : \Modules\Telegram\Models\ThirdApiConfig::query()
+                        ->whereIn('id', $allowedIds)
+                        ->get(['id', 'name'])
+                        ->map(fn ($c) => ['id' => (int) $c->id, 'name' => $c->name])
+                        ->values()
+                        ->all();
+            }
 
             return $feature;
         });

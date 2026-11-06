@@ -66,6 +66,7 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'validate.apikey' => \App\Http\Middleware\ValidateApiKey::class,
+        'validate.upstream' => \App\Http\Middleware\ValidateUpstreamSignature::class,
         'telegram.initdata' => \App\Http\Middleware\ValidateTelegramInitData::class,
     ];
 }

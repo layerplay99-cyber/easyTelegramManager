@@ -5,10 +5,12 @@ import Message from '@/support/message'
 import { FormInstance } from 'element-plus'
 import { AxiosResponse } from 'axios'
 import { isFunction } from '@/support/helper'
+import { getActiveTenantId, isPlatformSuperAdmin } from '@/support/tenant'
 
 // get table list
-export function useCreate(path: string, id: string | number | null = null, _formData: object = {}) {
-  const formData = ref<object>(_formData)
+export function useCreate(path: string, id: string | number | null = null, _formData: Record<string, any> = {}) {
+  // 表单字段是动态的；声明成 object 会让所有 v-model="formData.xxx" 报 TS2339
+  const formData = ref<Record<string, any>>({ ..._formData })
 
   const loading = ref<boolean>()
   const isClose = ref<boolean>(false)
@@ -24,18 +26,31 @@ export function useCreate(path: string, id: string | number | null = null, _form
   function store(path: string, id: string | number | null = null) {
     loading.value = true
     let promise: Promise<AxiosResponse> | null = null
+    const payload: Record<string, any> = { ...(unref(formData) as Record<string, any>) }
+
     if (id) {
       if (isFunction(beforeUpdate.value)) {
         beforeUpdate.value()
       }
 
-      promise = http.put(path + '/' + id, unref(formData))
+      // 编辑不注入归属，避免把已有记录误转移到当前选中的商户
+      promise = http.put(path + '/' + id, payload)
     } else {
       if (isFunction(beforeCreate.value)) {
         beforeCreate.value()
       }
 
-      promise = http.post(path, unref(formData))
+      // 统一注入归属商户：所有后台新建表单都走这个 composable，
+      // 一处生效，不需要每个配置页各加一个下拉。
+      if (isPlatformSuperAdmin()) {
+        const tenantId = getActiveTenantId()
+
+        if (tenantId > 0) {
+          payload.tenant_id = tenantId
+        }
+      }
+
+      promise = http.post(path, payload)
     }
 
     promise

@@ -41,6 +41,12 @@ class ThirdApiConfig extends Model
         'token',
         'public_key',
         'secrept_key',
+        'access_key',
+        'secret_key',
+        'key_status',
+        'key_version',
+        'key_rotated_at',
+        'tenant_id',
         'creator_id',
         'created_at',
         'updated_at',
@@ -54,6 +60,11 @@ class ThirdApiConfig extends Model
         'token',
         'public_key',
         'secrept_key',
+        'access_key',
+        'key_status',
+        'key_version',
+        'key_rotated_at',
+        'tenant_id',
         'created_at',
         'updated_at'
     ];
@@ -104,12 +115,24 @@ class ThirdApiConfig extends Model
         static::deleted(fn($model) => static::refreshCache());
     }
 
+    /**
+     * 平台级配置缓存只放运行必需的非敏感字段
+     *
+     * 原来用 static::all()->toArray()，把 token / public_key / secrept_key /
+     * 加密后的 secret_key 全量写进 Cache::forever，等于在缓存里再放一份凭证。
+     * 这个键没有消费方（各功能按 id 直接查模型），保留它只是兼容
+     * ConfigCacheServiceProvider 的「缺键才重建」判断，因此不做按租户分键，
+     * 只做字段白名单。group_configs 属于群发链路，不动。
+     */
     public static function refreshCache(): void
     {
-        $configs = static::all();
-        $formatted = $configs->mapWithKeys(
-            fn($item) => [$item->id => $item->toArray()]
-        )->toArray();
+        // 只 select 迁移前后都一定存在的列：本方法也会在 saved/deleted 事件里触发，
+        // 加 tenant_id 会让「表已存在但新迁移还没跑」的老库直接 Unknown column，
+        // 连带 catch:migrate 都起不来。
+        $formatted = static::query()
+            ->get(['id', 'name', 'api_url', 'created_at', 'updated_at'])
+            ->mapWithKeys(fn ($item) => [$item->id => $item->toArray()])
+            ->toArray();
 
         Cache::forever('third_api_configs', $formatted);
     }
@@ -134,6 +157,8 @@ class ThirdApiConfig extends Model
     {
         $item->token = self::MASKED_VALUE;
         $item->secrept_key = self::MASKED_VALUE;
+        // 一次性下发的入站密钥：密文也不能出现在 show 响应里
+        $item->secret_key = self::MASKED_VALUE;
 
         return $item;
     }

@@ -82,6 +82,30 @@ class FeatureBindsController extends CatchController
             ], 422);
         }
 
+        // 机器人维度：配了多上游候选池后，每个需上游功能必须明确指定一个
+        // 「属于该机器人 ∩ 该上游支持此功能」的上游；官方 API 功能不许带上游。
+        // 群维度继承机器人的绑定，不在这里重复校验（前端只读展示上游名）。
+        // 候选池还没维护的历史机器人跳过，避免一保存就把老配置全拦死。
+        $botId = (int) ($validated['bot_id'] ?? 0);
+        $resolver = app(\Modules\Telegram\Services\Feature\UpstreamResolver::class);
+
+        if ($chatId === 0 && $botId > 0 && $resolver->candidateIds($botId) !== []) {
+            foreach ($validated['feature_ids'] ?? [] as $item) {
+                try {
+                    $resolver->assertAssignable(
+                        $botId,
+                        (int) $item['feature_id'],
+                        isset($item['third_config_id']) ? (int) $item['third_config_id'] : null
+                    );
+                } catch (\InvalidArgumentException $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $e->getMessage(),
+                    ], 422);
+                }
+            }
+        }
+
         $results = $this->telegramFeatureService->setBindFeature(
             featureBinds: $this->featureBinds,
             validated: $validated,

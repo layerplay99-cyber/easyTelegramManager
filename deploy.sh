@@ -684,6 +684,40 @@ ensure_writable_dirs() {
         && chmod -R ug+rwX $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache"
 }
 
+# APP_KEY 是三方入站密钥（thirdapi_config.secret_key）的唯一解密依赖：
+# 用 Crypt::encryptString() 落库的密文，APP_KEY 一变就全部不可解，
+# 三方请求会大面积 401。指纹落在 storage/app（已 gitignore、部署环境持久），
+# 变更一律拦住部署，必须显式 ALLOW_APP_KEY_ROTATION=1 并重新下发全部密钥。
+verify_app_key() {
+    local fp_file key current stored
+    fp_file="$PROJECT_HOST_DIR/storage/app/app_key.fingerprint"
+    key="$(env_val "$PROJECT_HOST_DIR/.env" APP_KEY)"
+
+    [ -z "$key" ] && return 0
+
+    current="$(printf '%s' "$key" | sha256sum | cut -d' ' -f1)"
+    mkdir -p "$(dirname "$fp_file")"
+
+    if [ ! -f "$fp_file" ]; then
+        printf '%s\n' "$current" > "$fp_file"
+        log "记录 APP_KEY 指纹（后续变更会被拦截）"
+        return 0
+    fi
+
+    stored="$(head -n1 "$fp_file")"
+    [ "$stored" = "$current" ] && return 0
+
+    if [ "${ALLOW_APP_KEY_ROTATION:-0}" = "1" ]; then
+        warn "APP_KEY 已变更：必须重新生成并下发全部三方入站密钥（旧 secret_key 已不可解）"
+        printf '%s\n' "$current" > "$fp_file"
+        return 0
+    fi
+
+    warn "APP_KEY 与上次部署不一致，库内 secret_key 将全部不可解，已停止部署。"
+    warn "先备份旧 APP_KEY，再以 ALLOW_APP_KEY_ROTATION=1 ./deploy.sh ... 重跑，并重新下发所有密钥。"
+    exit 1
+}
+
 # CatchAdmin 安装 / 升级（见 docs/deployment.md 第 3 节）
 #
 # app:install（app/Console/Commands/InstallApp.php）一步到位，内部依次：
@@ -737,6 +771,8 @@ deploy_app() {
         php_exec "php artisan key:generate --force"
     fi
 
+    verify_app_key
+
     log "启动其余容器（queue / queue-ocr / reverb / frontend / telegram-py …）"
     # 若这一步重建了 php，它的内网 IP 会变 → 靠后面的 reload_nginx() 刷新 nginx；
     # 别把 reload 那一步删掉。
@@ -777,6 +813,7 @@ build_frontend() {
 update_app() {
     fetch_code
     ensure_writable_dirs
+    verify_app_key
 
     log "更新依赖"
     php_exec "COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader"

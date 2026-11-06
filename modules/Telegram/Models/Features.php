@@ -54,6 +54,7 @@ class Features extends Model
         'handler',
         'config',
         'enabled',
+        'needs_upstream',
         'creator_id',
         'created_at',
         'updated_at',
@@ -77,6 +78,7 @@ class Features extends Model
         'handler',
         'config',
         'enabled',
+        'needs_upstream',
         'created_at',
         'updated_at'
     ];

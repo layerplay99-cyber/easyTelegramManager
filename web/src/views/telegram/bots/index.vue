@@ -27,25 +27,26 @@
                 <el-table-column prop="api_token" label="Api_Token" />
                 <el-table-column prop="username" :label="$t('bots.username')" />
                 <el-table-column prop="url_token" label="Url-Token" />
-      <!-- 三方上游：仅超级管理员可见/可改（后端也已硬校验） -->
-      <el-table-column v-if="isSuperAdmin" :label="$t('bots.thirdUpstream')" min-width="200">
+      <!-- 三方上游：一个机器人可绑多个上游，默认项用深色 tag 标出 -->
+      <el-table-column v-if="isSuperAdmin" :label="$t('bots.thirdUpstream')" min-width="260">
         <template #default="scope">
-          <el-select
-            v-model="scope.row.third_config_id"
-            :placeholder="$t('bots.thirdUnspecified')"
-            clearable
-            filterable
-            class="w-full"
-            :loading="thirdLoading"
-            @change="(v: any) => saveThirdConfig(scope.row, v)"
-          >
-            <el-option
-              v-for="c in thirdConfigs"
-              :key="c.id"
-              :label="c.name"
-              :value="c.id"
-            />
-          </el-select>
+          <div class="flex items-center gap-1 flex-wrap">
+            <el-tag
+              v-for="id in (scope.row.upstream_ids || [])"
+              :key="id"
+              size="small"
+              :type="id === scope.row.default_upstream_id ? 'success' : 'info'"
+              :effect="id === scope.row.default_upstream_id ? 'dark' : 'plain'"
+            >
+              {{ thirdConfigName(id) }}
+            </el-tag>
+            <span v-if="!(scope.row.upstream_ids || []).length" class="text-gray-400 text-xs">
+              {{ $t('bots.thirdUnspecified') }}
+            </span>
+            <el-button link type="primary" size="small" @click="openUpstreamDialog(scope.row)">
+              {{ $t('bots.configUpstreams') }}
+            </el-button>
+          </div>
         </template>
       </el-table-column>
                 <el-table-column prop="description" :label="$t('bots.description')" />
@@ -141,6 +142,32 @@
                 </el-descriptions>
                 <div v-else class="text-gray-400 text-sm">{{ $t('system.noData') }}</div>
             </div>
+        </el-dialog>
+
+        <!-- 一个机器人同时绑定多个上游（同一个上游公司的不同地址 / 项目） -->
+        <el-dialog v-model="upstreamDialogVisible" :title="$t('bots.configUpstreams')" width="620px">
+            <el-alert type="info" :closable="false" :title="$t('bots.upstreamDialogTip')" class="mb-3" />
+            <el-form label-width="110px">
+                <el-form-item :label="$t('bots.selectUpstreams')">
+                    <el-select v-model="selectedUpstreamIds" multiple filterable collapse-tags collapse-tags-tooltip
+                               class="w-full" :loading="thirdLoading" :placeholder="$t('bots.thirdUnspecified')">
+                        <el-option v-for="c in thirdConfigs" :key="c.id" :label="c.name" :value="c.id" />
+                    </el-select>
+                </el-form-item>
+                <el-form-item :label="$t('bots.defaultUpstream')">
+                    <el-select v-model="defaultUpstreamId" clearable class="w-full"
+                               :placeholder="$t('bots.defaultUpstream')">
+                        <el-option v-for="id in selectedUpstreamIds" :key="id"
+                                   :label="thirdConfigName(id)" :value="id" />
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="upstreamDialogVisible = false">{{ $t('system.cancel') }}</el-button>
+                <el-button type="primary" :loading="upstreamSaving" @click="saveUpstreams">
+                    {{ $t('system.save') }}
+                </el-button>
+            </template>
         </el-dialog>
     </div>
 </template>
@@ -332,20 +359,53 @@ const loadThirdConfigs = async () => {
   }
 }
 
-/**
- * 保存三方上游
- *
- * 走单独的 PUT telegram/bots/{id}/third-config，不能用 PUT telegram/bots/{id}：
- * 那边 BotsRequest 要求 username / api_token 必填，这里只提交一个字段会被
- * 422 拦下（"The username field is required"），表现就是「选了上游保存报错」。
- */
-const saveThirdConfig = async (row: any, value: any) => {
+const thirdConfigName = (id: number): string =>
+  thirdConfigs.value.find((c: any) => c.id === id)?.name || `#${id}`
+
+// ---- 机器人多上游弹框 ----
+const upstreamDialogVisible = ref(false)
+const upstreamSaving = ref(false)
+const currentBotId = ref<number | null>(null)
+const selectedUpstreamIds = ref<number[]>([])
+const defaultUpstreamId = ref<number | null>(null)
+
+const openUpstreamDialog = async (row: any) => {
+  currentBotId.value = row.id
+  selectedUpstreamIds.value = [...(row.upstream_ids || [])]
+  defaultUpstreamId.value = row.default_upstream_id || null
+  upstreamDialogVisible.value = true
+
   try {
-    await useGroup().setBotThirdConfig(row.id, value ?? null)
-    Message.success(t('bots.thirdUpdated'))
+    const { data } = await http.get(`telegram/bots/${row.id}/upstreams`)
+    const d = data?.data
+    if (Array.isArray(d?.selected_ids)) selectedUpstreamIds.value = d.selected_ids
+    if (d?.default_id) defaultUpstreamId.value = d.default_id
   } catch {
-    Message.error(t('system.updateFailed'))
-    search()
+    // 用列表里带的字段兜底，弹框仍可用
+  }
+}
+
+const saveUpstreams = async () => {
+  if (!currentBotId.value) return
+
+  upstreamSaving.value = true
+  try {
+    const { data } = await http.put(`telegram/bots/${currentBotId.value}/upstreams`, {
+      third_config_ids: selectedUpstreamIds.value,
+      default_id: defaultUpstreamId.value
+    })
+
+    if (data?.code === 10000 || data?.status === 'success') {
+      Message.success(t('bots.thirdUpdated'))
+      upstreamDialogVisible.value = false
+      search()
+    } else {
+      Message.error(data?.message || t('system.updateFailed'))
+    }
+  } catch (e: any) {
+    Message.error(e?.response?.data?.message || t('system.updateFailed'))
+  } finally {
+    upstreamSaving.value = false
   }
 }
 

@@ -65,7 +65,8 @@ export const useGroup = defineStore('telegramGroup', () => {
       })
 
       if (!response.ok) {
-        throw new Error(t('system.httpError', { status: response.status }))
+        // t() 只接受一个参数；文案里的 {status} 是字面占位符，自己替换
+        throw new Error(t('system.httpError').replace('{status}', String(response.status)))
       }
 
       const result = await response.json()
@@ -148,7 +149,9 @@ export const useGroup = defineStore('telegramGroup', () => {
     const params = new URLSearchParams({
       mode: 'multiple',
       page: page.toString(),
-      per_page: perPage.toString()
+      // CatchAdmin 的 getList() 读的是 limit，不是 per_page；
+      // 之前写成 per_page 一直被忽略，永远按默认 10 条分页。
+      limit: perPage.toString()
     });
     if (chat_id) {
       params.append('chat_id', chat_id.toString());
@@ -173,7 +176,9 @@ export const useGroup = defineStore('telegramGroup', () => {
   const getBindFeatures = async (chat_id: number|null, bot_id: number|null, page: number = 1, perPage: number = 10): Promise<ApiResponse> => {
     const params = new URLSearchParams({
       page: page.toString(),
-      per_page: perPage.toString()
+      // CatchAdmin 的 getList() 读的是 limit，不是 per_page；
+      // 之前写成 per_page 一直被忽略，永远按默认 10 条分页。
+      limit: perPage.toString()
     });
     if (chat_id) {
       params.append('chat_id', chat_id.toString());

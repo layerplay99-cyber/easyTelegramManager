@@ -35,6 +35,12 @@ class TradeNotify extends BaseCustomFeature
      */
     public const DATA_PREFIX = 't:';
 
+    /** 入站回调验签要用上游密钥，虽不发出站 HTTP，仍属于上游相关功能 */
+    public static function needsUpstream(): bool
+    {
+        return true;
+    }
+
     public static function key(): string
     {
         return 'custom.demo.trade_notify';

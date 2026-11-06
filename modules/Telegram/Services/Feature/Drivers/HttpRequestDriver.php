@@ -231,19 +231,11 @@ class HttpRequestDriver implements FeatureDriver
 
     private function resolveEffectiveThirdConfigId(FeatureContext $context): ?int
     {
-        // 1) 绑定级（最精细）：该(实体,功能)组合指定的上游
-        $bindId = $context->bind?->third_config_id;
-        if ($bindId) {
-            return $bindId;
-        }
+        // 与 BaseCustomFeature / 钱包链路共用同一套解析规则
+        $id = app(\Modules\Telegram\Services\Feature\UpstreamResolver::class)
+            ->resolveId($context->bind, $context->bot);
 
-        // 2) 实体级默认：机器人本身绑定的上游
-        $botId = $context->bot?->third_config_id;
-        if ($botId) {
-            return $botId;
-        }
-
-        return null;
+        return $id > 0 ? $id : null;
     }
 
     /**

@@ -9,9 +9,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Permissions\Support\DataScope;
+use Modules\Telegram\Models\Features;
+use Modules\Telegram\Models\FeatureUpstreamEndpoint;
 use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Models\ThirdConfigEndpoint;
+use Modules\Telegram\Services\Feature\UpstreamResolver;
 
 /**
  * 上游 × 平台接口 的路径映射管理
@@ -42,20 +45,45 @@ class ThirdConfigEndpointsController extends Controller
             return response()->json(['message' => '上游配置不存在'], 404);
         }
 
+        $resolver = app(UpstreamResolver::class);
+
+        // 只列「该上游已绑定功能」实际会调用的接口，不再把全量平台规范一股脑铺开
+        $allowedCodes = $resolver->endpointCodesFor($thirdConfigId);
+        $boundFeatureIds = $resolver->boundFeatureIds($thirdConfigId);
+
+        $boundFeatures = $boundFeatureIds === []
+            ? collect()
+            : Features::query()->whereIn('id', $boundFeatureIds)->get(['id', 'name']);
+
+        $namesById = $boundFeatures->pluck('name', 'id');
+
+        $codeToFeatures = $boundFeatureIds === []
+            ? collect()
+            : FeatureUpstreamEndpoint::query()
+                ->whereIn('feature_id', $boundFeatureIds)
+                ->get()
+                ->groupBy('endpoint_code');
+
         $overrides = ThirdConfigEndpoint::query()
             ->where('third_config_id', $thirdConfigId)
             ->get()
             ->keyBy('endpoint_code');
 
         $endpoints = ThirdApiEndpoints::query()
+            ->whereIn('code', $allowedCodes ?: ['__none__'])
             ->orderBy('code')
             ->get()
-            ->map(function (ThirdApiEndpoints $endpoint) use ($overrides) {
+            ->map(function (ThirdApiEndpoints $endpoint) use ($overrides, $codeToFeatures, $namesById) {
                 $override = $overrides->get($endpoint->code);
 
                 return [
                     'code' => $endpoint->code,
                     'name' => $endpoint->name,
+                    'feature_names' => ($codeToFeatures->get($endpoint->code) ?? collect())
+                        ->map(fn ($row) => $namesById[$row->feature_id] ?? '')
+                        ->filter()
+                        ->values()
+                        ->all(),
                     // 平台默认（回退值）
                     'platform_path' => $endpoint->path_template,
                     'platform_method' => $endpoint->method,
@@ -74,6 +102,7 @@ class ThirdConfigEndpointsController extends Controller
                 'name' => $config->name,
                 'api_url' => $config->api_url,
             ],
+            'bound_features' => $boundFeatures->map(fn ($f) => ['id' => $f->id, 'name' => $f->name])->values()->all(),
             'endpoints' => $endpoints,
         ]);
     }
@@ -106,6 +135,21 @@ class ThirdConfigEndpointsController extends Controller
         ]);
 
         $submitted = collect($validated['endpoints'] ?? []);
+
+        // 后端也要挡：不属于该上游绑定功能的接口不允许写入（防前端绕过）
+        $allowedCodes = app(UpstreamResolver::class)->endpointCodesFor($thirdConfigId);
+        $submittedCodes = $submitted
+            ->map(fn ($item) => trim((string) $item['code']))
+            ->filter()
+            ->all();
+        $invalid = array_values(array_diff($submittedCodes, $allowedCodes));
+
+        if ($invalid !== []) {
+            return response()->json([
+                'message' => '以下接口不属于该上游已绑定的功能：'.implode('、', $invalid),
+            ], 422);
+        }
+
         $creatorId = $this->getLoginUserId();
 
         DB::transaction(function () use ($thirdConfigId, $submitted, $creatorId) {

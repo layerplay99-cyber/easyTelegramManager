@@ -25,6 +25,15 @@ use Modules\Permissions\Models\Departments;
  *
  * 说明：本服务只在有登录用户时生效；命令行 / 队列 / 免登录接口不做任何过滤，
  * 避免在后台任务里把数据过滤掉。
+ *
+ * 租户维度（方案 B）：
+ *  - 平台超管（id = catch.super_admin 且 tenant_id = 0）看全部；
+ *  - 归属本商户（tenant_id = 当前商户）的数据直接可见，不再叠 creator_id 归属链，
+ *    否则超管代商户配的数据（creator_id = 超管 id）商户永远看不到；
+ *  - 平台共享数据（tenant_id = 0）只对 SHARED_TABLES 里的规范 / 字典表开放，
+ *    且继续按 creator_id 归属链 + 角色 data_range 收窄；
+ *  - 平台侧非超管用户（tenant_id = 0）沿用原归属链，且只能看 tenant_id = 0；
+ *  - 无登录态一律放行，机器人群发 / 队列按 bot_id、chat_id 精确定位，不受影响。
  */
 class DataScope
 {
@@ -255,24 +264,28 @@ class DataScope
             return true;
         }
 
-        if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+        if (MerchantContext::isPlatformSuperAdmin($user)) {
             return true;
         }
 
-        $userIds = $this->visibleCreatorIds($user);
+        if (Tenancy::supports($model)) {
+            $tenantId = (int) ($user->tenant_id ?? 0);
+            $recordTenant = (int) ($model->getAttribute(Tenancy::COLUMN) ?? 0);
 
-        if ($userIds === null) {
-            return true;
+            // 归属本商户的数据：靠 tenant_id 表达归属，不再叠 creator_id
+            if ($recordTenant === $tenantId) {
+                return true;
+            }
+
+            // 平台数据：本平台用户按归属链；商户用户只见共享字典表
+            if ($recordTenant === 0 && ($tenantId === 0 || Tenancy::sharedVisible($model))) {
+                return $this->creatorVisible($model, $user);
+            }
+
+            return false;
         }
 
-        $creatorId = $model->getAttribute('creator_id');
-
-        // 无主数据（creator_id 为空 / 0）是否可见由配置决定
-        if (empty($creatorId)) {
-            return (bool) config('catch.data_scope_include_unowned', true);
-        }
-
-        return in_array((int) $creatorId, $userIds, true);
+        return $this->creatorVisible($model, $user);
     }
 
     /**
@@ -337,15 +350,58 @@ class DataScope
             return $query->whereRaw('1 = 0');
         }
 
-        $userIds = $this->visibleCreatorIds($user);
-
-        if ($userIds === null) {
+        if (MerchantContext::isPlatformSuperAdmin($user)) {
             return $query;
         }
 
         $field = $field ?: 'creator_id';
+        $model = method_exists($query, 'getModel') ? $query->getModel() : null;
 
-        return $query->where(function ($query) use ($userIds, $field) {
+        // 表还没有 tenant_id（迁移未跑 / 非业务表）时，沿用原来的归属链规则
+        if (! Tenancy::supports($model)) {
+            return $query->where(function ($query) use ($user, $field) {
+                $this->creatorWhere($query, $this->visibleCreatorIds($user), $field);
+            });
+        }
+
+        $tenantId = (int) ($user->tenant_id ?? 0);
+        $userIds = $this->visibleCreatorIds($user);
+
+        // 平台侧非超管：只看平台数据，且继续按归属链 / data_range 收窄
+        if ($tenantId === 0) {
+            return $query->where(function ($query) use ($userIds, $field) {
+                $query->where(Tenancy::COLUMN, 0);
+                $query->where(function ($nested) use ($userIds, $field) {
+                    $this->creatorWhere($nested, $userIds, $field);
+                });
+            });
+        }
+
+        // 商户用户：本商户数据 + 可共享的平台字典数据
+        return $query->where(function ($query) use ($tenantId, $userIds, $field, $model) {
+            $query->where(Tenancy::COLUMN, $tenantId);
+
+            if (Tenancy::sharedVisible($model)) {
+                $query->orWhere(function ($shared) use ($userIds, $field) {
+                    $shared->where(Tenancy::COLUMN, 0);
+                    $shared->where(function ($nested) use ($userIds, $field) {
+                        $this->creatorWhere($nested, $userIds, $field);
+                    });
+                });
+            }
+        });
+    }
+
+    /**
+     * creator_id 归属链 / data_range 条件（userIds 为 null 表示不限制）
+     */
+    protected function creatorWhere(mixed $query, ?array $userIds, string $field): void
+    {
+        if ($userIds === null) {
+            return;
+        }
+
+        $query->where(function ($query) use ($userIds, $field) {
             $query->whereIn($field, $userIds);
 
             // 历史 / 系统数据没有归属人，默认仍然可见（可由 config/catch.php 关闭）
@@ -356,11 +412,32 @@ class DataScope
     }
 
     /**
+     * 单条记录的 creator_id 可见性
+     */
+    protected function creatorVisible(Model $model, mixed $user): bool
+    {
+        $userIds = $this->visibleCreatorIds($user);
+
+        if ($userIds === null) {
+            return true;
+        }
+
+        $creatorId = $model->getAttribute('creator_id');
+
+        if (empty($creatorId)) {
+            return (bool) config('catch.data_scope_include_unowned', true);
+        }
+
+        return in_array((int) $creatorId, $userIds, true);
+    }
+
+    /**
      * 清空单次请求内的缓存
      */
     public function flush(): void
     {
         static::$cache = [];
+        Tenancy::flush();
     }
 
     /**

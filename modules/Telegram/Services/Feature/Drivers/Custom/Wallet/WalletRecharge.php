@@ -23,6 +23,12 @@ class WalletRecharge extends AbstractWalletFeature
         return 'wallet.recharge';
     }
 
+    /** 接口规范在 UpstreamWalletGateway 里，不实现 EndpointProvider，需显式声明 */
+    public static function upstreamEndpoints(): array
+    {
+        return ['wallet.recharge.create', 'wallet.recharge.query'];
+    }
+
     public static function label(): string
     {
         return '钱包·充值';

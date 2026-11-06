@@ -37,9 +37,16 @@ class ConfigCacheServiceProvider extends CatchModuleServiceProvider
         }
     }
 
+    /**
+     * 与 ThirdApiConfig::refreshCache() 保持同一份字段白名单：
+     * 缓存里绝不出现 token / public_key / secrept_key / secret_key。
+     */
     protected function cacheThirdApiConfigs(): void
     {
-        $configs = ThirdApiConfig::all();
+        // 与 ThirdApiConfig::refreshCache() 一样，别在 provider 启动阶段
+        // 引用新迁移才加的列，否则老库跑 artisan（含 migrate）会直接 Unknown column。
+        $configs = ThirdApiConfig::query()
+            ->get(['id', 'name', 'api_url', 'created_at', 'updated_at']);
         $formatted = $configs->mapWithKeys(function ($item) {
             return [$item->id => $item->toArray()];
         })->toArray();

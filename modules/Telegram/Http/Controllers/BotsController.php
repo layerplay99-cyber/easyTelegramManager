@@ -46,7 +46,16 @@ class BotsController extends Controller
     public function index(): mixed
     {
         // 数据范围由 Bots 模型的 DataRange trait 自动生效
-        return $this->model->getList();
+        return $this->model->getList()->through(function ($bot) {
+            $rows = \Modules\Telegram\Models\BotThirdConfig::query()
+                ->where('bot_id', $bot->id)
+                ->get();
+
+            $bot->upstream_ids = $rows->pluck('third_config_id')->map(fn ($v) => (int) $v)->all();
+            $bot->default_upstream_id = (int) ($rows->firstWhere('is_default', true)?->third_config_id ?? 0);
+
+            return $bot;
+        });
     }
 
     /**
@@ -111,7 +120,11 @@ class BotsController extends Controller
         // updateBy → filterData 会把 null 转成空串，MySQL 直接报
         // 1366 Incorrect integer value，整个编辑表单一个字都存不进去。
         if ($request->has('third_config_id')) {
-            $bot->forceFill(['third_config_id' => $request->input('third_config_id') ?: null])->save();
+            app(\Modules\Telegram\Services\Feature\UpstreamResolver::class)->setDefault(
+                (int) $bot->id,
+                (int) ($request->input('third_config_id') ?: 0),
+                (int) ($bot->tenant_id ?? 0)
+            );
 
             return $this->model->updateBy($id, $request->except('third_config_id'));
         }
@@ -167,7 +180,14 @@ class BotsController extends Controller
             ], 404);
         }
 
-        $bot->forceFill(['third_config_id' => $thirdConfigId === '' ? null : $thirdConfigId])->save();
+        // 旧入口也要同步 bot_third_configs，否则多上游候选池会被这列镜像覆盖掉
+        app(\Modules\Telegram\Services\Feature\UpstreamResolver::class)->setDefault(
+            (int) $bot->id,
+            (int) ($thirdConfigId === '' ? 0 : $thirdConfigId),
+            (int) ($bot->tenant_id ?? 0)
+        );
+
+        $bot->refresh();
 
         return response()->json([
             'status' => 'success',

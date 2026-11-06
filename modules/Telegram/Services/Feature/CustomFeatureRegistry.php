@@ -6,6 +6,7 @@ namespace Modules\Telegram\Services\Feature;
 
 use Illuminate\Support\Facades\File;
 use Modules\Telegram\Models\FeatureCommands;
+use Modules\Telegram\Models\FeatureUpstreamEndpoint;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
 
@@ -97,6 +98,9 @@ class CustomFeatureRegistry
                 'trigger' => $class::triggerName(),
                 'driver' => $class::driver(),
                 'commands' => array_column($class::commands(), 'command'),
+                // 上游能力声明变了也要重新同步，否则后台列表永远显示旧的 needs_upstream
+                'needs_upstream' => $class::needsUpstream(),
+                'upstream_endpoints' => $class::upstreamEndpoints(),
             ];
         }
 
@@ -122,6 +126,8 @@ class CustomFeatureRegistry
             foreach ($class::commands() as $command) {
                 $this->syncCommand($feature->id, $command);
             }
+
+            $this->syncUpstreamEndpoints($feature->id, $class::upstreamEndpoints());
         }
 
         return $synced;
@@ -161,6 +167,7 @@ class CustomFeatureRegistry
             'trigger' => $class::triggerName(),
             'feature' => $key,
             'description' => $class::featureDescription(),
+            'needs_upstream' => $class::needsUpstream(),
             // handler 留空：执行走 driver，不依赖类名字符串
             'handler' => '',
         ];
@@ -210,6 +217,29 @@ class CustomFeatureRegistry
     }
 
     /**
+     * 同步「功能 → 平台接口」映射
+     *
+     * 后台「上游接口配置」靠这张表把接口列表收窄到该上游绑定功能所能用到的范围。
+     * 每次同步按代码声明整份替换，功能删掉后不留孤儿接口。
+     */
+    protected function syncUpstreamEndpoints(int $featureId, array $codes): void
+    {
+        $codes = array_values(array_unique(array_filter($codes, 'is_string')));
+
+        FeatureUpstreamEndpoint::query()
+            ->where('feature_id', $featureId)
+            ->whereNotIn('endpoint_code', $codes ?: ['__none__'])
+            ->delete();
+
+        foreach ($codes as $code) {
+            FeatureUpstreamEndpoint::query()->firstOrCreate([
+                'feature_id' => $featureId,
+                'endpoint_code' => $code,
+            ]);
+        }
+    }
+
+    /**
      * 后台展示用：所有自定义功能的定义
      */
     public function definitions(): array
@@ -228,6 +258,8 @@ class CustomFeatureRegistry
                 'config_schema' => $class::configSchema(),
                 'commands' => $class::commands(),
                 'default_config' => $class::defaultConfig(),
+                'needs_upstream' => $class::needsUpstream(),
+                'upstream_endpoints' => $class::upstreamEndpoints(),
             ];
         }
 

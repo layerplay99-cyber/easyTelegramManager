@@ -9,11 +9,12 @@ const initTotal = 10
 
 // get table list
 export function useGetList(path: string, isPaginate: boolean = true) {
-  const data = ref<object>()
+  // 查询条件 / 响应体字段都是动态的，声明成 object 会让所有 query.xxx、data.xxx 报 TS2339
+  const data = ref<Record<string, any>>()
   const page = ref<number>(initPage)
   const limit = ref<number>(initLimit)
   const total = ref<number>(initTotal)
-  const query = ref<object>({})
+  const query = ref<Record<string, any>>({})
   if (isPaginate) {
     query.value = Object.assign({
       page: page.value,

@@ -13,6 +13,7 @@ use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Services\Feature\FeatureDataStore;
 use Modules\Telegram\Services\Feature\TemplateRenderer;
 use Modules\Telegram\Services\Feature\ThirdEndpointResolver;
+use Modules\Telegram\Services\Feature\UpstreamResolver;
 
 /**
  * 自定义功能基类
@@ -85,6 +86,36 @@ abstract class BaseCustomFeature implements FeatureDriver
     // ------------------------------------------------------------------
     // 必填：开发者实现
     // ------------------------------------------------------------------
+
+    // ------------------------------------------------------------------
+    // 上游能力声明（可选覆写，供 CustomFeatureRegistry 同步到库）
+    // ------------------------------------------------------------------
+
+    /**
+     * 本功能会调用哪些平台接口 code
+     *
+     * 实现 EndpointProvider 的功能自动从 endpoints() 派生；钱包功能走
+     * UpstreamWalletGateway（不实现该接口），需要自己覆写本方法。
+     */
+    public static function upstreamEndpoints(): array
+    {
+        if (in_array(\Modules\Telegram\Contracts\EndpointProvider::class, class_implements(static::class) ?: [], true)) {
+            return array_values(array_keys(static::endpoints()));
+        }
+
+        return [];
+    }
+
+    /**
+     * 是否需要交互上游。
+     *
+     * false = 官方 Telegram API / 纯本地功能（群发、私聊、踢人、本地钱包查询…），
+     * 后台「上游绑定功能」不允许勾选，功能绑定也不能给它指定上游。
+     */
+    public static function needsUpstream(): bool
+    {
+        return static::upstreamEndpoints() !== [];
+    }
 
     /**
      * 功能名称（后台显示）
@@ -310,22 +341,19 @@ abstract class BaseCustomFeature implements FeatureDriver
             return ['_error' => "平台接口不存在：{$endpointCode}"];
         }
 
-        // 上游优先级：功能配置（后台在该功能配置里选的「承接上游」）
-        //             > 绑定级（(实体,功能)）> 实体级默认（机器人）
-        //
-        // 与 WalletService::upstreamFor() 保持一致：后台显式选的优先。
-        // 功能配置为空时退回后面两级，所以没配过的功能行为完全不变。
-        //
-        // 注意：features.config 是全局的（功能本身全局唯一），这里选的上游对所有
-        // 用这个功能的用户生效；要按用户分开，就在该功能绑定上单独指定上游。
-        $thirdConfigId = ($context ? $context->config('upstream_id') : null)
-            ?: ($context?->bind?->third_config_id ?? null)
-            ?: ($context?->bot?->third_config_id ?? null);
+        // 上游解析统一走 UpstreamResolver：
+        //   绑定级（该功能绑定的具体上游）> 机器人候选池里的默认上游。
+        // 候选池有值时，绑定/镜像里指定的上游必须属于该机器人，防止串到别人的上游。
+        // features.config.upstream_id 是跨机器人共享的全局配置，已废弃。
+        $thirdConfigId = app(UpstreamResolver::class)->resolveId(
+            $context?->bind,
+            $context?->bot
+        );
 
-        $third = $thirdConfigId ? ThirdApiConfig::query()->find($thirdConfigId) : null;
+        $third = $thirdConfigId > 0 ? ThirdApiConfig::query()->find($thirdConfigId) : null;
 
         if (! $third) {
-            return ['_error' => '尚未指定三方上游：请在该功能的配置里选择「承接上游」，或在功能绑定 / 机器人列表的上游列设置'];
+            return ['_error' => '尚未指定三方上游：请在「机器人 → 可绑定上游」里配置，并在功能绑定上指定承接上游'];
         }
 
         // 取「该上游 + 该接口」最终生效的配置：上游专属路径优先，回退平台默认

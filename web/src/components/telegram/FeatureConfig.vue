@@ -1,6 +1,6 @@
 <template>
     <!-- 功能配置对话框 -->
-    <el-dialog v-model="visible" :title="dialogTitle" width="900px" destroy-on-close @close="handleClose">
+    <el-dialog v-model="visible" :title="dialogTitle" width="1200px" destroy-on-close @close="handleClose">
         <div v-loading="loading">
             <!-- 群维度：说明「只能从机器人分配的功能里挑」 -->
             <el-alert
@@ -8,40 +8,38 @@
                 type="info"
                 :closable="false"
                 show-icon
-                class="mb-4"
+                class="mb-3"
                 :title="$t('featureConfig.groupScopeTitle')"
                 :description="$t('featureConfig.groupScopeTip')"
             />
 
+            <!-- 顶部筛选 -->
+            <div class="flex items-center gap-3 mb-3">
+                <el-input v-model="keyword" :placeholder="$t('featureConfig.searchFeature')" clearable class="w-64" />
+                <el-checkbox v-model="onlyUpstream">{{ $t('featureConfig.onlyUpstream') }}</el-checkbox>
+                <span class="text-xs text-gray-400 ml-auto">{{ $t('featureConfig.upstreamHint') }}</span>
+            </div>
+
             <div class="flex gap-4">
                 <!-- 左侧：未配置功能 -->
-                <div class="flex-1 border rounded p-4 flex flex-col" style="height: 450px;">
-                    <div class="text-lg font-semibold mb-4">{{ $t('featureConfig.unconfigured') }}</div>
+                <div class="flex-1 border rounded p-4 flex flex-col" style="height: 520px;">
+                    <div class="text-lg font-semibold mb-3">{{ $t('featureConfig.unconfigured') }}</div>
                     <div class="flex-1 overflow-y-auto space-y-2">
                         <div
-                            v-for="feature in availableFeatures"
+                            v-for="feature in filteredAvailable"
                             :key="feature.id"
-                            class="flex items-center justify-between p-3 border rounded hover:bg-gray-50 cursor-pointer"
+                            class="p-3 border rounded hover:bg-gray-50 cursor-pointer"
+                            @click="handleAddFeature(feature)"
                         >
-                            <div>
-                                <div class="font-medium">{{ feature.name }}</div>
-                                <div class="text-sm text-gray-500">{{ getCategoryText(feature.category) }}</div>
-                            </div>
-                            <el-button
-                                type="primary"
-                                size="small"
-                                @click="handleAddFeature(feature)"
-                            >
-                                {{ $t('system.add') }}
-                            </el-button>
+                            <FeatureRow :feature="feature" :category-text="getCategoryText(feature.category)" />
                         </div>
-                        <div v-if="availableFeatures.length === 0" class="text-center text-gray-400 py-8">
+                        <div v-if="filteredAvailable.length === 0" class="text-center text-gray-400 py-8">
                             {{ noAvailableText }}
                         </div>
                     </div>
                     <el-pagination
                         v-if="availableTotal > 0"
-                        class="mt-4"
+                        class="mt-3"
                         layout="prev, pager, next"
                         :total="availableTotal"
                         :page-size="availablePageSize"
@@ -51,20 +49,20 @@
                 </div>
 
                 <!-- 右侧：已配置功能 -->
-                <div class="flex-1 border rounded p-4 flex flex-col" style="height: 450px;">
-                    <div class="text-lg font-semibold mb-4">{{ $t('featureConfig.configured') }}</div>
+                <div class="flex-1 border rounded p-4 flex flex-col" style="height: 520px;">
+                    <div class="text-lg font-semibold mb-3">{{ $t('featureConfig.configured') }}</div>
                     <div class="flex-1 overflow-y-auto space-y-2">
                         <div
                             v-for="feature in selectedFeatures"
                             :key="feature.id"
                             class="p-3 border rounded"
+                            :class="{ 'border-red-300 bg-red-50/40': upstreamMissing(feature) }"
                         >
-                            <div class="flex items-center justify-between">
-                                <div class="flex-1">
-                                    <div class="font-medium">{{ feature.name }}</div>
-                                    <div class="text-sm text-gray-500">{{ getCategoryText(feature.category) }}</div>
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <FeatureRow :feature="feature" :category-text="getCategoryText(feature.category)" />
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 shrink-0">
                                     <el-switch
                                         v-model="feature.enable"
                                         :active-value="1"
@@ -72,55 +70,51 @@
                                         :active-text="$t('system.on')"
                                         :inactive-text="$t('system.off')"
                                     />
-                                    <el-button
-                                        type="danger"
-                                        size="small"
-                                        link
-                                        @click="handleRemoveFeature(feature)"
-                                    >
+                                    <el-button type="danger" size="small" link @click="handleRemoveFeature(feature)">
                                         {{ $t('featureConfig.remove') }}
                                     </el-button>
                                 </div>
                             </div>
 
-                            <!--
-                                机器人维度可以给单个功能单独指定上游。
-                                留空 = 用机器人列表那一列的兜底上游；
-                                选了 = 这个功能走另一个上游（比如 A 功能走甲、B 功能走乙）。
-                                群维度不给：群的上游统一随机器人，再让群自己挑会把串单和账单搞乱。
-                            -->
-                            <div v-if="scope === 'bot'" class="mt-2">
+                            <!-- 上游标记：绑定了哪个上游要一眼看得见 -->
+                            <div v-if="feature.needs_upstream" class="mt-2 flex items-center gap-2 flex-wrap">
+                                <el-tag v-if="feature.third_config_id" type="success" size="small" effect="dark">
+                                    {{ upstreamName(feature.third_config_id) }}
+                                </el-tag>
+                                <el-tag v-else type="danger" size="small" effect="plain">
+                                    {{ $t('featureConfig.upstreamMissing') }}
+                                </el-tag>
+
+                                <!-- 机器人维度可指定；群维度只读继承，避免群里挑错上游串账 -->
                                 <el-select
+                                    v-if="scope === 'bot'"
                                     v-model="feature.third_config_id"
-                                    :placeholder="$t('featureConfig.followBotUpstream')"
+                                    :placeholder="$t('featureConfig.selectUpstream')"
                                     clearable
                                     filterable
                                     size="small"
-                                    class="w-full"
-                                    :loading="upstreamLoading"
+                                    class="w-64"
                                 >
                                     <el-option
-                                        v-for="c in upstreamOptions"
+                                        v-for="c in allowedConfigsOf(feature)"
                                         :key="c.id"
                                         :label="c.name"
                                         :value="c.id"
                                     />
                                 </el-select>
+                                <span v-if="scope === 'bot' && allowedConfigsOf(feature).length === 0"
+                                      class="text-xs text-orange-500">
+                                    {{ $t('featureConfig.noCandidateUpstream') }}
+                                </span>
+                            </div>
+                            <div v-else class="mt-2">
+                                <el-tag type="info" size="small" effect="plain">{{ $t('featureConfig.officialApi') }}</el-tag>
                             </div>
                         </div>
                         <div v-if="selectedFeatures.length === 0" class="text-center text-gray-400 py-8">
                             {{ $t('featureConfig.noConfigured') }}
                         </div>
                     </div>
-                    <el-pagination
-                        v-if="selectedTotal > 0"
-                        class="mt-4"
-                        layout="prev, pager, next"
-                        :total="selectedTotal"
-                        :page-size="selectedPageSize"
-                        v-model:current-page="selectedPage"
-                        small
-                    />
                 </div>
             </div>
         </div>
@@ -137,11 +131,55 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue'
+import { computed, defineComponent, h, ref, watch } from 'vue'
 import { useGroup } from '@/stores/modules/telegram/group'
 import Message from '@/support/message'
 import http from '@/support/http'
 import { t } from '@/support/helper'
+
+/** 一条功能卡片：名称 / 分类 / 上游标记 / 描述 / 接口 code / 命令 */
+const FeatureRow = defineComponent({
+    props: {
+        feature: { type: Object, required: true },
+        categoryText: { type: String, default: '' }
+    },
+    setup(props) {
+        return () => {
+            const f: any = props.feature
+            const tags = [
+                h('span', { class: 'text-xs text-gray-500' }, props.categoryText || f.category),
+                f.needs_upstream
+                    ? h('span', { class: 'text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700' }, t('featureConfig.needsUpstream'))
+                    : h('span', { class: 'text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600' }, t('featureConfig.officialApi'))
+            ]
+
+            if (Array.isArray(f.commands) && f.commands.length) {
+                tags.push(...f.commands.slice(0, 3).map((c: any) =>
+                    h('code', { class: 'text-xs px-1 bg-blue-50 text-blue-700 rounded' }, typeof c === 'string' ? c : c.command)
+                ))
+            }
+
+            const children: any[] = [
+                h('div', { class: 'font-medium' }, f.name),
+                h('div', { class: 'flex items-center gap-1.5 flex-wrap mt-1' }, tags)
+            ]
+
+            if (f.description) {
+                children.push(h('div', {
+                    class: 'text-xs text-gray-500 mt-1 truncate',
+                    title: f.description
+                }, f.description))
+            }
+
+            if (Array.isArray(f.upstream_endpoints) && f.upstream_endpoints.length) {
+                children.push(h('div', { class: 'text-xs text-gray-400 mt-1 truncate' },
+                    `${t('featureConfig.endpoints')}: ${f.upstream_endpoints.join(', ')}`))
+            }
+
+            return h('div', { class: 'min-w-0' }, children)
+        }
+    }
+})
 
 interface Props {
     modelValue: boolean
@@ -149,11 +187,6 @@ interface Props {
     category?: string
     botId: number | null
     initialFeatures?: any[]
-    /**
-     * 作用维度
-     *   bot   = 给机器人分配可用功能（白名单），chat_id 记 0
-     *   group = 群从机器人白名单里挑自己要用的，chat_id 记群 ID
-     */
     scope?: 'bot' | 'group'
     dialogTitle?: string
 }
@@ -170,7 +203,6 @@ const emit = defineEmits<{
     (e: 'saved'): void
 }>()
 
-// 类型映射
 const categoryMap: Record<string, string> = {
     'system': t('feature.categories.system'),
     'custom': t('feature.categories.custom'),
@@ -181,102 +213,120 @@ const categoryMap: Record<string, string> = {
 const visible = ref(false)
 const loading = ref(false)
 const saving = ref(false)
+const keyword = ref('')
+const onlyUpstream = ref(false)
 
-const availableFeatures = ref<Array<{ id: number; name: string; category: string }>>([])
-const selectedFeatures = ref<Array<{
+type FeatureItem = {
     id: number
     name: string
     category: string
+    description?: string
+    needs_upstream: boolean
+    upstream_endpoints?: string[]
+    commands?: any[]
+    allowed_configs?: Array<{ id: number; name: string }>
     enable: number
     third_config_id: number | null
-}>>([])
+}
 
-// 上游候选：机器人维度可以让单个功能单独走某个上游（留空 = 跟随机器人兜底那个）
+const availableFeatures = ref<FeatureItem[]>([])
+const selectedFeatures = ref<FeatureItem[]>([])
+const featureMeta = ref<Record<number, any>>({})
 const upstreamOptions = ref<Array<{ id: number; name: string }>>([])
-const upstreamLoading = ref(false)
-
-/**
- * 上游 id 归一化成 number | null
- *
- * 不能直接 Number(value) 判断：Number(null) === 0，
- * 会话树上没配上游（null）会被算成 id=0，下拉显示成一个 "0"，
- * 保存时又把 0 写进 third_config_id，指向一个不存在的上游。
- */
-const normalizeUpstreamId = (value: any): number | null => {
-    if (value === null || value === undefined || value === '') return null
-
-    const n = Number(value)
-
-    return Number.isFinite(n) && n > 0 ? n : null
-}
-
-const loadUpstreams = async () => {
-    // 群维度用不到
-    if (props.scope !== 'bot' || upstreamOptions.value.length) return
-
-    try {
-        upstreamLoading.value = true
-        const { data } = await http.get('telegram/third/config')
-        const list = Array.isArray(data?.data?.data) ? data.data.data : data?.data
-        upstreamOptions.value = Array.isArray(list) ? list : []
-    } catch {
-        upstreamOptions.value = []
-    } finally {
-        upstreamLoading.value = false
-    }
-}
 
 const availablePage = ref(1)
 const availablePageSize = ref(10)
 const availableTotal = ref(0)
 
-const selectedPage = ref(1)
-const selectedPageSize = ref(10)
-const selectedTotal = ref(0)
-
 const dialogTitle = computed(() =>
     props.dialogTitle || (props.scope === 'group' ? t('featureConfig.titleForGroup') : t('featureConfig.title'))
 )
-
 const noAvailableText = computed(() =>
-    props.scope === 'group'
-        ? t('featureConfig.noAvailableForGroup')
-        : t('featureConfig.noAvailable')
+    props.scope === 'group' ? t('featureConfig.noAvailableForGroup') : t('featureConfig.noAvailable')
 )
 
-// 监听modelValue变化
+const filteredAvailable = computed(() => availableFeatures.value.filter(f => {
+    if (onlyUpstream.value && !f.needs_upstream) return false
+    if (keyword.value && !`${f.name} ${f.description || ''}`.toLowerCase().includes(keyword.value.toLowerCase())) return false
+    return true
+}))
+
 watch(() => props.modelValue, (newVal) => {
     visible.value = newVal
     if (newVal && (props.targetId || props.botId)) {
         loadData()
     }
 })
+watch(visible, (newVal) => emit('update:modelValue', newVal))
+watch(availablePage, () => { if (visible.value) loadAvailableFeatures(availablePage.value) })
 
-watch(visible, (newVal) => {
-    emit('update:modelValue', newVal)
-})
+const getCategoryText = (category: string): string => categoryMap[category] || category
 
-// 监听可用功能分页变化
-watch(availablePage, () => {
-    if (visible.value) {
-        loadAvailableFeatures(availablePage.value)
-    }
-})
-
-// 获取类型文本
-const getCategoryText = (category: string): string => {
-    return categoryMap[category] || category
+const normalizeUpstreamId = (value: any): number | null => {
+    if (value === null || value === undefined || value === '') return null
+    const n = Number(value)
+    return Number.isFinite(n) && n > 0 ? n : null
 }
 
-// 加载可选功能列表
-//
-// 群维度只拉「机器人已分配」的那几个：机器人没分配的功能，群不该看到，
-// 也不该被配进去（后端同样按 bot_id 过滤，这里只是让界面不误导人）。
+const withMeta = (f: any): FeatureItem => {
+    const meta = featureMeta.value[Number(f.id)] || {}
+    return {
+        id: Number(f.id),
+        name: f.name || meta.name || '',
+        category: f.category || meta.category || '',
+        description: f.description ?? meta.description ?? '',
+        needs_upstream: Boolean(f.needs_upstream ?? meta.needs_upstream ?? false),
+        upstream_endpoints: f.upstream_endpoints ?? meta.upstream_endpoints ?? [],
+        commands: f.commands ?? meta.commands ?? [],
+        allowed_configs: f.allowed_configs ?? meta.allowed_configs ?? [],
+        enable: f.enable ?? 1,
+        third_config_id: normalizeUpstreamId(f.third_config_id)
+    }
+}
+
+const upstreamName = (id: number | null): string =>
+    upstreamOptions.value.find(c => c.id === id)?.name || `#${id}`
+
+const allowedConfigsOf = (f: FeatureItem): Array<{ id: number; name: string }> =>
+    f.allowed_configs || []
+
+const upstreamMissing = (f: FeatureItem): boolean =>
+    props.scope === 'bot' && Boolean(f.needs_upstream) && !f.third_config_id
+
+/** 全量功能元信息：右侧「已配置」来自 initialFeatures，本身没有 needs_upstream 等字段 */
+const loadFeatureMeta = async () => {
+    try {
+        const r = await http.get('telegram/features/upstream-meta', {
+            bot_id: props.botId || undefined
+        })
+        const payload = r.data?.data
+        const list = Array.isArray(payload?.features) ? payload.features : []
+        const map: Record<number, any> = {}
+        list.forEach((f: any) => { map[Number(f.id)] = f })
+        featureMeta.value = map
+    } catch {
+        featureMeta.value = {}
+    }
+}
+
+/** 上游候选只取「机器人已绑定的上游」，不再把全平台上游都列出来 */
+const loadUpstreams = async () => {
+    if (!props.botId) {
+        upstreamOptions.value = []
+        return
+    }
+    try {
+        const r = await http.get(`telegram/bots/${props.botId}/upstreams`)
+        const payload = r.data?.data
+        upstreamOptions.value = Array.isArray(payload?.configs) ? payload.configs : []
+    } catch {
+        upstreamOptions.value = []
+    }
+}
+
 const loadAvailableFeatures = async (page: number = 1) => {
     try {
-        // 已经在右边「已配置」里的，左边不再列出来
         const excludeIds = selectedFeatures.value.map(f => f.id)
-
         const response = await useGroup().getMultipleFeatures(
             page,
             availablePageSize.value,
@@ -289,15 +339,12 @@ const loadAvailableFeatures = async (page: number = 1) => {
 
         if (response && response.data) {
             let list = Array.isArray(response.data) ? response.data : []
-            // 机器人维度不展示「真人」类功能（真人功能只供客服号使用）
             if (props.category !== 'realMan') {
                 list = list.filter((f: any) => f.category !== 'realMan')
             }
-            availableFeatures.value = list
-            availableTotal.value = response.total || 0
+            availableFeatures.value = list.map(withMeta)
+            availableTotal.value = (response as any)?.total || 0
 
-            // 排除项会让最后一页整页空掉（比如 11 个功能、每页 10 条、第 2 页被排空），
-            // 这时退回上一页，否则用户看到的是空列表以为没数据了。
             if (list.length === 0 && page > 1) {
                 availablePage.value = page - 1
                 return loadAvailableFeatures(page - 1)
@@ -308,35 +355,26 @@ const loadAvailableFeatures = async (page: number = 1) => {
     }
 }
 
-// 加载数据
 const loadData = async () => {
     if (!props.targetId && !props.botId) return
 
     loading.value = true
     availablePage.value = 1
-    selectedPage.value = 1
+    keyword.value = ''
+    onlyUpstream.value = false
 
     try {
-        // 已选功能由调用方传入（机器人列表/群列表各自拉好后传进来）
-        if (props.initialFeatures && props.initialFeatures.length > 0) {
-            // 接口里 enabled 是 bool（模型做了 cast），而开关是 1/0。
-            // 直接把 true/false 塞给 :active-value="1" 的开关，它会认为当前值
-            // 既不是激活值也不是关闭值，于是随手把状态改成 0 ——
-            // 结果就是「打开配置页 → 什么都不动 → 保存」，原本开着的功能全被关掉。
-            selectedFeatures.value = props.initialFeatures.map((bind: any) => ({
-                id: bind.feature_id,
-                name: bind.feature?.name || '',
-                category: bind.feature?.category || '',
-                enable: bind.enabled ? 1 : 0,
-                third_config_id: normalizeUpstreamId(bind.third_config_id)
-            }))
-            selectedTotal.value = props.initialFeatures.length
-        } else {
-            selectedFeatures.value = []
-            selectedTotal.value = 0
-        }
+        await Promise.all([loadFeatureMeta(), loadUpstreams()])
 
-        await Promise.all([loadAvailableFeatures(1), loadUpstreams()])
+        selectedFeatures.value = (props.initialFeatures || []).map((bind: any) => withMeta({
+            id: bind.feature_id,
+            name: bind.feature?.name || '',
+            category: bind.feature?.category || '',
+            enable: bind.enabled ? 1 : 0,
+            third_config_id: bind.third_config_id
+        }))
+
+        await loadAvailableFeatures(1)
     } catch (error) {
         console.error('获取功能列表失败:', error)
     } finally {
@@ -344,52 +382,37 @@ const loadData = async () => {
     }
 }
 
-// 添加功能（本地操作）
-const handleAddFeature = (feature: any) => {
-    // 挡一下重复：左边列表是异步刷新的，手快连点两次同一个「新增」
-    // 右边会多出一条一样的（v-for 的 key 还撞车），保存时被 keyBy 吃掉了，
-    // 但用户看到的就是「明明加了两条，只存进去一条」。
+const handleAddFeature = (feature: FeatureItem) => {
     if (selectedFeatures.value.some(f => f.id === feature.id)) return
-
-    selectedFeatures.value.push({
-        ...feature,
-        enable: 1,
-        third_config_id: null
-    })
-    selectedTotal.value = selectedFeatures.value.length
-
+    selectedFeatures.value.push(withMeta({ ...feature, enable: 1, third_config_id: null }))
     loadAvailableFeatures(availablePage.value)
 }
 
-// 移除功能（本地操作）
-const handleRemoveFeature = (feature: any) => {
+const handleRemoveFeature = (feature: FeatureItem) => {
     selectedFeatures.value = selectedFeatures.value.filter(f => f.id !== feature.id)
-    selectedTotal.value = selectedFeatures.value.length
-
     loadAvailableFeatures(availablePage.value)
 }
 
-// 保存配置
-//
-// 整份提交：前端把「这个实体最终该有哪几个功能」一次性传过去，
-// 后端按 (bot_id, chat_id) 做整存整取，没出现在列表里的就删掉。
-// 上游不再逐条选 —— 统一用机器人自己的上游（机器人列表那一列）。
 const handleSave = async () => {
     if (!props.targetId && !props.botId) return
+    if (props.scope === 'group' && !props.botId) return
 
-    // 群维度必须带机器人：没有归属就无从判断「这个群能用哪些」
-    if (props.scope === 'group' && !props.botId) {
-        return
+    // 机器人维度：配了多上游候选池的功能必须指定上游，否则运行期会报「未配置上游」
+    if (props.scope === 'bot' && upstreamOptions.value.length > 0) {
+        const missing = selectedFeatures.value.find(upstreamMissing)
+        if (missing) {
+            Message.error(`${missing.name}: ${t('featureConfig.upstreamMissing')}`)
+            return
+        }
     }
 
     saving.value = true
-
     try {
         const featureIds = selectedFeatures.value.map(f => ({
             feature_id: f.id,
             enable: f.enable,
-            // 跟着机器人走就传 null，别把群维度的字段带出去
-            third_config_id: props.scope === 'bot' ? (f.third_config_id || null) : null
+            // 官方 API / 本地功能一律不带上游；群维度继承机器人绑定
+            third_config_id: props.scope === 'bot' && f.needs_upstream ? (f.third_config_id || null) : null
         }))
 
         const response = await useGroup().setBindFeatures(
@@ -398,11 +421,7 @@ const handleSave = async () => {
             featureIds as any
         )
 
-        // 后台统一返回 {code, message, data}，没有 success 字段：
-        // 原来只判 response.success（永远是 undefined），保存成功也会静默什么都不做。
         if ((response as any)?.code === 10000 || (response as any)?.success) {
-            // 保存后必须告诉用户一声：以前静默关掉弹窗，
-            // 网络一抖看起来跟成功一模一样。
             Message.success(response.message || t('featureConfig.saved'))
             emit('saved')
             handleClose()
@@ -414,8 +433,5 @@ const handleSave = async () => {
     }
 }
 
-// 关闭对话框
-const handleClose = () => {
-    visible.value = false
-}
+const handleClose = () => { visible.value = false }
 </script>

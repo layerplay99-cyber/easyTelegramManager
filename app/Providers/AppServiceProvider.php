@@ -3,11 +3,14 @@
 namespace App\Providers;
 
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
+use Modules\Permissions\Support\MerchantContext;
+use Modules\Permissions\Support\Tenancy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,7 +42,68 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->protectCreatorIdOnUpdate();
+        $this->assignTenantIdOnCreate();
+        $this->protectTenantIdOnUpdate();
         //$this->listenSql();
+    }
+
+    /**
+     * 新建记录时统一写 tenant_id
+     *
+     * 走全局 creating 事件而不是改 40 多张表的模型 $fillable：
+     * BaseOperate::filterData() 会丢掉不在 fillable / form 里的字段，
+     * 逐个模型补 fillable 只要漏一个，那条数据就静默变成 0（平台共享）。
+     * 这里按 Tenancy::TABLES 白名单统一注入，super admin 的「归属商户」由
+     * MerchantContext::forCreate() 从原始 request 读取，同样不受 filterData 影响。
+     *
+     * 无登录态（CLI / 队列 / webhook）一律写 0，与改造前的行为一致。
+     */
+    private function assignTenantIdOnCreate(): void
+    {
+        Event::listen('eloquent.creating: *', function (string $event, array $models): void {
+            foreach ($models as $model) {
+                if (! $model instanceof Model || ! Tenancy::supports($model)) {
+                    continue;
+                }
+
+                $current = $model->getAttribute(Tenancy::COLUMN);
+
+                // 调用方已显式指定（forceFill / create 带值）时以它为准
+                if ($current !== null && (int) $current !== 0) {
+                    continue;
+                }
+
+                $model->setAttribute(Tenancy::COLUMN, MerchantContext::forCreate());
+            }
+        });
+    }
+
+    /**
+     * 编辑时保护归属，只有平台超管能转移
+     *
+     * 与 creator_id 的保护同理：不能因为一次编辑就把数据改到别的商户名下。
+     */
+    private function protectTenantIdOnUpdate(): void
+    {
+        Event::listen('eloquent.updating: *', function (string $event, array $models): void {
+            foreach ($models as $model) {
+                if (! $model instanceof Model || ! Tenancy::supports($model)) {
+                    continue;
+                }
+
+                $transfer = MerchantContext::requestedTransfer();
+
+                if ($transfer !== null) {
+                    $model->setAttribute(Tenancy::COLUMN, $transfer);
+
+                    continue;
+                }
+
+                if ($model->isDirty(Tenancy::COLUMN)) {
+                    $model->setAttribute(Tenancy::COLUMN, $model->getOriginal(Tenancy::COLUMN) ?? 0);
+                }
+            }
+        });
     }
 
     /**

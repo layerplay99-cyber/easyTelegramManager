@@ -717,3 +717,86 @@ sudo systemctl reload nginx
 - [ ] `docker compose ps` 里 `tgbot-php` / `tgbot-frontend` / `tgbot-queue` / `tgbot-reverb` / `tgbot-telethon` 全部 Up
 - [ ] 旧的 `tgbot-telegram` 容器**未运行**（默认在 `madeline-legacy` profile 里），避免事件双处理
 - [ ] `curl http://telegram-py:8081/health` 返回 `{"ok":true}`（在 stack 网络内）
+
+---
+
+## 12. 商户（租户）与三方入站密钥
+
+### 12.1 迁移
+
+`2026_11_06_000001_create_merchants_and_tenant_columns.php` 会建 `merchants` 表、给 `users` / `roles` / `departments` / `jobs` 与全部 Telegram 业务表加 `tenant_id`、给 `thirdapi_config` 加密钥对字段。走模块迁移：
+
+```
+php artisan catch:migrate telegram --force
+php artisan optimize:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache
+```
+
+新加了后台路由（`telegram/merchants`、`third/config/{id}/keys`）和中间件别名，**部署时必须重跑整套缓存命令**，否则 `route_not_found_or_register`。
+
+### 12.2 归属约定
+
+- `tenant_id = 0`：平台侧 / 共享；`tenant_id = X` 指向 `merchants.id`。
+- 现有 `merchant_id` / `mid` 是**上游业务商户号字符串**，与租户 id 无关，不要混用。
+- 平台超管（`id = catch.super_admin` 且 `tenant_id = 0`）看全部；商户用户只看自己租户的数据，平台共享数据仅对 `Tenancy::SHARED_TABLES` 里的规范 / 字典表（`features`、`third_api_endpoints`、`exchange_rates`、`emojis`）开放。
+- 创建记录时 `tenant_id` 由 `AppServiceProvider` 的 `eloquent.creating` 钩子按 `MerchantContext` 统一写入；商户用户强制继承自己的租户，平台超管可用请求参数 `tenant_id` 指定归属。编辑时归属受保护，只有平台超管能转移。
+- **无登录态（队列 / CLI / 群发）不做租户过滤**，与改造前一致：群发任务按 `bot_id` / `chat_id` 精确定位，不做全表扫描。
+- 存量数据一律回填 `tenant_id = 0`，不需要按 `creator_id` 推断归属。
+
+### 12.3 创建商户与商户超管
+
+```
+php artisan merchant:create "商户A" a001 --username=a_admin --email=a@example.com --password=xxxx
+```
+
+商户超管的**角色**由平台超管在后台分配，命令不代分配。平台超管在后台顶栏「归属商户」下拉选中商户后，之后所有新建的配置表单都会自动带上 `tenant_id`；不选即建平台共享数据。
+
+### 12.4 密钥与 `APP_KEY`
+
+- 密钥对绑定在 `thirdapi_config` 一行（= 一个上游），在「三方 API 配置」编辑弹窗里生成 / 吊销。
+- `secret_key` 用 `Crypt::encryptString()`（Laravel `APP_KEY`）加密入库，**明文只在生成响应里出现一次**，列表 / 详情只给掩码；`third_api_configs` 缓存已排除全部凭证字段。
+- ⚠️ **`APP_KEY` 变更会让所有 `secret_key` 不可解**：上线前备份 `APP_KEY`；变更时必须通知全部三方重新生成密钥。`deploy.sh` 的 `verify_app_key()` 会把指纹记在 `storage/app/app_key.fingerprint`，不一致就停止部署；确需轮换时先备份旧值，再以 `ALLOW_APP_KEY_ROTATION=1 ./deploy.sh app` 重跑，并重新下发所有密钥。
+- 旧的 `token` / `public_key` / `secrept_key` 是「我方 → 上游」方向的凭证，仍在用，**不要删**。
+
+### 12.5 签名与挂载范围
+
+- 中间件别名 `validate.upstream`，当前挂在 `POST /api/upstream/v1/ping`（接入自检）。后续需要加密处理的三方接口统一放 `api/upstream/v1` 分组。
+- 请求头：`X-Access-Key`、`X-Timestamp`（Unix 秒，±300s）、`X-Nonce`（≤64，`[A-Za-z0-9_-]`）、`X-Signature`（HMAC-SHA256 小写 hex）。
+- 待签串：`METHOD\nPATH?SORTED_QUERY\nTIMESTAMP\nNONCE\nBODY_SHA256`；`PATH` 用 `getPathInfo()`，query 按 key 升序且键值 `rawurlencode`，`BODY_SHA256` 是原始 body 的 sha256 小写 hex（GET 用空串的 sha256）。验签通过后才用 `Cache::add` 原子占用 nonce（600s）。
+- **不挂**：`/api/webhook/pull`（Telegram secret_token）、`/api/hooks/{token}`（已有 per-hook `CallbackSigner`）、miniapp initData、`telegram/events/*`、`collect/*`、`tg/user/*`、`api/bot/send/group`、所有后台登录态接口。
+- `ValidateApiKey`（`EXTERNAL_API_KEY`，前端 / 内部采集器）原样保留，与新体系并存。
+
+### 12.6 上线检查补充
+
+- [ ] `catch:migrate telegram` 已执行，`merchants` 表与全部业务表都有 `tenant_id`
+- [ ] `APP_KEY` 已备份并纳入部署校验
+- [ ] 新增后台路由 / 中间件后已重跑 `route:cache`（`php artisan route:list` 能看到 `third-config.keys.generate` 与 `api.upstream.ping`）
+- [ ] 群发回归：`sendToGroup`、队列、回执、进度、日志与改造前一致
+
+---
+
+## 13. 一个机器人绑定多个上游
+
+同一个上游公司可能有多个地址对应不同项目，因此机器人不再只有一个上游。
+
+**三层关系**
+
+| 层 | 表 | 含义 |
+|---|---|---|
+| 候选池 | `bot_third_configs` | 机器人 ↔ 多个上游，`is_default` 给没指定上游的调用兜底 |
+| 能力声明 | `third_config_features` | 上游 ↔ 功能，只允许声明 `needs_upstream=1` 的功能 |
+| 具体落点 | `features_binds.third_config_id` | 每个功能在「机器人绑定的上游 ∩ 声明支持该功能的上游」里指定一个 |
+
+`bots.third_config_id` 保留为**默认上游镜像**，由 `UpstreamResolver::setDefault()/syncBotConfigs()` 同步维护；群发等原本只读这列的链路不用改。
+
+**`needs_upstream` 由代码声明，不是人工勾选**：`BaseCustomFeature::upstreamEndpoints()`（实现 `EndpointProvider` 的功能自动从 `endpoints()` 派生，钱包功能手工声明）→ `telegram:sync-features` 写入 `features.needs_upstream` 与 `feature_upstream_endpoints`。群发 / 私聊 / 踢人 / @ / 快捷回复 / 表情采集 / 本地钱包余额与账单等 9 个功能标记为不需要上游，后台「上游绑定功能」的候选里根本不出现，后端保存时也会二次拒绝。
+
+**配置顺序**：先在「三方配置」里给上游绑定功能 → 再到「上游接口配置」配这些功能对应的接口路径（页面只显示绑定功能用到的 code，后端 `save()` 同样按白名单校验）→ 在机器人列表「配置上游」里绑定多个上游并指定默认 → 最后在「功能配置」弹框里给需上游的功能指定承接上游。未绑定功能的上游接口列表为空，属正常提示。
+
+**运行时**统一走 `UpstreamResolver::resolveId()`：绑定级上游 > 机器人候选池默认上游；指定的上游不属于该机器人时返回 0（不静默串到别人的上游）。`features.config.upstream_id` 跨机器人共享，已废弃。候选池为空的历史机器人不做校验，存量配置不会失效。
+
+**上线检查补充**
+
+- [ ] `catch:migrate telegram` 已执行，迁移里的回填把原 `bots.third_config_id` 写进了 `bot_third_configs`
+- [ ] 部署后跑过 `php artisan telegram:sync-features`（否则 `needs_upstream` 与功能→接口映射不会更新）
+- [ ] 新增 5 条路由后重跑 `route:cache`（`features/upstream-meta` 必须注册在 `features/{feature}` 之前）
+- [ ] 机器人列表能看到多个上游 tag 与默认项标记；功能配置弹框里需上游功能显示上游名、官方 API 功能不出现上游下拉

@@ -40,6 +40,18 @@
             base_url：{{ currentConfig.api_url }}
           </span>
         </el-form-item>
+
+        <!-- 只显示该上游已绑定功能对应的接口；没绑功能就给明确的引导 -->
+        <el-form-item :label="$t('third.boundFeatures')">
+          <div class="flex items-center gap-1 flex-wrap">
+            <el-tag v-for="f in boundFeatures" :key="f.id" size="small" type="success" effect="plain">
+              {{ f.name }}
+            </el-tag>
+            <span v-if="!boundFeatures.length" class="text-orange-500 text-sm">
+              {{ $t('third.noBoundFeatures') }}
+            </span>
+          </div>
+        </el-form-item>
       </el-card>
     </div>
 
@@ -48,6 +60,13 @@
       <el-table :data="endpoints" v-loading="loading" border>
         <el-table-column prop="name" :label="$t('third.name')" min-width="140" />
         <el-table-column prop="code" :label="$t('third.platformCode')" min-width="150" />
+        <el-table-column :label="$t('third.boundFeatures')" min-width="160">
+          <template #default="scope">
+            <el-tag v-for="n in (scope.row.feature_names || [])" :key="n" size="small" class="mr-1">
+              {{ n }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('third.platformDefaultPath')" min-width="200">
           <template #default="scope">
             <span class="text-gray-500">{{ scope.row.platform_path }}</span>
@@ -116,6 +135,7 @@ const route = useRoute()
 
 const configs = ref<any[]>([])
 const endpoints = ref<any[]>([])
+const boundFeatures = ref<Array<{ id: number; name: string }>>([])
 const loading = ref(false)
 const saving = ref(false)
 const configId = ref<number | null>(null)
@@ -156,9 +176,11 @@ const loadEndpoints = async () => {
     const payload = res?.data ?? res ?? {}
     currentConfig.value = payload.third_config ?? null
     endpoints.value = Array.isArray(payload.endpoints) ? payload.endpoints : []
+    boundFeatures.value = Array.isArray(payload.bound_features) ? payload.bound_features : []
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || t('third.loadFailed'))
     endpoints.value = []
+    boundFeatures.value = []
   } finally {
     loading.value = false
   }

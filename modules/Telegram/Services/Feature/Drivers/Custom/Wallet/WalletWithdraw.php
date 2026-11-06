@@ -22,6 +22,12 @@ class WalletWithdraw extends AbstractWalletFeature
         return 'wallet.withdraw';
     }
 
+    /** 接口规范在 UpstreamWalletGateway 里，不实现 EndpointProvider，需显式声明 */
+    public static function upstreamEndpoints(): array
+    {
+        return ['wallet.withdraw.create', 'wallet.withdraw.query'];
+    }
+
     public static function label(): string
     {
         return '钱包·提现';

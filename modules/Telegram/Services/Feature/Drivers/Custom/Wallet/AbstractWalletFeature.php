@@ -57,14 +57,8 @@ abstract class AbstractWalletFeature extends BaseCustomFeature
     public static function configSchema(): array
     {
         return [
-            [
-                'key' => 'upstream_id',
-                'label' => '承接上游',
-                'type' => 'select',
-                'source' => 'third_api_configs',
-                'required' => true,
-                'hint' => '充值/提现由哪个上游承接；该上游的拉单、查单 API 在「上游接口配置」里配',
-            ],
+            // 「承接上游」已移到「机器人 → 可绑定上游」+ 功能绑定里按功能指定，
+            // features.config.upstream_id 跨机器人共享会导致串账，已废弃。
             [
                 'key' => 'currency',
                 'label' => '币种',
@@ -106,9 +100,12 @@ abstract class AbstractWalletFeature extends BaseCustomFeature
      */
     protected function upstream(FeatureContext $context): ThirdApiConfig
     {
+        $id = app(\Modules\Telegram\Services\Feature\UpstreamResolver::class)
+            ->resolveId($context->bind, $context->bot);
+
         return app(WalletService::class)->upstreamFor(
             'custom:' . static::uuid(),
-            (int) ($context->bind?->third_config_id ?: $context->bot?->third_config_id ?: 0)
+            $id > 0 ? $id : null
         );
     }
 

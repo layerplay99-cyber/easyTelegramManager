@@ -65,6 +65,7 @@ declare module 'vue' {
     SwitchColumn: typeof import('./src/components/catchTable/components/switchColumn/index.vue')['default']
     Tabs: typeof import('./src/layout/components/header/tabs.vue')['default']
     Tcolumns: typeof import('./src/components/catchTable/tcolumns.vue')['default']
+    Tenant: typeof import('./src/layout/components/header/tenant.vue')['default']
     Theme: typeof import('./src/layout/components/header/theme.vue')['default']
     Title: typeof import('./src/components/catchForm/components/Title/Title.vue')['default']
     Transfer: typeof import('./src/components/catchForm/components/Transfer/Transfer.vue')['default']

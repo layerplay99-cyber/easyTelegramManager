@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Seeder
 {
@@ -12,9 +13,46 @@ return new class extends Seeder
      */
     public function run(): void
     {
-        $menus = $this->menus();
+        $menus = $this->alignExistingMarks($this->menus());
 
         importTreeData($menus, 'permissions');
+    }
+
+    /**
+     * 把 permission_mark 对齐到库中已有的同路由菜单，保证 seed 幂等。
+     *
+     * ⚠️ importTreeData() 的查重键是 permission_name + module + permission_mark，
+     * 不包含 route。老库里「功能列表 / 三方配置 / 群分组 / 群列表」的 mark 是
+     * 历史值（features / thridConfig / botGroupGroup / botGroups），而本 seeder
+     * 用 route 当 mark（funs / tconf / groupgroups / groups）。三键不一致时
+     * helper 会认为「不存在」并再插一条，后台侧边栏就出现同名菜单两份。
+     *
+     * 导入前按 module + route + type 找到库里已存在的记录（同路由多条时取 id
+     * 最小的旧记录），把待导入节点的 mark 对齐成它的 mark，既让查重必然命中，
+     * 又不用把历史命名硬编码进 seeder；全新库没有已有记录时保持原值。
+     */
+    private function alignExistingMarks(array $menus): array
+    {
+        foreach ($menus as &$menu) {
+            $existing = DB::table('permissions')
+                ->where('module', $menu['module'])
+                ->where('route', $menu['route'])
+                ->where('type', $menu['type'])
+                ->orderBy('id')
+                ->first();
+
+            $mark = $existing ? (string) ($existing->permission_mark ?? '') : null;
+            if ($mark !== null && $mark !== (string) ($menu['permission_mark'] ?? '')) {
+                $menu['permission_mark'] = $mark;
+            }
+
+            if (! empty($menu['children'])) {
+                $menu['children'] = $this->alignExistingMarks($menu['children']);
+            }
+        }
+        unset($menu);
+
+        return $menus;
     }
 
     /**

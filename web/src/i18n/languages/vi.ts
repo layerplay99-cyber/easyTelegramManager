@@ -132,7 +132,7 @@ const vi = {
     '/platform/merchants': 'Quản lý merchant',
     '/help': 'Trợ giúp',
     '/help/quickstart': 'Bắt đầu nhanh',
-    '/help/features': 'Tính năng',
+    '/help/features': 'Hướng dẫn thao tác',
     '/permission/users': 'Quản trị viên',
     '/cms': 'Quản lý nội dung',
     '/cms/articles': 'Bài viết',

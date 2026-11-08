@@ -132,7 +132,7 @@ const th = {
     '/platform/merchants': 'จัดการผู้ค้า',
     '/help': 'ช่วยเหลือ',
     '/help/quickstart': 'เริ่มต้นใช้งาน',
-    '/help/features': 'รายการฟังก์ชัน',
+    '/help/features': 'คู่มือการใช้งาน',
     '/permission/users': 'ผู้ดูแลระบบ',
     '/cms': 'การจัดการเนื้อหา',
     '/cms/articles': 'บทความ',

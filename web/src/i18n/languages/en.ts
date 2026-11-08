@@ -132,7 +132,7 @@ const en = {
     '/platform/merchants': 'Merchants',
     '/help': 'Help',
     '/help/quickstart': 'Quick Start',
-    '/help/features': 'Features',
+    '/help/features': 'Operation Guide',
     '/permission/users': 'Admin Users',
     '/cms': 'Content Management',
     '/cms/articles': 'Articles',

@@ -240,6 +240,9 @@ return new class extends Seeder
                 'updated_at'      => $now,
                 'deleted_at'      => 0,
                 'children'        => [
+                    // 注意：permission_name 不要改。importTreeData 的查重键是
+                    // permission_name + module + permission_mark，改名会让旧记录查重不命中、
+                    // 重复插出一份菜单。侧边栏显示名走 i18n 的 menu./help/features，改那里即可。
                     $page('快速上手', 'quickstart', '/telegram/help/quickstart.vue', 'light-bulb', 1),
                     $page('功能说明', 'features', '/telegram/help/features.vue', 'squares-2x2', 2),
                 ],

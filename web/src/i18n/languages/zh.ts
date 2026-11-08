@@ -132,7 +132,7 @@ const zh = {
     '/platform/merchants': '商户管理',
     '/help': '使用帮助',
     '/help/quickstart': '快速上手',
-    '/help/features': '功能说明',
+    '/help/features': '操作指南',
     '/permission/users': '管理员列表',
     '/cms': '内容管理',
     '/cms/articles': '文章',

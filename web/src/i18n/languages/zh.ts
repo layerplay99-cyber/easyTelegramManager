@@ -128,6 +128,8 @@ const zh = {
     '/wallet/walletRisk': '风控中心',
     '/wallet/walletLimit': '交易限额',
     '/wallet/walletRate': '汇率',
+    '/platform': '平台管理',
+    '/platform/merchants': '商户管理',
     '/permission/users': '管理员列表',
     '/cms': '内容管理',
     '/cms/articles': '文章',
@@ -345,6 +347,23 @@ const zh = {
 
   emoji: {
     path: '表情路径'
+  },
+
+  merchant: {
+    scopeLabel: '归属商户',
+    manageTip: '管理商户',
+    noMerchant: '暂无商户，请到「平台管理 → 商户管理」创建',
+    tip: '商户是数据隔离单位。新建配置时，先在顶栏「归属商户」选中商户，之后创建的数据才归该商户；不选则建为平台共享数据。已有数据的商户不能删除。',
+    name: '商户名称',
+    nameRequired: '请输入商户名称',
+    code: '商户短码',
+    codeRequired: '请输入商户短码',
+    codePlaceholder: '如 a001',
+    codeTip: '平台内部唯一标识，只允许字母、数字、下划线和短横线；与上游商户号无关。',
+    contact: '联系人',
+    accountTip: '这里只定义数据归属。账号请到「管理员列表」创建，在那里指定归属商户、商户超管标记并分配角色。',
+    adminFlag: '商户超管',
+    adminFlagTip: '仅作标识；实际可见范围仍由角色与数据权限决定。',
   },
 
   third: {

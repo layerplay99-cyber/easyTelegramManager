@@ -45,17 +45,18 @@ class MerchantCreate extends Command
         $username = (string) ($this->option('username') ?? '');
 
         if ($username !== '') {
-            $user = User::query()->create([
-                'username' => $username,
-                'email' => (string) ($this->option('email') ?? ''),
-                'password' => (string) ($this->option('password') ?? ''),
-                'creator_id' => (int) config('catch.super_admin'),
-            ]);
-
+            // 必须一次 save 写完 tenant_id：先 create 再 forceFill()->save() 会触发
+            // protectTenantIdOnUpdate，把归属还原成 creating 钩子写入的 0。
+            $user = new User();
             $user->forceFill([
-                'tenant_id' => $merchant->id,
-                'is_merchant_admin' => true,
-            ])->save();
+                'username'          => $username,
+                'email'             => (string) ($this->option('email') ?? ''),
+                'password'          => (string) ($this->option('password') ?? ''),
+                'creator_id'        => (int) config('catch.super_admin'),
+                'tenant_id'         => $merchant->id,
+                'is_merchant_admin' => 1,
+            ]);
+            $user->save();
 
             $this->info('商户超管已创建：id=' . $user->id . '（请在后台为其分配角色）');
         }

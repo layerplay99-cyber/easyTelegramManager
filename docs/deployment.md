@@ -742,13 +742,19 @@ php artisan optimize:clear && php artisan config:cache && php artisan route:cach
 - **无登录态（队列 / CLI / 群发）不做租户过滤**，与改造前一致：群发任务按 `bot_id` / `chat_id` 精确定位，不做全表扫描。
 - 存量数据一律回填 `tenant_id = 0`，不需要按 `creator_id` 推断归属。
 
-### 12.3 创建商户与商户超管
+### 12.3 创建商户与商户账号
+
+商户在后台「平台管理 → 商户管理」创建（名称、短码、联系人、状态），命令行只作批量初始化兜底：
 
 ```
 php artisan merchant:create "商户A" a001 --username=a_admin --email=a@example.com --password=xxxx
 ```
 
-商户超管的**角色**由平台超管在后台分配，命令不代分配。平台超管在后台顶栏「归属商户」下拉选中商户后，之后所有新建的配置表单都会自动带上 `tenant_id`；不选即建平台共享数据。
+**账号统一在「管理员列表」创建/编辑**：平台超管可在表单里显式指定「归属商户」、勾选「商户超管」，并和角色一起配完。别建了账号却漏配角色 —— `withPermissions()` 对无角色用户返回空权限，登录后侧边栏会是空的；命令行的 `--username` 等参数同样需要事后补角色。
+
+`is_merchant_admin` 目前只是标识字段：`DataScope` / 权限判断仍按角色与 `creator_id` 归属链，实际可见范围由角色决定。归属字段只有平台超管能显式指定，商户用户即使伪造 `tenant_id` 也会被 `User::filterData()` 丢掉，由 `AppServiceProvider` 按登录态强制继承自己的租户。
+
+平台超管在后台顶栏「归属商户」下拉选中商户后，之后所有新建表单都会自动带上 `tenant_id`；表单里显式选了归属（含「平台共享」= 0）时以表单为准，不选即建平台共享数据。
 
 ### 12.4 密钥与 `APP_KEY`
 

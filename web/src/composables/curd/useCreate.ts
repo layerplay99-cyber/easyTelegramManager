@@ -42,7 +42,9 @@ export function useCreate(path: string, id: string | number | null = null, _form
 
       // 统一注入归属商户：所有后台新建表单都走这个 composable，
       // 一处生效，不需要每个配置页各加一个下拉。
-      if (isPlatformSuperAdmin()) {
+      // 表单显式给了 tenant_id（含「平台共享」= 0）时以表单为准，
+      // 否则才按顶栏选中值兜底 —— 管理员列表的归属下拉不能被顶栏覆盖。
+      if (isPlatformSuperAdmin() && payload.tenant_id === undefined) {
         const tenantId = getActiveTenantId()
 
         if (tenantId > 0) {

@@ -23,9 +23,9 @@
                         <span v-else>{{ $t('third.keyNone') }}</span>
                     </template>
                 </el-table-column>
-                <el-table-column prop="tenant_id" :label="$t('third.tenant')" width="100">
+                <el-table-column :label="$t('third.tenant')" width="140">
                     <template #default="scope">
-                        {{ scope.row.tenant_id || $t('third.platformShared') }}
+                        {{ merchantName(scope.row.tenant_id) }}
                     </template>
                 </el-table-column>
                 <el-table-column prop="created_at" :label="$t('system.createTime')" />
@@ -55,6 +55,7 @@ import Create from './create.vue'
 import { useGetList } from '@/composables/curd/useGetList'
 import { useDestroy } from '@/composables/curd/useDestroy'
 import { useOpen } from '@/composables/curd/useOpen'
+import { loadMerchantOptions, merchantName } from '@/support/tenant'
 import { useRouter } from 'vue-router'
 
 const api = 'telegram/third/config'
@@ -75,6 +76,7 @@ const { open, close, title, visible, id } = useOpen()
 const tableData = computed(() => data.value?.data)
 
 onMounted(() => {
+    loadMerchantOptions()
     search()
     deleted(reset)
 })

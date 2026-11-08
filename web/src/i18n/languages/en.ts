@@ -128,6 +128,8 @@ const en = {
     '/wallet/walletRisk': 'Risk Control',
     '/wallet/walletLimit': 'Transaction Limits',
     '/wallet/walletRate': 'Exchange Rates',
+    '/platform': 'Platform',
+    '/platform/merchants': 'Merchants',
     '/permission/users': 'Admin Users',
     '/cms': 'Content Management',
     '/cms/articles': 'Articles',
@@ -344,6 +346,23 @@ const en = {
 
   emoji: {
     path: 'Emoji Path'
+  },
+
+  merchant: {
+    scopeLabel: 'Merchant',
+    manageTip: 'Manage merchants',
+    noMerchant: 'No merchants yet. Create one under Platform → Merchants.',
+    tip: 'Merchants are the tenant boundary. Select a merchant in the top bar before creating records; otherwise they are created as platform-shared data. Merchants with existing data cannot be deleted.',
+    name: 'Merchant name',
+    nameRequired: 'Merchant name is required',
+    code: 'Merchant code',
+    codeRequired: 'Merchant code is required',
+    codePlaceholder: 'e.g. a001',
+    codeTip: 'Unique internal identifier (letters, digits, underscore, hyphen). Not related to the upstream merchant ID.',
+    contact: 'Contact',
+    accountTip: 'Merchants only define data ownership. Create accounts in Admin Users, where the merchant, merchant-admin flag and roles are set together.',
+    adminFlag: 'Merchant admin',
+    adminFlagTip: 'Marker only; actual visibility is still governed by roles and data scope.',
   },
 
   third: {

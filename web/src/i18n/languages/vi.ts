@@ -128,6 +128,8 @@ const vi = {
     '/wallet/walletRisk': 'Kiểm soát rủi ro',
     '/wallet/walletLimit': 'Hạn mức giao dịch',
     '/wallet/walletRate': 'Tỷ giá',
+    '/platform': 'Quản lý nền tảng',
+    '/platform/merchants': 'Quản lý merchant',
     '/permission/users': 'Quản trị viên',
     '/cms': 'Quản lý nội dung',
     '/cms/articles': 'Bài viết',
@@ -343,6 +345,23 @@ const vi = {
 
   emoji: {
     path: 'Đường dẫn emoji'
+  },
+
+  merchant: {
+    scopeLabel: 'Đơn vị sở hữu',
+    manageTip: 'Quản lý merchant',
+    noMerchant: 'Chưa có merchant, hãy tạo trong Quản lý nền tảng → Quản lý merchant',
+    tip: 'Merchant là đơn vị tách dữ liệu. Chọn merchant trên thanh trên cùng trước khi tạo mới; nếu không chọn, dữ liệu sẽ thuộc về nền tảng. Không thể xóa merchant đã có dữ liệu.',
+    name: 'Tên merchant',
+    nameRequired: 'Vui lòng nhập tên merchant',
+    code: 'Mã merchant',
+    codeRequired: 'Vui lòng nhập mã merchant',
+    codePlaceholder: 'vd: a001',
+    codeTip: 'Mã định danh nội bộ duy nhất, chỉ gồm chữ, số, gạch dưới và gạch ngang; không liên quan đến mã merchant của upstream.',
+    contact: 'Người liên hệ',
+    accountTip: 'Merchant chỉ định phạm vi dữ liệu. Tạo tài khoản trong Quản trị viên, nơi gán merchant, cờ quản trị và vai trò cùng lúc.',
+    adminFlag: 'Quản trị merchant',
+    adminFlagTip: 'Chỉ là nhãn; phạm vi thực tế vẫn do vai trò và quyền dữ liệu quyết định.',
   },
 
   third: {

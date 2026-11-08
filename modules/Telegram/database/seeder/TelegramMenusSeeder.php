@@ -70,6 +70,11 @@ return new class extends Seeder
      *   redirect：目录点击后跳转的目标，不设则点击目录只会渲染空 layout（表现为「没反应」）
      *
      * 组件路径必须对应真实文件（相对 web/src/views），否则页面空白且不发请求。
+     *
+     * ⚠️ 侧边栏标题不读 permission_name：前端 Menu/item.vue 用
+     *    $t('menu.' + 完整path) 取文案。新增页面必须同步在
+     *    web/src/i18n/languages/{zh,en,vi,th}.ts 的 menu 段加对应 key，
+     *    否则侧边栏会直接显示 "menu./xxx" 这样的 key 原文。
      */
     public function menus(): array
     {
@@ -196,6 +201,26 @@ return new class extends Seeder
                     $page('风控中心', 'walletRisk', '/telegram/wallet/riskControl/index.vue', 'shield-check', 7),
                     $page('交易限额', 'walletLimit', '/telegram/wallet/transactionLimit/index.vue', 'adjustments-horizontal', 8),
                     $page('汇率', 'walletRate', '/telegram/wallet/exchangeRate/index.vue', 'arrows-right-left', 9),
+                ],
+            ],
+            [
+                'permission_name' => '平台管理',
+                'route'           => '/platform',
+                'icon'            => 'building-office',
+                'module'          => 'telegram',
+                'permission_mark' => '',
+                'component'       => '/layout/index.vue',
+                'redirect'        => '',
+                'keepalive'       => 1,
+                'type'            => 1,
+                'hidden'          => 0,
+                'sort'            => 5,
+                'creator_id'      => 1,
+                'created_at'      => $now,
+                'updated_at'      => $now,
+                'deleted_at'      => 0,
+                'children'        => [
+                    $page('商户管理', 'merchants', '/telegram/merchants/index.vue', 'building-office', 1),
                 ],
             ],
         ];

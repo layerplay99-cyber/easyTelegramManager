@@ -30,6 +30,11 @@
             </template>
           </el-table-column> -->
           <el-table-column prop="email" :label="$t('user.email')" />
+          <el-table-column :label="$t('third.tenant')" width="140" v-if="isSuperAdmin">
+            <template #default="scope">
+              {{ merchantName(scope.row.tenant_id) }}
+            </template>
+          </el-table-column>
           <el-table-column prop="status" :label="$t('system.status')">
             <template #default="scope">
               <Status v-model="scope.row.status" :id="scope.row.id" :api="api" />
@@ -80,8 +85,10 @@ import { UserFilled } from '@element-plus/icons-vue'
 import { useExcelDownload } from '@/composables/curd/useExcelDownload'
 import { ElMessage } from 'element-plus'
 import { t } from '@/support/helper'
+import { loadMerchantOptions, merchantName } from '@/support/tenant'
 
 const userStore = useUserStore()
+const isSuperAdmin = userStore.isSuperAdmin()
 
 const api = 'users'
 const { data, query, search, reset, loading } = useGetList(api)
@@ -170,6 +177,9 @@ const hasRoles = ref<boolean>(false)
 onMounted(async () => {
   await search()
   deleted(reset)
+
+  loadMerchantOptions()
+
   hasRoles.value = !isUndefined(userStore.getRoles)
 
   // 数据加载完成后，延迟启用API调用，避免初始化时触发change事件

@@ -61,6 +61,29 @@
         </el-form-item>
       </div>
     </div>
+
+    <!-- 归属与商户超管标记：账号统一在管理员列表创建，和角色一起配完 -->
+    <template v-if="isSuperAdmin">
+      <el-divider content-position="left">{{ $t('third.tenant') }}</el-divider>
+      <el-form-item :label="$t('third.tenant')" prop="tenant_id">
+        <el-select v-model="formData.tenant_id" class="w-full">
+          <el-option :label="$t('third.platformShared')" :value="0" />
+          <el-option v-for="m in merchantOptions" :key="m.id" :label="m.name" :value="m.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item :label="$t('merchant.adminFlag')" prop="is_merchant_admin">
+        <div class="flex items-center">
+          <el-switch
+            v-model="formData.is_merchant_admin"
+            :active-value="1"
+            :inactive-value="0"
+            :disabled="!formData.tenant_id"
+          />
+          <span class="text-xs text-gray-500 ml-3">{{ $t('merchant.adminFlagTip') }}</span>
+        </div>
+      </el-form-item>
+    </template>
+
     <div class="flex justify-end">
       <el-button type="primary" @click="submitForm(form)">{{ $t('system.confirm') }}</el-button>
     </div>
@@ -71,6 +94,7 @@
 // @ts-nocheck
 import { useCreate } from '@/composables/curd/useCreate'
 import { useShow } from '@/composables/curd/useShow'
+import { isPlatformSuperAdmin, getActiveTenantId, loadMerchantOptions, merchantOptions } from '@/support/tenant'
 
 import { onMounted, ref } from 'vue'
 import http from '@/support/http'
@@ -100,7 +124,15 @@ if (props.primary) {
   passwordRules.shift()
 }
 
-const { formData, form, loading, submitForm: originalSubmitForm, close } = useCreate(props.api, props.primary)
+const isSuperAdmin = isPlatformSuperAdmin()
+
+// 新建时默认跟随顶栏「归属商户」，但表单里的选择优先（useCreate 不再覆盖已给的值）。
+// 编辑时 useShow 会把库里的 tenant_id / is_merchant_admin 回填进来。
+const { formData, form, loading, submitForm: originalSubmitForm, close } = useCreate(
+  props.api,
+  props.primary,
+  isSuperAdmin ? { tenant_id: getActiveTenantId(), is_merchant_admin: 0 } : {}
+)
 
 // 自定义提交方法，过滤掉二次验证字段
 const submitForm = (formEl: any) => {
@@ -144,6 +176,8 @@ const jobs = ref()
 const roles = ref()
 
 onMounted(() => {
+  loadMerchantOptions()
+
   if (props.hasRoles) {
     http.get('permissions/departments').then(r => {
       departments.value = r.data.data

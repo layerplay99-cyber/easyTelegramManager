@@ -37,6 +37,5 @@ class Merchant extends Model
         'code' => 'like',
     ];
 
-    // 顶栏「归属商户」下拉要一次拿到全量，不做分页
-    protected bool $isPaginate = false;
+    // 后台列表走默认分页；顶栏下拉用 index?all=1 取全量，见 MerchantsController。
 }

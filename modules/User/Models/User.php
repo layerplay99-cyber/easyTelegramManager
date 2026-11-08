@@ -3,6 +3,7 @@
 namespace Modules\User\Models;
 
 use Modules\Permissions\Models\Traits\DataRange;
+use Modules\Permissions\Support\MerchantContext;
 
 use Catch\Base\CatchModel as Model;
 use Catch\Enums\Status;
@@ -51,7 +52,9 @@ class User extends Model implements AuthenticatableContract
         'login_at',
         'created_at',
         'updated_at',
-        'deleted_at'
+        'deleted_at',
+        'tenant_id',
+        'is_merchant_admin'
     ];
 
     // 2FA 密钥必须默认隐藏：原来只有 online() 里手动 makeHidden 了一次，
@@ -77,12 +80,28 @@ class User extends Model implements AuthenticatableContract
      */
     protected $table = 'users';
 
-    protected array $fields = ['id', 'username', 'email', 'avatar', 'two_factor_enabled',  'creator_id', 'status', 'department_id', 'created_at'];
+    protected array $fields = ['id', 'username', 'email', 'avatar', 'two_factor_enabled', 'creator_id', 'status', 'department_id', 'tenant_id', 'is_merchant_admin', 'created_at'];
 
     /**
      * @var array|string[]
      */
-    protected array $form = ['username', 'email', 'password', 'two_factor_enabled', 'department_id'];
+    protected array $form = ['username', 'email', 'password', 'two_factor_enabled', 'department_id', 'tenant_id', 'is_merchant_admin'];
+
+    /**
+     * 归属商户与商户超管标记只允许平台超管显式指定。
+     *
+     * filterData() 是 storeBy/updateBy 的统一入口，在这里收口就覆盖了
+     * 管理员列表的全部增改请求。商户用户伪造 tenant_id 会被丢掉，随后由
+     * AppServiceProvider 的 creating/updating 钩子按登录态强制继承自己的租户。
+     */
+    protected function filterData(array $data): array
+    {
+        if (! MerchantContext::isPlatformSuperAdmin()) {
+            unset($data['tenant_id'], $data['is_merchant_admin']);
+        }
+
+        return parent::filterData($data);
+    }
 
     /**
      * @var array|string[]

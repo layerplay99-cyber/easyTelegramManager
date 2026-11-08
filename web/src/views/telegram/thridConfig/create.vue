@@ -92,7 +92,7 @@ import http from '@/support/http'
 import Message from '@/support/message'
 import { t } from '@/support/helper'
 import { Code } from '@/enum/app'
-import { getActiveTenantId, isPlatformSuperAdmin } from '@/support/tenant'
+import { getActiveTenantId, loadMerchantOptions, merchantName } from '@/support/tenant'
 
 const props = defineProps({
   primary: [String, Number],
@@ -108,6 +108,7 @@ if (props.primary) {
 const emit = defineEmits(['close'])
 onMounted(() => {
   close(() => emit('close'))
+  loadMerchantOptions()
   loadBoundFeatures()
 })
 
@@ -155,13 +156,11 @@ const saveBoundFeatures = async () => {
 }
 
 const tenantLabel = computed(() => {
-  if (!isPlatformSuperAdmin()) {
-    return t('third.currentMerchant')
-  }
+  // 编辑时显示这条记录自己的归属；新建时显示顶栏当前选择
+  const raw = (formData.value as any)?.tenant_id
+  const id = raw === undefined || raw === null || raw === '' ? getActiveTenantId() : Number(raw)
 
-  const id = getActiveTenantId()
-
-  return id > 0 ? `#${id}` : t('third.platformShared')
+  return merchantName(id)
 })
 
 const statusLabel = computed(() => {

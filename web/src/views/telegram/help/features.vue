@@ -1,30 +1,32 @@
 <template>
-  <div class="p-4 w-full">
-    <el-alert type="info" :closable="false" show-icon title="按页面查操作" class="mb-4">
-      找不到某个按钮在哪、不知道某个业务怎么走时，按下面的菜单路径和步骤照做即可。点标题展开对应模块。
+  <div class="p-4 w-full help-page">
+    <el-alert type="info" :closable="false" show-icon title="按页面查操作" class="help-intro">
+      找不到某个按钮在哪、不知道某个业务怎么走时，按下面的菜单路径和步骤照做即可。点标题展开对应模块，一次只展开一个。
     </el-alert>
 
-    <!-- 折叠面板横向铺满：一个模块一个折叠项 -->
-    <el-collapse v-model="activeNames" class="w-full">
+    <!-- 手风琴：始终只有一个展开 -->
+    <el-collapse v-model="activeName" accordion class="help-collapse">
       <el-collapse-item v-for="g in groups" :key="g.id" :name="g.id">
         <template #title>
-          <span class="font-semibold text-base">{{ g.name }}</span>
-          <span class="text-gray-400 text-sm ml-2 hidden sm:inline">{{ g.pages.length }} 个页面</span>
+          <div class="help-collapse-title">
+            <span class="help-collapse-name">{{ g.name }}</span>
+            <span class="help-collapse-hint">{{ g.pages.length }} 个页面</span>
+          </div>
         </template>
 
-        <div class="space-y-4">
-          <el-card v-for="p in g.pages" :key="p.name" shadow="never">
+        <div class="help-cards">
+          <el-card v-for="p in g.pages" :key="p.name" shadow="never" class="help-card">
             <template #header>
-              <span class="font-semibold">{{ p.name }}</span>
-              <span class="text-gray-400 text-sm ml-2">{{ p.path }}</span>
+              <span class="help-card-title">{{ p.name }}</span>
+              <span class="help-card-path">{{ p.path }}</span>
             </template>
 
-            <div v-for="(op, oi) in p.ops" :key="oi" :class="oi > 0 ? 'mt-4 pt-4 border-t' : ''">
-              <div class="text-sm font-medium text-blue-600 mb-2">{{ op.scene }}</div>
-              <ol class="space-y-2">
-                <li v-for="(step, n) in op.steps" :key="n" class="flex gap-3">
-                  <span class="text-gray-400 font-mono text-sm w-6 shrink-0">{{ n + 1 }}.</span>
-                  <span class="flex-1 min-w-0 text-sm text-gray-700 leading-6">{{ step }}</span>
+            <div v-for="(op, oi) in p.ops" :key="oi" :class="oi > 0 ? 'help-scene-divider' : ''">
+              <div class="help-scene">{{ op.scene }}</div>
+              <ol class="help-steps">
+                <li v-for="(step, n) in op.steps" :key="n" class="help-step">
+                  <span class="help-step-no">{{ n + 1 }}</span>
+                  <span class="help-step-detail help-step-inline">{{ step }}</span>
                 </li>
               </ol>
             </div>
@@ -34,16 +36,22 @@
 
       <el-collapse-item name="commands">
         <template #title>
-          <span class="font-semibold text-base">群内命令速查</span>
+          <div class="help-collapse-title">
+            <span class="help-collapse-name">群内命令速查</span>
+            <span class="help-collapse-hint">{{ commands.length }} 条命令</span>
+          </div>
         </template>
         <el-table :data="commands" border>
           <el-table-column label="命令" width="170">
-            <template #default="{ row }"><code>{{ row.cmd }}</code></template>
+            <template #default="{ row }"><code class="help-code">{{ row.cmd }}</code></template>
           </el-table-column>
           <el-table-column prop="desc" label="用途" />
           <el-table-column prop="where" label="在哪发" width="130" />
         </el-table>
-        <div class="text-xs text-gray-400 mt-3">命令只有在该群已分配对应功能、且功能处于启用状态时才会响应。</div>
+        <div class="help-tip" style="margin-top: 14px">
+          <span class="help-tip-mark">提示</span>
+          <span>命令只有在该群已分配对应功能、且功能处于启用状态时才会响应。</span>
+        </div>
       </el-collapse-item>
     </el-collapse>
   </div>
@@ -51,9 +59,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import '@/styles/help.css'
 
-// 默认展开第 1 个模块；折叠面板支持多个同时展开
-const activeNames = ref(['g1'])
+// 手风琴模式：单选，默认展开第 1 个模块
+const activeName = ref('g1')
 
 const groups = [
   {

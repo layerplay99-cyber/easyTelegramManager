@@ -1,36 +1,44 @@
 <template>
-  <div class="p-4 w-full">
-    <el-alert type="info" :closable="false" show-icon title="第一次使用请从这里开始" class="mb-4">
+  <div class="p-4 w-full help-page">
+    <el-alert type="info" :closable="false" show-icon title="第一次使用请从这里开始" class="help-intro">
       跟着下面 8 步操作，完成后机器人就能在群里响应命令、接收上游通知。点开每一步照做，带「验证」的一定要确认结果再往下走。
     </el-alert>
 
-    <!-- 折叠面板横向铺满：默认展开第 1 步，点标题展开/收起其它步骤 -->
-    <el-collapse v-model="activeNames" class="w-full">
+    <!-- 手风琴：始终只有一个展开 -->
+    <el-collapse v-model="activeName" accordion class="help-collapse">
       <el-collapse-item v-for="(s, i) in sections" :key="s.id" :name="s.id">
         <template #title>
-          <div class="flex items-center gap-2">
-            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold shrink-0">{{ i + 1 }}</span>
-            <span class="font-semibold text-base">{{ s.title }}</span>
-            <span class="text-gray-400 text-sm hidden sm:inline">— {{ s.short }}</span>
+          <div class="help-collapse-title">
+            <span class="help-step-badge">{{ i + 1 }}</span>
+            <span class="help-collapse-name">{{ s.title }}</span>
+            <span class="help-collapse-hint">{{ s.short }}</span>
           </div>
         </template>
 
-        <div class="text-sm text-gray-500 mb-3">目标：{{ s.goal }}</div>
+        <div class="help-body">
+          <div class="help-goal">
+            <span class="help-label">目标</span>
+            <span>{{ s.goal }}</span>
+          </div>
 
-        <ol class="space-y-3">
-          <li v-for="(step, n) in s.steps" :key="n" class="flex gap-3">
-            <span class="text-gray-400 font-mono text-sm w-6 shrink-0 pt-0.5">{{ n + 1 }}.</span>
-            <div class="flex-1 min-w-0">
-              <div class="font-medium text-sm">{{ step.action }}</div>
-              <div class="text-sm text-gray-600 mt-0.5 leading-6">{{ step.detail }}</div>
-              <div v-if="step.tip" class="text-xs text-orange-500 mt-1">注意：{{ step.tip }}</div>
-            </div>
-          </li>
-        </ol>
+          <ol class="help-steps">
+            <li v-for="(step, n) in s.steps" :key="n" class="help-step">
+              <span class="help-step-no">{{ n + 1 }}</span>
+              <div class="help-step-main">
+                <div class="help-step-action">{{ step.action }}</div>
+                <div class="help-step-detail">{{ step.detail }}</div>
+                <div v-if="step.tip" class="help-tip">
+                  <span class="help-tip-mark">注意</span>
+                  <span>{{ step.tip }}</span>
+                </div>
+              </div>
+            </li>
+          </ol>
 
-        <div v-if="s.check" class="mt-4 pt-3 border-t text-sm">
-          <span class="text-green-600 font-medium">✓ 验证：</span>
-          <span class="text-gray-700">{{ s.check }}</span>
+          <div v-if="s.check" class="help-check">
+            <span class="help-check-mark">✓ 验证</span>
+            <span>{{ s.check }}</span>
+          </div>
         </div>
       </el-collapse-item>
     </el-collapse>
@@ -39,9 +47,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import '@/styles/help.css'
 
-// 默认展开第 1 步；折叠面板支持多个同时展开
-const activeNames = ref(['s1'])
+// 手风琴模式：单选，默认展开第 1 步
+const activeName = ref('s1')
 
 const sections = [
   {

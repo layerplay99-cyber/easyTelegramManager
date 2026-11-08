@@ -1,0 +1,289 @@
+/**
+ * 「使用帮助」页面样式
+ *
+ * 全部颜色走 Element Plus 语义变量（--el-text-color-* / --el-bg-color-* /
+ * --el-color-*-light-9 等）。项目启用 html.dark 时会加载
+ * element-plus/theme-chalk/dark/css-vars.css，这些变量自动翻转，
+ * 因此浅色 / 深色模式下文字都保持可读，不要用 Tailwind 的 text-gray-* 硬编码。
+ */
+
+.help-page {
+  --help-radius: 10px;
+  --help-gap: 14px;
+  color: var(--el-text-color-regular);
+}
+
+/* 顶部说明 */
+.help-intro {
+  margin-bottom: 18px;
+  border-radius: var(--help-radius);
+  border: 1px solid var(--el-color-info-light-8);
+}
+.help-intro .el-alert__description,
+.help-intro .el-alert__content {
+  line-height: 1.7;
+}
+
+/* 折叠容器：圆角卡片 + 细分隔 */
+.help-collapse {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--help-radius);
+  overflow: hidden;
+  background: var(--el-bg-color-overlay);
+}
+.help-collapse .el-collapse-item__header {
+  height: auto;
+  min-height: 58px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color-overlay);
+  font-size: 15px;
+  transition: background-color 0.2s ease;
+}
+.help-collapse .el-collapse-item__header:hover {
+  background: var(--el-fill-color-light);
+}
+.help-collapse .el-collapse-item__header.is-active {
+  background: var(--el-color-primary-light-9);
+  border-bottom-color: var(--el-color-primary-light-7);
+}
+.help-collapse .el-collapse-item__arrow {
+  color: var(--el-text-color-secondary);
+}
+.help-collapse .el-collapse-item__wrap {
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color-overlay);
+}
+.help-collapse .el-collapse-item:last-child .el-collapse-item__header,
+.help-collapse .el-collapse-item:last-child .el-collapse-item__wrap {
+  border-bottom: none;
+}
+.help-collapse .el-collapse-item__content {
+  padding: 20px 22px 24px;
+}
+
+/* 折叠标题 */
+.help-collapse-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+.help-step-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--el-color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  box-shadow: 0 2px 6px var(--el-color-primary-light-5);
+}
+.help-collapse-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.help-collapse-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 20px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+/* 内容主体 */
+.help-body {
+  max-width: 100%;
+}
+.help-goal {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  border-left: 3px solid var(--el-color-primary);
+  border-radius: 6px;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-text-color-regular);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+.help-label {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+  background: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-color-primary-light-7);
+  border-radius: 4px;
+  padding: 1px 8px;
+  line-height: 1.6;
+}
+
+/* 步骤列表 */
+.help-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: none;
+}
+.help-step {
+  display: flex;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.help-step:hover {
+  background: var(--el-fill-color-light);
+  border-color: var(--el-border-color-lighter);
+}
+.help-step-no {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: 6px;
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color);
+  color: var(--el-text-color-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.help-step-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.help-step-action {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  line-height: 1.6;
+}
+.help-step-detail {
+  margin-top: 3px;
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: var(--el-text-color-regular);
+}
+.help-step-inline {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+  display: block;
+}
+.help-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--el-color-warning-light-9);
+  border: 1px solid var(--el-color-warning-light-8);
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.help-tip-mark {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-color-warning);
+}
+
+/* 验证块 */
+.help-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--el-color-success-light-9);
+  border: 1px solid var(--el-color-success-light-8);
+  color: var(--el-text-color-regular);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+.help-check-mark {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: var(--el-color-success);
+}
+
+/* 操作指南：模块内的页面卡片 */
+.help-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+.help-card .el-card__header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-light);
+}
+.help-card .el-card__body {
+  padding: 16px;
+}
+.help-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.help-card-path {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--el-text-color-secondary);
+}
+.help-scene {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+  margin-bottom: 8px;
+}
+.help-scene-divider {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--el-border-color);
+}
+.help-code {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+  color: var(--el-color-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+}
+
+@media (max-width: 768px) {
+  .help-collapse .el-collapse-item__content {
+    padding: 16px 14px 20px;
+  }
+  .help-collapse-hint {
+    display: none;
+  }
+  .help-cards {
+    grid-template-columns: 1fr;
+  }
+}

@@ -8,7 +8,6 @@ use Modules\Telegram\Contracts\EndpointProvider;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
-use Modules\Telegram\Services\LogMessageService;
 use Modules\Telegram\Services\Translate\LocalizedReply;
 
 /**
@@ -45,6 +44,10 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
      *
      * 接口规范跟着「用它的那个类」走，不往 PlatformEndpointRegistry 里堆：
      * 新功能自带自己的接口定义，删掉功能时定义也随之消失，不会留一堆孤儿接口。
+     *
+     * 只声明 handle() 真正会调用的接口。这里每多声明一个，后台「上游接口配置」
+     * 就会多出一行、并把本功能标成它的「绑定功能」——之前示例里多写的
+     * merchant.trade / merchant.info 就是这么来的，业务上从不调用，已移除。
      */
     public static function endpoints(): array
     {
@@ -61,34 +64,6 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                     'currency' => '币种',
                 ],
                 'remark' => '按商户号查询余额',
-            ],
-            'merchant.trade' => [
-                'name' => '查询交易明细',
-                'method' => 'GET',
-                'path_template' => 'api/merchant/trade',
-                'params_schema' => [
-                    ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
-                    ['name' => 'trade_no', 'required' => false, 'desc' => '交易号', 'map_to' => 'tradeNo'],
-                    ['name' => 'page', 'required' => false, 'desc' => '页码', 'map_to' => 'page', 'default' => 1],
-                ],
-                'response_schema' => [
-                    'total' => '总条数',
-                    'list' => '交易列表',
-                ],
-                'remark' => '按商户号查询交易明细',
-            ],
-            'merchant.info' => [
-                'name' => '查询商户信息',
-                'method' => 'GET',
-                'path_template' => 'api/merchant/info',
-                'params_schema' => [
-                    ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
-                ],
-                'response_schema' => [
-                    'name' => '商户名称',
-                    'status' => '状态',
-                ],
-                'remark' => '按商户号查询商户基础信息',
             ],
         ];
     }
@@ -210,8 +185,6 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
         if (isset($data['_error'])) {
             return $this->localizedFail($this->t($context, 'balance.failed') . $data['_error']);
         }
-
-        app(LogMessageService::class)->createLaravelLog('upstream-api-error', $data);
 
         // 3) 上游「查询余额」与「设置余额预警」返回的是同一个钱包结构：
         //    {"data":{"id":158,"available_funds":"978479062.00","locked_funds":"0.00",

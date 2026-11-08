@@ -33,22 +33,6 @@
         <div class="text-xs text-gray-400">{{ $t('feature.hook.dedupHint') }}</div>
       </el-form-item>
 
-      <!-- 验签 -->
-      <el-divider content-position="left">{{ $t('feature.hook.sign') }}</el-divider>
-
-      <el-form-item :label="$t('feature.hook.secret')">
-        <el-input v-model="hook.secret" clearable />
-      </el-form-item>
-      <el-form-item :label="$t('feature.hook.signField')">
-        <el-input v-model="hook.sign_field" clearable />
-      </el-form-item>
-      <el-form-item :label="$t('feature.hook.signAlgo')">
-        <el-input v-model="hook.sign_algo" clearable />
-      </el-form-item>
-      <el-form-item :label="$t('feature.hook.checkTimestamp')">
-        <el-switch v-model="hook.check_timestamp" :active-value="1" :inactive-value="0" />
-      </el-form-item>
-
       <!-- 消息处理 -->
       <el-divider content-position="left">{{ $t('feature.transformer.label') }}</el-divider>
 
@@ -188,10 +172,6 @@ const hook = reactive<any>({
   name: '',
   enabled: 1,
   dedup_field: '',
-  secret: '',
-  sign_field: '',
-  sign_algo: '',
-  check_timestamp: 0,
   bot_id: null,
   route_field: '',
   default_chat_id: '',
@@ -240,7 +220,6 @@ const loadHook = async () => {
       Object.assign(hook, {
         ...row,
         enabled: row.enabled ? 1 : 0,
-        check_timestamp: row.check_timestamp ? 1 : 0,
         bot_id: row.bot_id ?? null,
       })
     }
@@ -285,7 +264,6 @@ const createHook = async () => {
     Object.assign(hook, {
       ...data.data,
       enabled: data.data.enabled ? 1 : 0,
-      check_timestamp: data.data.check_timestamp ? 1 : 0,
     })
 
     Message.success(t('feature.hook.saved'))
@@ -318,10 +296,6 @@ const save = async () => {
       name: hook.name,
       enabled: !!hook.enabled,
       dedup_field: hook.dedup_field,
-      secret: hook.secret,
-      sign_field: hook.sign_field,
-      sign_algo: hook.sign_algo,
-      check_timestamp: !!hook.check_timestamp,
       bot_id: hook.bot_id,
       route_field: hook.route_field,
       default_chat_id: hook.default_chat_id,
@@ -330,7 +304,6 @@ const save = async () => {
     Object.assign(hook, {
       ...data.data,
       enabled: data.data.enabled ? 1 : 0,
-      check_timestamp: data.data.check_timestamp ? 1 : 0,
     })
 
     // 再存路由表：提交什么就是什么，未提交的会被删掉

@@ -4,29 +4,30 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Services\Feature\Drivers\Custom\Demo;
 
+use Illuminate\Support\Facades\Cache;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
-use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
 use Modules\Telegram\Services\InteractiveSessionService;
 use Modules\Telegram\Services\MerchantRouteService;
 use Modules\Telegram\Services\OperatorPolicy;
 
 /**
- * 【Demo】交易通知：上游回调 → 验签 → 群里发确认按钮
+ * 【Demo】交易通知：上游回调 → 限流 → 头签名验签 → 群里发确认按钮
  *
  * 这是「业务开发参考模板」的两分之二（另一半是 TradeConfirm）。
- * 照着这个骨架改，就能接任意上游：换签名算法改 TradeSigner，换字段改这里。
+ * 照着这个骨架改，就能接任意上游。
  *
  * 接入姿势：
- *   1) 后台新建功能 → 执行器选「[示例]交易通知」→ 生成 hook token
- *   2) 把 https://你的域名/api/hooks/{token} 配给上游
- *   3) 功能配置里填签名密钥（或选一个上游，用它的密钥）
+ *   1) 后台「三方配置」里点「生成密钥」，拿到 access_key / secret_key 下发给上游
+ *   2) 后台新建功能 → 执行器选「[示例]交易通知」→ 生成 hook token
+ *   3) 把 https://你的域名/api/hooks/{token} 配给上游，
+ *      上游回调带 X-Access-Key / X-Timestamp / X-Nonce / X-Signature 请求头
  *   4) 群里 /trbd 商户号 绑定，/trsq 指定谁能点
  *
- * 如果你的上游就是标准规则（除 sign 外非空字段 ksort 后 HMAC-SHA256），
- * 可以连这个类都不用写：后台把密钥填进 hook 的「验签密钥」，
- * 执行器选通用的「交易通知 → 群内按钮」即可。
+ * 入站验签已由 validate.upstream 中间件统一完成（头签名 + HMAC-SHA256，
+ * 密钥 = 三方配置下发的 access_key/secret_key），这里不再重复验签。
+ * 限流按来源 IP（rate_limit:ip:trade_notify:{ip}），在业务处理前先拦高频。
  */
 class TradeNotify extends BaseCustomFeature
 {
@@ -89,8 +90,6 @@ class TradeNotify extends BaseCustomFeature
         return [
             'merchant_field' => 'merchant_id',
             'trade_no_field' => 'trade_no',
-            'sign_algo' => 'hmac_sha256',
-            'sign_ttl' => 300,
             'ttl_seconds' => 86400,
             'message_template' => "【交易待确认】\n商户：{{merchant_id}}\n单号：{{trade_no}}\n金额：{{payload.amount}} {{payload.currency}}",
         ];
@@ -100,35 +99,12 @@ class TradeNotify extends BaseCustomFeature
     {
         return [
             [
-                'key' => 'secret',
-                'label' => '签名密钥',
-                'type' => 'text',
-                'required' => false,
-                'hint' => '和上游约定的那把密钥。留空则用所选上游的「密钥」',
-            ],
-            [
                 'key' => 'upstream_id',
                 'label' => '承接上游',
                 'type' => 'select',
                 'source' => 'third_api_configs',
                 'required' => false,
-                'hint' => '用来取密钥和回调地址，不填则用机器人上的默认上游',
-            ],
-            [
-                'key' => 'sign_algo',
-                'label' => '签名算法',
-                'type' => 'select',
-                'source' => 'sign_algos',
-                'required' => false,
-                'default' => 'hmac_sha256',
-            ],
-            [
-                'key' => 'sign_ttl',
-                'label' => '时间窗口（秒）',
-                'type' => 'number',
-                'required' => false,
-                'default' => 300,
-                'hint' => 'timestamp 超出这个偏差就认为是重放',
+                'hint' => '建会话时记录的上游（关联三方配置），验签密钥走该上游下发的 access_key/secret_key，不填则用机器人上的默认上游',
             ],
             [
                 'key' => 'merchant_field',
@@ -177,37 +153,17 @@ class TradeNotify extends BaseCustomFeature
 
     public function handle(FeatureContext $context): FeatureResult
     {
-        // HookController 已经把 $request->all() 放进 payload
+        // HookController 已经把 $request->all() 放进 payload；
+        // 入站验签已由 validate.upstream 中间件统一完成，这里只做业务。
+
         $payload = $context->payload;
 
-        // ---- 第 1 步：验签（不知道密钥的人伪造不了，改一个字段也验不过）----
-        $secret = $this->secret($context);
-
-        if ($secret === '') {
-            return FeatureResult::fail('未配置签名密钥，请在功能配置里填 secret 或选择上游');
+        // ---- 第 1 步：IP 限流（业务级兜底，挡高频）----
+        if (! $this->passIpRateLimit((string) request()->ip())) {
+            return FeatureResult::fail('请求过于频繁，请稍后再试');
         }
 
-        $sign = isset($payload['sign']) && is_scalar($payload['sign']) ? (string) $payload['sign'] : null;
-
-        if (! TradeSigner::verify($payload, $secret, $sign, (string) $context->config('sign_algo', 'hmac_sha256'))) {
-            // 注意：不要在这里回群消息（webhook 场景本来也不会发），记日志即可
-            return FeatureResult::fail('签名校验失败');
-        }
-
-        // ---- 第 2 步：防重放（密钥没泄露，但同一条合法通知可以被重播）----
-        $ttl = (int) ($context->config('sign_ttl') ?: 300);
-
-        if (! TradeSigner::fresh($payload['timestamp'] ?? null, $ttl)) {
-            return FeatureResult::fail('请求已过期');
-        }
-
-        $nonce = (string) ($payload['nonce'] ?? '');
-
-        if (TradeSigner::nonceSeen((string) $context->feature->id, $nonce, $ttl * 2)) {
-            return FeatureResult::ok(['duplicate' => true]);
-        }
-
-        // ---- 第 3 步：定位发到哪个群（多商户多 bot 全靠这张表）----
+        // ---- 第 2 步：定位发到哪个群（多商户多 bot 全靠这张表）----
         $merchantId = trim((string) data_get($payload, (string) $context->config('merchant_field', 'merchant_id'), ''));
         $route = $merchantId !== '' ? app(MerchantRouteService::class)->resolve($merchantId) : null;
 
@@ -217,7 +173,7 @@ class TradeNotify extends BaseCustomFeature
             return FeatureResult::fail('商户号 ' . $merchantId . ' 未绑定任何群');
         }
 
-        // ---- 第 4 步：建会话（按钮只带 code，业务数据留服务端）----
+        // ---- 第 3 步：建会话（按钮只带 code，业务数据留服务端）----
         $tradeNo = trim((string) data_get($payload, (string) $context->config('trade_no_field', 'trade_no'), ''));
 
         $sessions = app(InteractiveSessionService::class);
@@ -243,7 +199,7 @@ class TradeNotify extends BaseCustomFeature
             'expires_at' => time() + (int) ($context->config('ttl_seconds') ?: 86400),
         ]);
 
-        // ---- 第 5 步：发带按钮的消息 ----
+        // ---- 第 4 步：发带按钮的消息 ----
         $text = $this->render((string) $context->config('message_template', ''), [
             'payload' => $payload,
             'merchant_id' => $merchantId,
@@ -281,19 +237,22 @@ class TradeNotify extends BaseCustomFeature
     }
 
     /**
-     * 取签名密钥：功能配置 > 所选上游 > 机器人默认上游
+     * 按来源 IP 限流（沿用 SecurityService 的 counter 思路）
+     *
+     * 同一 IP 每分钟最多 $maxAttempts 次，超了直接拒。
      */
-    private function secret(FeatureContext $context): string
+    private function passIpRateLimit(string $ip, int $maxAttempts = 60, int $decayMinutes = 1): bool
     {
-        $direct = (string) $context->config('secret', '');
+        $key = 'rate_limit:ip:trade_notify:' . $ip;
+        $attempts = (int) Cache::get($key, 0);
 
-        if ($direct !== '') {
-            return $direct;
+        if ($attempts >= $maxAttempts) {
+            return false;
         }
 
-        $id = $this->upstreamId($context);
+        Cache::put($key, $attempts + 1, $decayMinutes * 60);
 
-        return $id ? (string) (ThirdApiConfig::query()->find($id)?->secrept_key ?? '') : '';
+        return true;
     }
 
     private function upstreamId(FeatureContext $context): ?int

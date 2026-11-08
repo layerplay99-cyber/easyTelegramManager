@@ -165,23 +165,35 @@ POST https://你的域名/api/hooks/{token}
 
 `{token}` 在后台「回调设置」里生成，**只在首次创建时生成，之后不变**（上游配好了就不能换）。
 
-**鉴权**：请求头带 `x-telegram-bot-api-secret-token`，值 = 该机器人 `bots.url_token`。
-平台据此确定"用哪个机器人、哪个功能"，对不上直接返回，不会认错机器人。
+**鉴权（头签名，必须）**：入站回调统一走平台头签名，请求头必须带：
 
-**验签（可选）**：在「回调设置 → 验签」填密钥后启用，标准规则：
+| 请求头 | 值 |
+|---|---|
+| `X-Access-Key` | 「三方配置 → 生成密钥」下发的 `access_key`（`ak_...`） |
+| `X-Timestamp` | Unix 秒，与服务器偏差须 ≤ 300 秒 |
+| `X-Nonce` | 随机串（`[A-Za-z0-9_-]+`，≤64 位），窗口内不重复 |
+| `X-Signature` | `HMAC-SHA256(canonical, secret_key)` 的小写 hex（64 位） |
 
-1. 去掉 `sign` 字段本身
-2. 去掉值为 `null` / `''` / `[]` 的字段
-3. 剩下按 key 升序（`ksort`）
-4. `k=v` 用 `&` 连接，数组/对象用 `json_encode`（不带转义斜杠与 unicode）
-5. `sign = strtoupper(HMAC_SHA256(待签串, 密钥))`，老上游可用 `strtoupper(MD5(待签串 + "&key=" + 密钥))`
+**待签串（canonical，`\n` 分隔，末尾无换行）**：
+
+```
+METHOD
+PATH?SORTED_QUERY
+TIMESTAMP
+NONCE
+BODY_SHA256
+```
+
+- `METHOD`：大写（`POST`）
+- `PATH`：URL 路径（不含 host）；有 query 时按 key 升序、键值 `rawurlencode` 后拼 `?k=v&...`
+- `BODY_SHA256`：原始 body 字节的 SHA-256 hex —— body 必须**原样发送**，两边算出来才一致
+
+`secret_key` 是「三方配置 → 生成密钥」下发的那把（`sk_...`），明文只显示一次。验签失败 / 时间戳过期 / nonce 重放统一返回 `401`。
 
 **幂等 / 防重放**
 
 - `dedup_field`：相同字段值的重复推送直接返回成功（键只在**执行成功后**才占住，失败可重试）
-- `check_timestamp`：**需先配置验签密钥才生效**。开启后校验 `timestamp` 偏差
-  （窗口取 `config/hook.php` 的 `sign_ttl`，默认 300 秒），同时对 `nonce` 去重（窗口 2 倍）
-- 时间戳过期 / nonce 重放统一返回 `{"status":"success","message":"duplicate ignored"}`，上游无需重试
+- 时间戳窗口与 nonce 去重已由头签名中间件（`validate.upstream`）完成，无需在 body 里再带 `timestamp` / `nonce`
 
 **应答格式固定**：`{"status":"success"}` / `{"status":"error","message":"..."}`（HTTP 200 / 4xx、5xx）
 
@@ -260,67 +272,65 @@ CallbackMessage::text($text, $parseMode)
 **PHP**
 
 ```php
-function buildString(array $params): string
-{
-    unset($params['sign']);
-    $params = array_filter($params, fn ($v) => $v !== null && $v !== '' && $v !== []);
-    ksort($params);
-    return urldecode(http_build_query($params)); // 别做 urlencode，两边要一致
-}
+$accessKey = 'ak_xxx';   // 三方配置下发的 access_key
+$secretKey = 'sk_xxx';   // 三方配置下发的 secret_key
 
-function sign(array $params, string $secret): string
-{
-    return strtoupper(hash_hmac('sha256', buildString($params), $secret));
-}
+$body = json_encode(
+    ['merchant_id' => 'M8888', 'trade_no' => 'D10001', 'amount' => '199.00'],
+    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+);
 
-$payload = [
-    'merchant_id' => 'M8888',
-    'trade_no'    => 'D10001',
-    'amount'      => '199.00',
-    'timestamp'   => (string) time(),
-    'nonce'       => bin2hex(random_bytes(8)),
+$timestamp = (string) time();
+$nonce     = bin2hex(random_bytes(8));
+$path      = '/api/hooks/你的token'; // 有 query 时按 key 升序、键值 rawurlencode 后拼上
+
+$canonical = "POST\n{$path}\n{$timestamp}\n{$nonce}\n" . hash('sha256', $body);
+$signature = hash_hmac('sha256', $canonical, $secretKey);
+
+$headers = [
+    'X-Access-Key' => $accessKey,
+    'X-Timestamp'  => $timestamp,
+    'X-Nonce'      => $nonce,
+    'X-Signature'  => $signature,
+    'Content-Type' => 'application/json',
 ];
-$payload['sign'] = sign($payload, '你我约定的密钥');
 ```
 
 **Go**
 
 ```go
-func buildString(p map[string]string) string {
-    delete(p, "sign")
-    keys := make([]string, 0, len(p))
-    for k, v := range p {
-        if v != "" {
-            keys = append(keys, k)
-        }
-    }
-    sort.Strings(keys)
-    parts := make([]string, 0, len(keys))
-    for _, k := range keys {
-        parts = append(parts, k+"="+p[k])
-    }
-    return strings.Join(parts, "&")
-}
+accessKey := "ak_xxx"
+secretKey := "sk_xxx"
+body := []byte(`{"merchant_id":"M8888","trade_no":"D10001","amount":"199.00"}`)
 
-func sign(p map[string]string, secret string) string {
-    mac := hmac.New(sha256.New, []byte(secret))
-    mac.Write([]byte(buildString(p)))
-    return strings.ToUpper(hex.EncodeToString(mac.Sum(nil)))
-}
+timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+nonce := randomHex(16)
+path := "/api/hooks/你的token"
+
+bodyHash := sha256.Sum256(body)
+canonical := "POST\n" + path + "\n" + timestamp + "\n" + nonce + "\n" + hex.EncodeToString(bodyHash[:])
+mac := hmac.New(sha256.New, []byte(secretKey))
+mac.Write([]byte(canonical))
+signature := hex.EncodeToString(mac.Sum(nil))
 ```
 
 **自测 curl**
 
 ```bash
-SECRET='你我约定的密钥'
+AK='ak_xxx'
+SK='sk_xxx'
 TS=$(date +%s)
 NONCE=$(head -c 8 /dev/urandom | xxd -p)
-STR="merchant_id=M8888&nonce=$NONCE&timestamp=$TS&trade_no=D10001"
-SIGN=$(printf '%s' "$STR" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print $2}' | tr 'a-f' 'A-F')
+BODY='{"merchant_id":"M8888","trade_no":"D10001","amount":"199.00"}'
+PATH='/api/hooks/你的token'
+BODY_SHA=$(printf '%s' "$BODY" | openssl dgst -sha256 -hex | awk '{print $2}')
+CANONICAL=$(printf 'POST\n%s\n%s\n%s\n%s' "$PATH" "$TS" "$NONCE" "$BODY_SHA")
+SIGN=$(printf '%s' "$CANONICAL" | openssl dgst -sha256 -hmac "$SK" -hex | awk '{print $2}')
 
 curl -X POST "https://你的域名/api/hooks/你的token" \
-  -d "merchant_id=M8888" -d "trade_no=D10001" -d "amount=199.00" \
-  -d "timestamp=$TS" -d "nonce=$NONCE" -d "sign=$SIGN"
+  -H "X-Access-Key: $AK" -H "X-Timestamp: $TS" \
+  -H "X-Nonce: $NONCE" -H "X-Signature: $SIGN" \
+  -H "Content-Type: application/json" -d "$BODY"
 ```
 
 ---
@@ -474,11 +484,12 @@ php artisan telegram:backfill-ownership --apply  # 执行
 
 | 改什么 | 文件 |
 |---|---|
-| 签名规则 | `TradeSigner.php`（换算法只改这一个文件） |
+| 出站加签规则 | `TradeSigner.php`（换算法只改这一个文件） |
 | 取字段 | 两个 `handle()`（回调侧 + 点击侧） |
 | 配置项 | `configSchema()` |
 
-如果你的上游就是标准签名规则，**这两个类都不用写**：后台把密钥填进 hook 的「验签密钥」，
+入站验签**不用自己写**：统一由 `validate.upstream` 头签名中间件完成（三方配置下发的
+access_key/secret_key），驱动里只写业务。如果你的上游就是标准回调，**这两个类都不用写**，
 执行器选通用的 `hook.receive` + `interactive.click` 即可。
 
 ### 9.3 声明自己要用的上游接口

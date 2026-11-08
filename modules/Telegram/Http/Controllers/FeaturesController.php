@@ -469,10 +469,6 @@ class FeaturesController extends Controller
             'name' => 'nullable|string|max:255',
             'enabled' => 'nullable|boolean',
             'dedup_field' => 'nullable|string|max:128',
-            'secret' => 'nullable|string|max:255',
-            'sign_field' => 'nullable|string|max:64',
-            'sign_algo' => 'nullable|string|max:32',
-            'check_timestamp' => 'nullable|boolean',
             // 多机器人：默认用哪个机器人发
             'bot_id' => 'nullable|integer',
             // 从报文里取哪个字段做路由键（商户ID）

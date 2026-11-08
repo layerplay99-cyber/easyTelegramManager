@@ -223,6 +223,27 @@ return new class extends Seeder
                     $page('商户管理', 'merchants', '/telegram/merchants/index.vue', 'building-office', 1),
                 ],
             ],
+            [
+                'permission_name' => '使用帮助',
+                'route'           => '/help',
+                'icon'            => 'question-mark-circle',
+                'module'          => 'telegram',
+                'permission_mark' => '',
+                'component'       => '/layout/index.vue',
+                'redirect'        => '',
+                'keepalive'       => 1,
+                'type'            => 1,
+                'hidden'          => 0,
+                'sort'            => 6,
+                'creator_id'      => 1,
+                'created_at'      => $now,
+                'updated_at'      => $now,
+                'deleted_at'      => 0,
+                'children'        => [
+                    $page('快速上手', 'quickstart', '/telegram/help/quickstart.vue', 'light-bulb', 1),
+                    $page('功能说明', 'features', '/telegram/help/features.vue', 'squares-2x2', 2),
+                ],
+            ],
         ];
     }
 };

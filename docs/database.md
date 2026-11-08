@@ -70,7 +70,7 @@
 
 | 表 | 说明 |
 |---|---|
-| `bmfeature_hooks` | 回调入口。`token` 回调地址用（只生成一次）、`secret`/`sign_field`/`sign_algo`/`check_timestamp` 验签、`dedup_field` 幂等、`bot_id` 默认机器人、`route_field` 路由字段、`default_chat_id` 兜底群 |
+| `bmfeature_hooks` | 回调入口。`token` 回调地址用（只生成一次）、`dedup_field` 幂等、`bot_id` 默认机器人、`route_field` 路由字段、`default_chat_id` 兜底群（入站验签统一走 `validate.upstream` 头签名，不在此表配密钥） |
 | `bmfeature_hook_routes` | **回调路由表**：`route_value`（商户ID）→ `bot_id` + `chat_id`，可单独 `enabled` |
 | `bminteractive_sessions` | 交互会话（按钮点击那套）。`code` 随机会话码、`buttons`、`allowed` 白名单、`payload`、`status`、`step`/`pending_act` 二次确认、`dedup_key`、`expires_at`、`attempts` |
 | `bmmerchant_routes` | 商户路由（老机制）：`merchant_id` → `bot_id` + `chat_id` + `third_config_id` + `feature_id` |

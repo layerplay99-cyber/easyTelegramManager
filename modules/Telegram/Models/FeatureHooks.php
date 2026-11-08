@@ -31,23 +31,19 @@ class FeatureHooks extends Model
 
     protected $fillable = [
         'id','feature_id','token','name','dedup_field','enabled','last_fired_at',
-        // 回调验签：留空则回落 config/hook.php 的全局密钥，仍为空就不验签
-        'secret','sign_field','sign_algo','check_timestamp',
         // 多机器人：默认用哪个机器人发 + 从报文哪个字段取路由键 + 兜底群
         'bot_id','route_field','default_chat_id',
     ];
 
-    protected $casts = ['enabled' => 'boolean', 'check_timestamp' => 'boolean'];
+    protected $casts = ['enabled' => 'boolean'];
 
     protected array $fields = [
         'id','feature_id','token','name','dedup_field','enabled','last_fired_at',
-        'secret','sign_field','sign_algo','check_timestamp',
         'bot_id','route_field','default_chat_id','created_at',
     ];
 
     protected array $form = [
         'feature_id','token','name','dedup_field','enabled',
-        'secret','sign_field','sign_algo','check_timestamp',
         'bot_id','route_field','default_chat_id',
     ];
 

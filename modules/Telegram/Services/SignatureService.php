@@ -4,9 +4,13 @@ declare(strict_types=1);
 namespace Modules\Telegram\Services;
 
 /**
- * 签名服务 - 统一管理 3 种签名规则
+ * 签名服务 - 「我方 → 第三方通道（dypay / hook）」的出站加签
  *
- * 签名规则：
+ * ⚠️ 只做出站（我方调第三方接口时的 body 带 sign），密钥是上游给的。
+ *    与「三方 → 我方」的入站验签无关：入站统一走 validate.upstream 的
+ *    X-Access-Key 头签名（三方配置下发的 access_key/secret_key），不要混淆。
+ *
+ * 签名规则（按对接方不同）：
  * 1. hook 通道（getHookSignature/muchVailSign）：filterNull=true,  jsonEncode=true
  * 2. dypay 通道（getSignature/muchVailSign1）：  filterNull=false, jsonEncode=true
  * 3. 回调验签（vailSign）：                       filterNull=true,  jsonEncode=false

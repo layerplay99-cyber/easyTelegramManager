@@ -421,6 +421,8 @@ const th = {
     loadFailed: 'โหลดล้มเหลว',
     saveSuccess: 'บันทึกสำเร็จ',
     saveFailed: 'บันทึกล้มเหลว',
+    refreshSuccess: 'รีเฟรชแล้ว',
+    refreshConfirm: 'การรีเฟรชจะโหลดรายการ upstream และฟีเจอร์ที่ผูกไว้ใหม่ การตั้งค่า endpoint ที่ยังไม่ได้บันทึกจะหายไป ต้องการดำเนินการต่อหรือไม่?',
     codeDefined: 'กำหนดโดยโค้ด (อ่านอย่างเดียว)',
     platformDefaultTip: 'ที่นี่แก้ไ้ด้เฉพาะค่าเริ่มต้นระดับแพลตฟอร์ม หากต้องการเปลี่ยน path หรือ method ให้ไปที่การตั้งค่า endpoint ตาม upstream'
   },

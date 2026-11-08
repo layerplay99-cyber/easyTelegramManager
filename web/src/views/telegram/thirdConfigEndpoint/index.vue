@@ -6,9 +6,15 @@
         <template #header>
           <div class="flex items-center justify-between">
             <span class="font-medium">{{ $t('third.upstreamPathConfig') }}</span>
-            <el-button type="primary" :loading="saving" :disabled="!configId" @click="handleSave">
-              {{ $t('system.save') }}
-            </el-button>
+            <div class="flex items-center gap-2">
+              <el-button :loading="refreshing" :disabled="!configId" @click="handleRefresh">
+                <el-icon class="mr-1"><RefreshRight /></el-icon>
+                {{ $t('nav.refresh') }}
+              </el-button>
+              <el-button type="primary" :loading="saving" :disabled="!configId" @click="handleSave">
+                {{ $t('system.save') }}
+              </el-button>
+            </div>
           </div>
         </template>
 
@@ -126,7 +132,8 @@
 
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { RefreshRight } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import http from '@/support/http'
 import { t } from '@/support/helper'
@@ -138,8 +145,13 @@ const endpoints = ref<any[]>([])
 const boundFeatures = ref<Array<{ id: number; name: string }>>([])
 const loading = ref(false)
 const saving = ref(false)
+const refreshing = ref(false)
 const configId = ref<number | null>(null)
 const currentConfig = ref<any>(null)
+
+// 每次加载完记一份快照，用来判断表格里有没有「还没保存」的改动
+const snapshot = ref('[]')
+const isDirty = computed(() => JSON.stringify(endpoints.value) !== snapshot.value)
 
 // 支持从「三方配置」列表带 third_config_id 跳转过来并自动选中
 onMounted(async () => {
@@ -177,10 +189,12 @@ const loadEndpoints = async () => {
     currentConfig.value = payload.third_config ?? null
     endpoints.value = Array.isArray(payload.endpoints) ? payload.endpoints : []
     boundFeatures.value = Array.isArray(payload.bound_features) ? payload.bound_features : []
+    snapshot.value = JSON.stringify(endpoints.value)
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || t('third.loadFailed'))
     endpoints.value = []
     boundFeatures.value = []
+    snapshot.value = '[]'
   } finally {
     loading.value = false
   }
@@ -193,6 +207,41 @@ const previewUrl = (row: any) => {
   if (/^https?:\/\//i.test(path)) return path
   if (!base) return path
   return `${base}/${String(path).replace(/^\/+/, '')}`
+}
+
+/**
+ * 重新拉取上游列表 + 接口映射
+ *
+ * 本页被 keep-alive 缓存，在「三方配置」里改完功能绑定再切回来不会重跑 onMounted，
+ * 接口列表会是旧的。刷新会覆盖表格里未保存的输入，所以有改动时先确认一次。
+ */
+const handleRefresh = async () => {
+  if (!configId.value) return
+
+  if (isDirty.value) {
+    try {
+      await ElMessageBox.confirm(t('third.refreshConfirm'), t('system.warning'), {
+        type: 'warning',
+        confirmButtonText: t('system.confirm'),
+        cancelButtonText: t('system.cancel')
+      })
+    } catch {
+      return
+    }
+  }
+
+  refreshing.value = true
+  try {
+    await loadConfigs()
+    // 上游可能已被删除，选中值失效时退回第一个
+    if (!configs.value.some(c => Number(c.id) === Number(configId.value))) {
+      configId.value = configs.value[0]?.id ?? null
+    }
+    await loadEndpoints()
+    ElMessage.success(t('third.refreshSuccess'))
+  } finally {
+    refreshing.value = false
+  }
 }
 
 const handleSave = async () => {
@@ -216,6 +265,22 @@ const handleSave = async () => {
     saving.value = false
   }
 }
+
+// 本页被 keep-alive 缓存：从「三方配置」列表带 third_config_id 再跳过来不会重跑 onMounted，
+// 这里补一次选中 + 加载，否则还停留在上一个上游的旧接口列表。
+watch(() => route.query.third_config_id, async preset => {
+  if (!preset) return
+  const id = Number(preset)
+  if (!Number.isFinite(id) || id <= 0) return
+
+  await loadConfigs()
+  if (!configs.value.some(c => Number(c.id) === id)) return
+  // 表格里还有未保存的配置时不覆盖，交给用户点刷新按钮决定
+  if (isDirty.value) return
+
+  configId.value = id
+  await loadEndpoints()
+})
 
 watch(configId, () => {
   currentConfig.value = null

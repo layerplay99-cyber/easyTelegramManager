@@ -421,6 +421,8 @@ const vi = {
     loadFailed: 'Tải thất bại',
     saveSuccess: 'Lưu thành công',
     saveFailed: 'Lưu thất bại',
+    refreshSuccess: 'Đã làm mới',
+    refreshConfirm: 'Làm mới sẽ tải lại danh sách upstream và các chức năng đã gắn. Cấu hình endpoint chưa lưu sẽ bị mất. Tiếp tục?',
     codeDefined: 'Do code định nghĩa (chỉ đọc)',
     platformDefaultTip: 'Chỉ có thể sửa giá trị mặc định cấp nền tảng tại đây. Để đổi path hoặc method, dùng cấu hình endpoint theo upstream.'
   },

@@ -422,6 +422,8 @@ const en = {
     loadFailed: 'Failed to load',
     saveSuccess: 'Saved successfully',
     saveFailed: 'Failed to save',
+    refreshSuccess: 'Refreshed',
+    refreshConfirm: 'Refreshing reloads the upstream list and its bound features. Unsaved endpoint settings will be lost. Continue?',
     codeDefined: 'Defined by code (read-only)',
     platformDefaultTip: 'Only platform-level defaults can be edited here. To change path or method, use the per-upstream endpoint config.'
   },

@@ -53,9 +53,6 @@ class WalletService
 
     /**
      * 按 telegram 用户取会员，没有就开户（机器人指令/MiniApp 入口）
-     */
-    /**
-     * 按 telegram 用户取会员，没有就开户（机器人指令/MiniApp 入口）
      *
      * @param int $telegramUserId
      * @param array $attributes
@@ -355,6 +352,12 @@ class WalletService
 
         if ($status === 'failed') {
             return $this->withdrawService->cancelOrder($order, '上游返回失败');
+        }
+
+        // pending 是中间态（受理中 / 处理中）：不动订单，等终态回调或查单补偿。
+        // 此前非 failed 一律 completeOrder，上游报中间状态会把单提前结掉（钱已扣、货未付）。
+        if ($status !== 'paid') {
+            return true;
         }
 
         return $this->withdrawService->completeOrder($order);

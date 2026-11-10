@@ -7,18 +7,103 @@
 
 ---
 
-## 0. 两种部署方式怎么选
+## 0. 三种部署方式怎么选
 
-| | Docker 方式（推荐） | 普通方式（宿主机） |
-|---|---|---|
-| 组成 | 共享栈 `docker-stack/`（mysql/redis/nginx/php/node）+ 本项目 `docker-compose.yml` 的 app 容器 | 宿主机直接装 PHP/MySQL/Redis/Nginx/Supervisor |
-| 适合 | 开发、测试，以及希望环境可复现的部署 | 已有 LNMP 环境、要求直接管进程的生产机 |
-| 入口 | `http://tgbot.local`（开发机 `/etc/hosts` 指向宿主） | 自己配域名 + HTTPS |
-| 迁移怎么跑 | `docker exec tgbot-php php artisan catch:migrate xxx --force` | 直接在项目目录 `php artisan catch:migrate xxx --force` |
-| 前端 | 部署时执行一次 `docker exec tgbot-frontend sh -c "yarn install && yarn build"`，产物进 `web/dist`（容器本身只装依赖后挂住，不常驻编译） | 宿主机 `yarn build` |
+| | 一键安装（客户机，推荐） | Docker 方式（开发机） | 普通方式（宿主机） |
+|---|---|---|---|
+| 入口脚本 | `install.sh`（从官网下载站拉包） | `deploy.sh`（从 git 拉代码） | 手动 |
+| 组成 | 自包含一套：`docker-compose.standalone.yml`（MySQL/Redis/PHP/Nginx/官网全在内） | 共享栈 `docker-stack/` + 本项目 `docker-compose.yml` 的 app 容器 | 宿主机直接装 PHP/MySQL/Redis/Nginx/Supervisor |
+| 前提 | 只要 Docker + compose | 已有 `/opt/docker-stack` | 已有 LNMP 环境 |
+| 适合 | 交付给客户、内网机器、不想装 git/Node 的服务器 | 开发、测试，环境可复现 | 要求直接管进程的生产机 |
+| 迁移怎么跑 | 脚本自动跑；手工：`docker compose exec -T php php artisan catch:migrate xxx --force` | `docker exec tgbot-php php artisan catch:migrate xxx --force` | 直接在项目目录 `php artisan catch:migrate xxx --force` |
+| 前端 | 脚本用一次性 node 容器构建（`--skip-frontend` 可跳过） | 部署时执行一次 `docker exec tgbot-frontend sh -c "yarn install && yarn build"` | 宿主机 `yarn build` |
 
-> 两种方式**后端安装步骤完全一致**（`app:install` + 模块安装），差别只在"命令在哪跑、
-> 基础设施谁提供"。第 3 节之后的通用章节（`.env` / 前端 / 上线检查）对两者都适用。
+> 三者**后端安装步骤完全一致**（`app:install` + 模块安装），差别只在"命令在哪跑、
+> 基础设施谁提供"。第 3 节之后的通用章节（`.env` / 前端 / 上线检查）对三者都适用。
+
+### 0.1 一键安装（install.sh）
+
+面向客户机：只要求 Docker，不需要 git / Node / PHP。
+
+```bash
+# 在目标服务器（root）执行；域名需先解析到本机
+curl -fsSL https://site.example.com/install.sh -o /tmp/easytg.sh
+sudo bash /tmp/easytg.sh --domain tg.example.com
+```
+
+脚本按顺序做这些事，任何一步失败就停：
+
+1. 检查 `curl/unzip/docker/compose`；缺 Docker 可加 `--install-docker`
+2. 从下载站拉 `telegram-bot-<版本>.zip` 并核对 `.sha256`（站点没发布校验值时跳过）
+3. 解压到 `--dir`（默认 `/opt/easytg`），非空目录会拒绝执行，避免覆盖
+4. 生成 `.env`（APP_KEY、DB、Redis、Reverb、随机密钥）与 `web/.env.production`
+5. 渲染 `docker/nginx-standalone.conf`（主域名 + `site.<域名>` 两个 server）
+6. 用一次性 `node:20-alpine` 重建前端
+7. `compose up -d mysql redis php` → 等 MySQL healthy → 起 nginx/queue/queue-ocr/reverb
+8. `catch:migrate user` → `app:install` → `storage:link` → `telegram:sync-features` → 缓存预热
+9. 打印访问地址与初始账号 `catchadmin / catchadmin`
+
+常用参数：
+
+| 参数 | 用途 |
+| --- | --- |
+| `--ssl` | 启用 HTTPS（证书放 `/etc/nginx/ssl/<域名>/`，含官网子域名） |
+| `--package /path/x.zip` | 离线安装，跳过下载 |
+| `--base-url https://站点` | 下载站地址（默认从脚本所在位置推断） |
+| `--port 8080` | 换 HTTP 端口（宿主已有 Nginx 时用） |
+| `--skip-frontend` | 跳过前端构建（要求包内 `web/dist` 与当前域名一致） |
+| `--with-telethon` | 一并启动真人号（Telethon）服务 |
+| `--update` | 升级已有安装：只覆盖代码，保留 `.env` 与数据卷 |
+| `--dry-run` | 只打印步骤，不联网、不落文件 |
+
+> `docker-compose.standalone.yml` 与仓库根的 `docker-compose.yml` **不能混用**：
+> 后者依赖 external 网络 `stack` 和预构建镜像 `stack-php:8.4`，在裸机上 `up` 会直接报错。
+
+### 0.2 官网与下载站（site/）
+
+`site/` 是一套纯静态站（无构建、无 CDN）：首页、下载页、`assets/`、`downloads/`。
+
+- 独立子域名（默认 `site.<DOMAIN>`），与后台完全隔离：后台 SPA 的 `try_files … /index.html`
+  会吃掉同域下的所有路径，混在一起官网必然白屏，所以分成两个 server 块。
+- `./deploy.sh site` 只生成/更新官网 vhost 并 reload；`SITE_ENABLED=0` 会移除该 vhost。
+- 页面里的安装命令用 `__ORIGIN__` 占位，`assets/app.js` 在运行时替换成当前站点地址，
+  换域名不用改 HTML。
+
+发布一个版本（在源码目录执行）：
+
+```bash
+bash scripts/package-release.sh --publish
+```
+
+产出并复制到 `site/downloads/`：`telegram-bot-<版本>.zip`、`.sha256`、`latest.txt`、
+`plugin-template.zip`，同时把 `install.sh` 复制到 `site/` 根（`curl .../install.sh` 要用）。
+
+- 默认**不含** `vendor` / `web/dist`：包小（约 3MB），安装时在容器里装依赖、构建前端；
+  内网离线场景加 `--with-vendor --with-dist` 出大包，安装端配 `--skip-frontend`。
+- 重新发布后老版本包会被覆盖；要保留历史版本就手工把 `dist/*.zip` 归档。
+
+#### 官网在哪儿、`/site` 打不开是正常的
+
+对外官网**只有 `site.<DOMAIN>` 一个入口**（首页 `/`、下载页 `/download.html`）。
+
+- 早期版本里曾有一套用 Blade 渲染的 `/site`、`/site/help/commands` 页面，那套从未接上路由
+  （`route:list` 里一直没有它，nginx 也没有对应 location），现已删除。因此：
+
+  | 访问 | 结果 |
+  | --- | --- |
+  | `https://site.<域名>/`、`/download.html` | 官网与下载页 |
+  | `https://<域名>/site`、`/site/help/commands` | 落到后台 SPA（前端 404 页），**不会**跳转到官网 |
+
+- **故意不做 301 跳转**：`/site` 从未对外提供过内容，没有外链和收录需要迁移；而 301 的目标
+  `site.<域名>` 依赖 DNS 已解析，客户只配了主域就会跳到一个打不开的域名，比留在 SPA 更糟。
+- 想把官网挂到主域的 `/site/` 子路径，要和后台 SPA 争路径、并改前端路由，属于结构改动，
+  当前不支持。需要官网就走子域名（`SITE_DOMAIN` 可改，默认 `site.<DOMAIN>`）。
+
+**一键安装的两个外部前提**（脚本会明确报错，不会静默失败）：
+
+1. `site.<域名>` 需要提前解析到本机——只影响官网访问，后台不受影响；
+2. 首次安装要能拉镜像、npm 源要可用（前端构建）；纯内网用 `--with-vendor --with-dist` 打包 +
+   `--skip-frontend` 安装，代价是前端变量是打包机域名烧死的，换域名会白屏。
 
 ---
 
@@ -765,10 +850,10 @@ php artisan merchant:create "商户A" a001 --username=a_admin --email=a@example.
 
 ### 12.5 签名与挂载范围
 
-- 中间件别名 `validate.upstream`，当前挂在 `POST /api/upstream/v1/ping`（接入自检）。后续需要加密处理的三方接口统一放 `api/upstream/v1` 分组。
+- 中间件别名 `validate.upstream`，当前挂在 `POST /api/upstream/v1/ping`（接入自检）与 `POST /api/hooks/{token}`（业务回调）。对接规范见 [对外 API 标准文档](api.md)，后续需要加密处理的三方接口统一放 `api/upstream/v1` 分组。
 - 请求头：`X-Access-Key`、`X-Timestamp`（Unix 秒，±300s）、`X-Nonce`（≤64，`[A-Za-z0-9_-]`）、`X-Signature`（HMAC-SHA256 小写 hex）。
 - 待签串：`METHOD\nPATH?SORTED_QUERY\nTIMESTAMP\nNONCE\nBODY_SHA256`；`PATH` 用 `getPathInfo()`，query 按 key 升序且键值 `rawurlencode`，`BODY_SHA256` 是原始 body 的 sha256 小写 hex（GET 用空串的 sha256）。验签通过后才用 `Cache::add` 原子占用 nonce（600s）。
-- **不挂**：`/api/webhook/pull`（Telegram secret_token）、`/api/hooks/{token}`（已有 per-hook `CallbackSigner`）、miniapp initData、`telegram/events/*`、`collect/*`、`tg/user/*`、`api/bot/send/group`、所有后台登录态接口。
+- **不挂**：`/api/webhook/pull`（Telegram secret_token）、miniapp initData、`telegram/events/*`、`collect/*`、`tg/user/*`、`api/bot/send/group`、所有后台登录态接口。
 - `ValidateApiKey`（`EXTERNAL_API_KEY`，前端 / 内部采集器）原样保留，与新体系并存。
 
 ### 12.6 上线检查补充

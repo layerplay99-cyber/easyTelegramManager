@@ -59,6 +59,13 @@
       </el-select>
     </el-form-item>
 
+    <el-form-item label="计费级别" prop="access_level">
+      <el-select v-model="(formData as any).access_level" class="w-full">
+        <el-option label="免费（永久可用）" value="free" />
+        <el-option label="付费（需有效套餐期内）" value="paid" />
+      </el-select>
+    </el-form-item>
+
     <!-- ============ 执行器配置：按 driver 的 schema 自动渲染，不再手写 JSON ============ -->
     <el-divider content-position="left">
       <span class="text-sm font-medium">{{ $t('feature.driverConfig') }}</span>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Services\Feature;
 
+use App\Support\ServiceExpiry;
 use Illuminate\Support\Str;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
@@ -15,6 +16,7 @@ use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Models\GroupConfigs;
 use Modules\Telegram\Services\LogMessageService;
 use Modules\Telegram\Services\Translate\ReplyTranslator;
+use Modules\User\Models\User;
 use Telegram\Bot\Api;
 
 /**
@@ -125,6 +127,15 @@ class FeatureExecutor
 
         if (! $feature->enabled) {
             return FeatureResult::fail('功能已停用');
+        }
+
+        // 付费功能门槛：归属账号必须处于有效套餐期内（见 ServiceExpiry::hasPaidAccess）。
+        // 放在所有触发入口共同的管线上——命令/按钮/webhook 一次覆盖，插件也无法绕过。
+        // free 功能不受影响；「服务整体到期」是另一层拦截（中间件 / UpdateRouter）。
+        $paidDenied = $this->paidDenied($bot, $feature);
+
+        if ($paidDenied !== null) {
+            return FeatureResult::fail($paidDenied);
         }
 
         // 绑定记录：两级，递进关系
@@ -287,6 +298,32 @@ class FeatureExecutor
         }
 
         return $result;
+    }
+
+    /**
+     * 付费功能准入判定，返回拒绝文案；null = 放行
+     *
+     * 归属人无法确定（无机器人上下文的手动/webhook 调用）时不拦截——
+     * 这类调用本身就走后台/内部通道，没有商户维度可判定。
+     * 平台超管豁免；判定结果带缓存（Merchant/User 保存时主动清）。
+     */
+    protected function paidDenied(?Bots $bot, Features $feature): ?string
+    {
+        if ((string) $feature->access_level !== 'paid' || ! $bot || ! $bot->creator_id) {
+            return null;
+        }
+
+        $owner = User::query()->find($bot->creator_id);
+
+        if (! $owner) {
+            return null;
+        }
+
+        if ($owner->isSuperAdmin() || ServiceExpiry::hasPaidAccess($owner)) {
+            return null;
+        }
+
+        return '该功能为付费功能，请先购买套餐后再使用（联系人：平台管理员）。';
     }
 
     /**

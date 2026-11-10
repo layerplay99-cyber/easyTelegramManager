@@ -28,22 +28,46 @@ class CustomFeatureRegistry
      */
     public static function discover(): array
     {
-        $path = __DIR__ . '/Drivers/Custom';
-
-        if (! is_dir($path)) {
-            return [];
-        }
-
         $classes = [];
 
-        foreach (File::allFiles($path) as $file) {
-            if ($file->getExtension() !== 'php') {
-                continue;
+        // 1) 代码内置功能：Drivers/Custom
+        $path = __DIR__ . '/Drivers/Custom';
+
+        if (is_dir($path)) {
+            foreach (File::allFiles($path) as $file) {
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+
+                $relative = str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname());
+                $classes[] = 'Modules\\Telegram\\Services\\Feature\\Drivers\\Custom\\' . $relative;
             }
+        }
 
-            $relative = str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname());
-            $class = 'Modules\\Telegram\\Services\\Feature\\Drivers\\Custom\\' . $relative;
+        // 2) 上传安装的插件：Modules\Telegram\Plugins\{目录名}\…（目录名即命名空间段）
+        //    停用插件的目录在 _disabled/ 下，天然扫不到 —— 停用即可从后台消失。
+        $pluginRoot = dirname(__DIR__, 2) . '/Plugins';
 
+        if (is_dir($pluginRoot)) {
+            foreach (File::directories($pluginRoot) as $dir) {
+                if (basename($dir) === '_disabled') {
+                    continue;
+                }
+
+                foreach (File::allFiles($dir) as $file) {
+                    if ($file->getExtension() !== 'php') {
+                        continue;
+                    }
+
+                    $relative = str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname());
+                    $classes[] = 'Modules\\Telegram\\Plugins\\' . basename($dir) . '\\' . $relative;
+                }
+            }
+        }
+
+        $discovered = [];
+
+        foreach ($classes as $class) {
             if (! class_exists($class)) {
                 continue;
             }
@@ -54,10 +78,10 @@ class CustomFeatureRegistry
                 continue;
             }
 
-            $classes[] = $class;
+            $discovered[] = $class;
         }
 
-        return $classes;
+        return $discovered;
     }
 
     /**
@@ -172,10 +196,12 @@ class CustomFeatureRegistry
             'handler' => '',
         ];
 
-        // config 只在首次写入，避免覆盖后台已改的配置
+        // config / access_level 只在首次写入，避免覆盖后台已改的配置
         if (! $existing) {
             $payload['config'] = $class::defaultConfig();
             $payload['enabled'] = true;
+            // 计费级别：代码声明只是默认值，入库后以后台设置为准
+            $payload['access_level'] = $class::accessLevel();
         }
 
         if ($existing) {

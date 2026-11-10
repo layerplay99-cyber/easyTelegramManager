@@ -14,6 +14,9 @@ use Modules\Telegram\Services\Feature\FeatureDataStore;
 use Modules\Telegram\Services\Feature\TemplateRenderer;
 use Modules\Telegram\Services\Feature\ThirdEndpointResolver;
 use Modules\Telegram\Services\Feature\UpstreamResolver;
+use Modules\Telegram\Services\Upstream\UpstreamRequest as OutboundRequest;
+use Modules\Telegram\Services\Upstream\UpstreamResponse as InboundResponse;
+use Modules\Telegram\Services\Upstream\UpstreamTransport;
 
 /**
  * 自定义功能基类
@@ -29,6 +32,8 @@ use Modules\Telegram\Services\Feature\UpstreamResolver;
  *   - 命令分发时自动路由到 handle()
  *
  * 已封装：功能数据读写、调三方接口、回复、模板渲染。
+ * 可选：覆写 responseHandlers() 让本功能自带上游响应解构（优先于适配器），
+ * 上游返回格式不标准时不必再为每家上游写适配器。
  *
  * 示例：
  *
@@ -121,6 +126,24 @@ abstract class BaseCustomFeature implements FeatureDriver
      * 功能名称（后台显示）
      */
     abstract public static function featureName(): string;
+
+    // ------------------------------------------------------------------
+    // 计费声明（可选覆写，只作为首次同步的默认值）
+    // ------------------------------------------------------------------
+
+    /**
+     * 功能计费级别：'free' 免费 / 'paid' 付费
+     *
+     * paid = 归属账号必须处于有效套餐期内才能执行（执行时校验，见 FeatureExecutor），
+     * free = 永久可用（仍受「服务整体到期」拦截约束，两回事）。
+     *
+     * 代码里声明的只是**首次同步的默认值**：功能入库后以后台
+     * 「功能列表」里的设置为准，之后同步不会覆盖后台改过的值。
+     */
+    public static function accessLevel(): string
+    {
+        return 'free';
+    }
 
     /**
      * 功能逻辑
@@ -314,6 +337,62 @@ abstract class BaseCustomFeature implements FeatureDriver
     }
 
     /**
+     * 功能自带的响应解构声明表（可选，默认空 = 全部走上游适配器）
+     *
+     * endpointCode => 解构回调。回调签名：
+     *   fn(InboundResponse $response, OutboundRequest $request, ThirdApiConfig $upstream): UpstreamResult|array
+     *
+     * 声明了的接口：callEndpoint() 优先用这里的解构，不再走 thirdapi_config.adapter
+     * 的适配器——上游返回什么格式，功能自己最清楚，不必再为每家上游写
+     * Adapter + ResponseMap。传输层失败（没发出 / 非 2xx / 非 JSON）已由
+     * UpstreamTransport 统一判定，回调只负责「JSON body → 平台标准结构」。
+     *
+     * 回调返回：
+     *   - array 带 _error 键 = 失败（与 callEndpoint 的错误约定一致）
+     *   - array              = 成功，data 即返回值
+     *   - UpstreamResult     = 直接使用
+     * 回调抛异常 / 返回非法值时自动回退到上游适配器解构（UpstreamTransport 安全壳）。
+     *
+     * @return array<string, callable|string>
+     */
+    protected function responseHandlers(): array
+    {
+        return [];
+    }
+
+    /**
+     * 取某接口的功能解构回调；支持闭包 / [$this, '方法名'] / '方法名'
+     */
+    protected function responseHandlerFor(string $endpointCode): ?callable
+    {
+        $handlers = $this->responseHandlers();
+
+        $handler = $handlers[$endpointCode] ?? null;
+
+        if ($handler === null) {
+            return null;
+        }
+
+        if (is_string($handler)) {
+            $handler = [$this, $handler];
+        }
+
+        if (! is_callable($handler)) {
+            logger()->warning('[自定义功能] responseHandlers 声明的回调不可调用，已回退适配器', [
+                'feature' => static::key(),
+                'endpoint' => $endpointCode,
+            ]);
+
+            return null;
+        }
+
+        // 包装成闭包：解构最终由 UpstreamTransport（类外）调用，
+        // 不包装的话 protected 方法名声明会在参数校验时因可见性 TypeError。
+        // 闭包在本类作用域里创建，protected / private 方法都可达。
+        return fn (...$args) => $handler(...$args);
+    }
+
+    /**
      * 调用平台接口（返回响应体数组，失败时返回 ['_error' => 原因]）
      *
      * 平台化约定：上游取当前机器人绑定的三方配置（各用户不同），
@@ -394,49 +473,78 @@ abstract class BaseCustomFeature implements FeatureDriver
 
         $url = ThirdEndpointResolver::buildUrl($third, $path);
 
+        // 上游若单独指定了请求方法则以它为准；否则沿用调用方传入的方法（兼容既有自定义功能）
+        $platformMethod = strtoupper((string) ($endpoint->method ?: 'GET'));
+        $requestMethod = $resolved['method'] !== $platformMethod
+            ? $resolved['method']
+            : strtoupper($method);
+
+        // ---- 上游协议适配：把平台标准请求交给该厂商的插件改写 ----
+        // 功能代码从头到尾只用标准参数名，字段名 / 位置 / 编码 / 签名的差异
+        // 全部在插件里。adapter 留空或插件异常时 UpstreamTransport 会回退直通。
+        $transport = app(UpstreamTransport::class);
+        $adapter = $transport->adapterFor($third);
+
+        $outbound = new OutboundRequest(
+            endpointCode: $endpoint->code,
+            method: $requestMethod,
+            path: $path,
+            url: $url,
+            params: $params,
+            query: [],
+            headers: (array) ($resolved['headers'] ?? []),
+            pathParams: array_keys($usedInPath),
+            timeout: (int) $resolved['timeout'],
+        );
+
+        $outbound = $transport->prepare($adapter, $outbound, $third);
+
+        // 插件可以整段改写路径（例如厂商要求带版本号前缀），改了就重新拼 URL
+        if ($outbound->path !== $path) {
+            $url = ThirdEndpointResolver::buildUrl($third, $outbound->path);
+        }
+
         // GET：只把没被路径吃掉的参数放 query（POST 的 body 保持原样，上游通常都要）
-        $queryParams = array_diff_key($params, $usedInPath);
+        $queryParams = array_merge($outbound->queryParams(), $outbound->query);
 
         try {
-            $request = Http::timeout($resolved['timeout']);
+            $request = Http::timeout($outbound->timeout);
 
-            if ($resolved['headers']) {
-                $request = $request->withHeaders($resolved['headers']);
+            if ($outbound->bodyMode === 'form') {
+                $request = $request->asForm();
+            }
+
+            if ($outbound->headers) {
+                $request = $request->withHeaders($outbound->headers);
             }
 
             if ($third->token) {
                 $request = $request->withToken($third->token);
             }
 
-            // 上游若单独指定了请求方法则以它为准；否则沿用调用方传入的方法（兼容既有自定义功能）
-            $platformMethod = strtoupper((string) ($endpoint->method ?: 'GET'));
-            $requestMethod = $resolved['method'] !== $platformMethod
-                ? $resolved['method']
-                : strtoupper($method);
+            $response = match (true) {
+                $outbound->isPost() => $request->post($url, $outbound->params),
+                // 参数放 post-data 的 GET：URL 保持干净，withToken / 头照常带
+                $outbound->paramsInBody => $request
+                    ->withBody($outbound->encodedBody(), $outbound->bodyContentType())
+                    ->get($url),
+                default => $request->get($url, $queryParams),
+            };
 
-            $response = $requestMethod === 'POST'
-                ? $request->post($url, $params)
-                : $request->get($url, $queryParams);
+            $inbound = InboundResponse::fromHttp($response);
 
-            // ⚠️ 必须先看状态码：上游挂了（Cloudflare 523 / 502、限流 429 等）时响应体是
-            // 纯文本，json() 解析不出来，以前会静默变成 ['_raw' => 'error code: 523']，
-            // 功能侧只看 isset($data['_error']) 判断失败，根本发现不了，
-            // 模板取不到字段就渲染成「余额：- 元」这种看起来像成功的空结果。
-            if (! $response->successful()) {
-                return ['_error' => '上游返回 HTTP ' . $response->status() . '：' . $this->excerpt($response->body())];
-            }
+            // 响应解构优先级：功能自带的 responseHandlers() > 上游适配器 > 直通。
+            // 功能自己声明了解构的接口不再经过适配器——上游返回什么格式，功能
+            // 自己最清楚（见 responseHandlers() 注释）；没声明的走适配器（默认直通）。
+            $handler = $this->responseHandlerFor($endpoint->code);
 
-            $body = (string) $response->body();
-            $json = $response->json();
+            $result = $handler !== null
+                ? $transport->parseWithFeatureMapper($handler, $adapter, $inbound, $outbound, $third)
+                : $transport->parse($adapter, $inbound, $outbound, $third);
 
-            // 200 但返回的不是 JSON（代理劫持、网关错误页等），同样要报出来
-            if ($json === null && trim($body) !== '') {
-                return ['_error' => '上游返回不是 JSON：' . $this->excerpt($body)];
-            }
-
-            return (array) ($json ?? ['_raw' => $body]);
+            return $result->toLegacyArray();
         } catch (\Throwable $e) {
-            return ['_error' => $e->getMessage()];
+            return $transport->transportFailed($adapter, $e->getMessage(), $outbound, $third)->toLegacyArray();
         }
     }
 

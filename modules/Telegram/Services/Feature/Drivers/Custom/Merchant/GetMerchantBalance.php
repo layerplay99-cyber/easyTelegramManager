@@ -26,6 +26,24 @@ use Modules\Telegram\Services\Translate\LocalizedReply;
  *
  * 商户号解析 / 未绑定提示 / 绑定命令 / 多语文案全部走 LocalizedReply trait，
  * 与其它 6 个商户功能共用，不在这里重复实现。
+ *
+ * 【示例看点 · 路线 A】（docs/feature-dev.md §2）最典型的一条链路：
+ *   resolveMerchantId（trait，读 /bd 写的路由）→ callEndpoint → 只读平台标准字段
+ *   → 后台模板优先、群语种兜底。插件对照版：resources/plugin-examples/merchant-demo/
+ *
+ * 数据契约（改造重点）：
+ *   本功能只读平台标准结构 data.balance / data.currency，
+ *   不认识任何厂商私有字段名，也不做任何字段猜测。
+ *   每条上游在「三方配置 → 上游适配器」选自己的插件，
+ *   由该插件在 parseResponse() 里把自家响应归一成标准结构。
+ *   见 docs/upstream-adapter.md。换上游时这里一行都不用改。
+ *
+ * 调用链：
+ *   /ye → handle() → callEndpoint()
+ *       → UpstreamTransport::prepare()  [插件改写请求]
+ *       → HTTP
+ *       → UpstreamTransport::parse()    [插件归一响应 → 平台标准数组]
+ *       → 本方法读 data.balance / data.currency → 模板或多语文案
  */
 class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
 {
@@ -59,6 +77,8 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                 'params_schema' => [
                     ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
                 ],
+                // 平台标准返回结构（不是某家上游的字段名）：
+                // data.balance / data.currency，由该上游的适配器负责产出
                 'response_schema' => [
                     'balance' => '余额',
                     'currency' => '币种',
@@ -158,7 +178,7 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
                 'type'     => 'template',
                 'required' => false,
                 'default'  => '',
-                'hint'     => '留空按群语种自动翻译；填写则固定使用该文案。可用变量 {{data.balance}} 等上游字段',
+                'hint'     => '留空按群语种自动翻译；填写则固定使用该文案。平台标准变量：{{data.balance}}、{{data.currency}}、{{_raw}}；换上游只换「三方配置 → 上游适配器」，模板不用改',
             ],
         ];
     }
@@ -176,6 +196,8 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
         }
 
         // 2) 调平台接口（上游由机器人绑定，各用户不同）
+        //    callEndpoint() 内部完成：解析上游 → 插件改写请求 → 发 HTTP
+        //    → 插件把响应归一成平台标准结构；失败时返回 ['_error' => 原因]。
         $data = $this->callEndpoint(
             (string) $context->config('endpoint_code', 'merchant.balance'),
             ['merchant_id' => $merchantId],
@@ -186,40 +208,32 @@ class GetMerchantBalance extends BaseCustomFeature implements EndpointProvider
             return $this->localizedFail($this->t($context, 'balance.failed') . $data['_error']);
         }
 
-        // 3) 上游「查询余额」与「设置余额预警」返回的是同一个钱包结构：
-        //    {"data":{"id":158,"available_funds":"978479062.00","locked_funds":"0.00",
-        //             "warn_funds":null,"currency":{"code":"VND","symbol":"₫"}}}
-        //    没有 balance 字段 —— 之前取 data.balance 得到 null，
-        //    群里就显示「余额：- VND」（币种能取到是因为 currency.code 存在）。
-        $wallet = data_get($data, 'data');
-        $wallet = is_array($wallet) ? $wallet : $data;
+        // 3) 只读平台标准字段，不做任何厂商字段猜测。
+        //    各家上游的字段名、层级、币种结构差异，只写在它自己的插件里
+        //    （Adapters/<厂商>/），由该插件在 parseResponse() 里归一。
+        //    换上游时这里一行都不用改，只要在后台给那条上游换插件。
+        $balance = data_get($data, 'data.balance');
+        $currency = data_get($data, 'data.currency');
 
-        $balance = $wallet['available_funds']
-            ?? $wallet['balance']
-            ?? $wallet['available_balance']
-            ?? null;
-
-        $currency = $wallet['currency'] ?? null;
-
-        if (is_array($currency)) {
-            $currency = $currency['code'] ?? $currency['symbol'] ?? null;
+        // 留空=直通，上游没配自己的插件就拿不到标准字段。
+        // 明确失败，别让模板渲染出「余额：-」这种看起来像成功的空结果。
+        if (! is_scalar($balance) || trim((string) $balance) === '') {
+            return $this->localizedFail($this->t($context, 'balance.failed') . 'data.balance');
         }
+
+        $currency = is_scalar($currency) ? (string) $currency : '';
 
         // 4) 后台填了模板就按模板渲染（自定义内容不翻译），否则按群语种出文案
         $custom = $this->customText($context, 'reply_template');
 
         if ($custom !== '') {
-            // 把各上游的真实余额字段映射到标准变量 data.balance，
-            // 让后台按平台标准文档写的模板（{{data.balance}}）在任何上游下都能取到值
-            $renderData = $data;
-            data_set($renderData, 'data.balance', $balance);
-
-            return $this->localizedReply($this->render($custom, $renderData, $context), $data);
+            // $data 本身就是标准结构，{{data.balance}} 直接可取，无需再补字段
+            return $this->localizedReply($this->render($custom, $data, $context), $data);
         }
 
         $text = trim($this->t($context, 'balance.value', [
-            'balance' => is_scalar($balance) ? (string) $balance : '-',
-            'currency' => is_scalar($currency) ? (string) $currency : '',
+            'balance' => (string) $balance,
+            'currency' => $currency,
         ]));
 
         return $this->localizedReply($text, $data);

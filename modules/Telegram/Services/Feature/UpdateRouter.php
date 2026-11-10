@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Services\Feature;
 
+use Illuminate\Support\Facades\Cache;
 use Modules\Telegram\Contracts\UpdateIntent;
 use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
+use App\Support\ServiceExpiry;
 use Modules\Telegram\Services\Bot\BotApiFactory;
 use Modules\Telegram\Services\LogMessageService;
+use Modules\User\Models\User as UserModel;
 
 /**
  * Update 路由器（功能分发的唯一入口，调用链一目了然）
@@ -56,8 +59,17 @@ class UpdateRouter
         }
 
         // ---- 1) 群成员变化：独立处理，不进功能分发 ----
+        // （进群退群记录是内部台账，不受商户有效期影响，保持正常收集）
         if ($intent->isMembership()) {
             $this->botInGroupService->handleUpdate($bot, $update);
+
+            return;
+        }
+
+        // ---- 1.5) 商户有效期：机器人归属账号过期 → 只回到期提示，全部功能停用 ----
+        // 命令 / 按钮 / 图片 / 语音等一切分发都在这条之后，一处拦截覆盖全链路。
+        if ($this->creatorExpired($bot)) {
+            $this->notifyExpired($bot, $chatId);
 
             return;
         }
@@ -76,6 +88,52 @@ class UpdateRouter
 
         // ---- 4) 其余全部（按钮/图片/语音/贴纸…）：功能分发 ----
         $this->routeToFeatures($bot, $intent);
+    }
+
+    /**
+     * 机器人归属账号是否已过有效期（5 分钟缓存，避免每条 update 都查库）
+     *
+     * 综合 ServiceExpiry 判定：用户自身或所属商户任一过期即过期；
+     * 归属人不存在 / 平台超管视为有效。缓存由 User / Merchant 的 saved
+     * 钩子主动清除，后台改完有效期立即生效。
+     */
+    protected function creatorExpired(Bots $bot): bool
+    {
+        if (! $bot->creator_id) {
+            return false;
+        }
+
+        return Cache::remember(
+            UserModel::expiryCacheKey((int) $bot->creator_id),
+            now()->addMinutes(5),
+            function () use ($bot) {
+                $user = UserModel::query()->find($bot->creator_id);
+
+                return $user !== null
+                    && ! $user->isSuperAdmin()
+                    && ServiceExpiry::expiredFor($user);
+            }
+        );
+    }
+
+    /**
+     * 到期提示：回一条固定文案后终止本次分发
+     */
+    protected function notifyExpired(Bots $bot, int|string $chatId): void
+    {
+        try {
+            $this->botApiFactory->forBot($bot)->sendMessage([
+                'chat_id' => $chatId,
+                'text' => '本机器人归属账号的服务已到期，功能暂停使用，请联系管理员续期。',
+            ]);
+        } catch (\Throwable $e) {
+            $this->logMessageService->createLaravelLog(
+                'telegram_features',
+                ['bot_id' => $bot->id, 'chat_id' => $chatId, 'error' => $e->getMessage()],
+                '到期提示发送失败',
+                'warning'
+            );
+        }
     }
 
     /**

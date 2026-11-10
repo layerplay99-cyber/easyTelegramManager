@@ -155,47 +155,17 @@ UpdateRouter::route()
 
 ## 4. 上游回调（三方推送）
 
-### 4.1 给上游的接入说明（可直接转发这段）
+### 4.1 给上游的接入说明
 
-**回调地址**
+完整对接文档（鉴权头签名、待签串、幂等、应答格式、错误码、签名示例）见
+[对外 API 标准文档](api.md)，可直接转发给三方。要点：
 
-```
-POST https://你的域名/api/hooks/{token}
-```
-
-`{token}` 在后台「回调设置」里生成，**只在首次创建时生成，之后不变**（上游配好了就不能换）。
-
-**鉴权（头签名，必须）**：入站回调统一走平台头签名，请求头必须带：
-
-| 请求头 | 值 |
-|---|---|
-| `X-Access-Key` | 「三方配置 → 生成密钥」下发的 `access_key`（`ak_...`） |
-| `X-Timestamp` | Unix 秒，与服务器偏差须 ≤ 300 秒 |
-| `X-Nonce` | 随机串（`[A-Za-z0-9_-]+`，≤64 位），窗口内不重复 |
-| `X-Signature` | `HMAC-SHA256(canonical, secret_key)` 的小写 hex（64 位） |
-
-**待签串（canonical，`\n` 分隔，末尾无换行）**：
-
-```
-METHOD
-PATH?SORTED_QUERY
-TIMESTAMP
-NONCE
-BODY_SHA256
-```
-
-- `METHOD`：大写（`POST`）
-- `PATH`：URL 路径（不含 host）；有 query 时按 key 升序、键值 `rawurlencode` 后拼 `?k=v&...`
-- `BODY_SHA256`：原始 body 字节的 SHA-256 hex —— body 必须**原样发送**，两边算出来才一致
-
-`secret_key` 是「三方配置 → 生成密钥」下发的那把（`sk_...`），明文只显示一次。验签失败 / 时间戳过期 / nonce 重放统一返回 `401`。
-
-**幂等 / 防重放**
-
-- `dedup_field`：相同字段值的重复推送直接返回成功（键只在**执行成功后**才占住，失败可重试）
-- 时间戳窗口与 nonce 去重已由头签名中间件（`validate.upstream`）完成，无需在 body 里再带 `timestamp` / `nonce`
-
-**应答格式固定**：`{"status":"success"}` / `{"status":"error","message":"..."}`（HTTP 200 / 4xx、5xx）
+- 回调地址 `POST https://你的域名/api/hooks/{token}`；`{token}` 在后台「回调设置」里生成，
+  **只在首次创建时生成，之后不变**（上游配好了就不能换）。
+- 鉴权统一走 `validate.upstream`：请求头带 `X-Access-Key` / `X-Timestamp` / `X-Nonce` /
+  `X-Signature`（HMAC-SHA256 头签名），验签失败 / 时间戳过期 / nonce 重放统一返回 `401`。
+- 幂等：`dedup_field` 相同字段值的重复推送直接返回成功（键只在**执行成功后**才占住，失败可重试）；
+  时间戳窗口与 nonce 防重放由验签中间件完成，无需在 body 里再带 `timestamp` / `nonce`。
 
 ### 4.2 路由：商户ID → 机器人 + 群
 
@@ -391,26 +361,24 @@ curl -X POST "https://你的域名/api/hooks/你的token" \
 
 ## 6. 外部 API（供第三方系统调用）
 
-路由定义在 `modules/Telegram/routes/api.php`，**都在 `validate.apikey` 中间件下**
-（请求头带平台 Api-Key，需与 `.env` 的 `EXTERNAL_API_KEY` 一致），并有 `throttle:20,1` 限流。
+**三方上游对接的完整标准（鉴权、签名、回调、错误码）见 [对外 API 标准文档](api.md)。**
 
-| 路由 | 用途 |
-|---|---|
-| `POST /api/bot/send/group` | 群发：`{botId, groupId \| chatIds \| 'all', message, parseMode, topicId, messageThreadId}` |
-| `POST /api/tg/user/operate/{type}/feature` | 操作真人账号功能（`type` = `check` \| `feature`） |
-| `GET  /api/tg/user/feature/list` | 真人账号可用功能列表 |
-| `POST /api/telegram/events/emoji` | Python 服务回调：表情事件 |
-| `POST /api/telegram/events/member` | Python 服务回调：群成员事件 |
-| `POST /api/webhook/pull` | Telegram webhook 入口（无 apikey，靠 secret_token） |
-| `POST /api/hooks/{token}` | 上游业务回调入口（无 apikey，靠 url_token + 验签） |
+对外 HTTP 接口分三类，路由都在 `modules/Telegram/routes/api.php`：
+
+| 类别 | 鉴权 | 路由 |
+|---|---|---|
+| 三方上游对接 | `validate.upstream` 头签名 | `POST /api/upstream/v1/ping`（接入自检）、`POST /api/hooks/{token}`（业务回调，`throttle:120,1`） |
+| 内部系统（采集器 / 前端） | `validate.apikey`（`.env` 的 `EXTERNAL_API_KEY`） | `/api/collect/*`、`/api/tg/user/*`、`POST /api/bot/send/group`、`/api/webhook/set|del|info/{id}` |
+| 系统间回调 | 各自专属鉴权 | `POST /api/telegram/events/emoji|member`（X-Token，telegram-py）、`POST /api/webhook/pull`（Telegram secret_token） |
 
 **群发的归属校验**：`chatIds` 会与该机器人 `bot_groups` 里的群取交集，
 不属于这个机器人的群会被过滤并记日志（防止拿 A 的机器人往 B 的群发）。
 
-**真人账号功能**：`type=feature` 时按 `telegram_api_users.app_id` 解析账号。
-真人类功能就是普通的驱动，放在 `Services/Feature/Drivers/Custom/RealMan/` 下
-（`AbstractRealManFeature` 是基类），由 `DriverRegistry` 统一扫描，模块安装时由
-`Installer.php` 写入功能列表。
+**真人账号功能**：`POST /api/tg/user/operate/{type}/feature` 的 `type` 只有 `text` / `media`
+（与前端「消息类型」下拉一致），且同时需要 apikey 与后台登录态；`type=feature` 时按
+`telegram_api_users.app_id` 解析账号。真人类功能就是普通的驱动，放在
+`Services/Feature/Drivers/Custom/RealMan/` 下（`AbstractRealManFeature` 是基类），
+由 `DriverRegistry` 统一扫描，模块安装时由 `Installer.php` 写入功能列表。
 
 ---
 
@@ -463,13 +431,15 @@ php artisan telegram:backfill-ownership --apply  # 执行
 | `php artisan telegram:reset-features` | 重置功能列表为标准定义 |
 | `php artisan telegram:cleanup-legacy-features` | 清理老 schema 遗留功能（默认只预览） |
 | `php artisan telegram:backfill-ownership` | 回填业务数据 creator_id |
-| `php artisan telegram:webhook` | 批量设置 / 移除 webhook |
 | `php artisan permissions:check-data-scope <用户>` | 数据隔离自查 |
 | `php artisan catch:route:list` | 查看全部路由 |
 
 ---
 
 ## 9. 新增一个功能的完整步骤
+
+> 本章讲平台内部的扩展点。**「写个功能给客户装」走插件上传，或想要两条路的选型对比、
+> 调试方法与常见坑，直接看 [功能与插件开发指南](feature-dev.md)。**
 
 ### 9.1 只配不写代码（推荐先试）
 

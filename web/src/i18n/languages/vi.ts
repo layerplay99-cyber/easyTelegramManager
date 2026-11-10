@@ -423,6 +423,11 @@ const vi = {
     saveFailed: 'Lưu thất bại',
     refreshSuccess: 'Đã làm mới',
     refreshConfirm: 'Làm mới sẽ tải lại danh sách upstream và các chức năng đã gắn. Cấu hình endpoint chưa lưu sẽ bị mất. Tiếp tục?',
+    adapter: 'Adapter upstream',
+    adapterTip: 'Chọn plugin giao thức theo nhà cung cấp: dịch yêu cầu chuẩn thành tham số riêng và chuẩn hoá phản hồi về cấu trúc chuẩn. Để trống = truyền thẳng (hành vi cũ). Nhiều tài khoản merchant của cùng nhà cung cấp dùng chung một plugin.',
+    adapterPlaceholder: 'Truyền thẳng (không dùng adapter)',
+    adapterDemo: 'Ví dụ',
+    adapterDemoTip: 'Các mục có nhãn «Ví dụ» là mẫu học cách viết plugin, không chọn trong môi trường thật.',
     codeDefined: 'Do code định nghĩa (chỉ đọc)',
     platformDefaultTip: 'Chỉ có thể sửa giá trị mặc định cấp nền tảng tại đây. Để đổi path hoặc method, dùng cấu hình endpoint theo upstream.'
   },

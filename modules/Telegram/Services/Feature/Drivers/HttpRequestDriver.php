@@ -12,6 +12,9 @@ use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
 use Modules\Telegram\Services\Feature\TemplateRenderer;
 use Modules\Telegram\Services\Feature\ThirdEndpointResolver;
+use Modules\Telegram\Services\Upstream\UpstreamRequest as OutboundRequest;
+use Modules\Telegram\Services\Upstream\UpstreamResponse as InboundResponse;
+use Modules\Telegram\Services\Upstream\UpstreamTransport;
 
 /**
  * 三方接口请求驱动（第二块：斜杠命令 → 上游 API）
@@ -174,8 +177,43 @@ class HttpRequestDriver implements FeatureDriver
             ? $renderer->render((string) $context->config('body'), [], $extra)
             : null;
 
+        // ---- 上游协议适配 ----
+        // 本驱动的 body 是后台模板渲染出来的字符串（不是键值数组），
+        // 所以请求侧把固定 query 交给插件改写，body 原样保留；
+        // 响应侧走插件归一，模板里就能用 {{data.balance}} 这类平台标准变量。
+        $transport = app(UpstreamTransport::class);
+        $adapter = $transport->adapterFor($third);
+
+        $outbound = new OutboundRequest(
+            endpointCode: $endpoint->code,
+            method: $method,
+            path: $path,
+            url: $url,
+            params: (array) $query,
+            query: [],
+            headers: (array) $headers,
+            pathParams: [],
+            timeout: (int) $resolved['timeout'],
+        );
+        $outbound->remember('_body', $body);
+
+        $outbound = $transport->prepare($adapter, $outbound, $third);
+
+        if ($outbound->path !== $path) {
+            $url = ThirdEndpointResolver::buildUrl($third, $outbound->path);
+        }
+
+        $method = $outbound->method;
+        $headers = $outbound->headers;
+        $query = array_merge($outbound->params, $outbound->query);
+        $body = $outbound->recalled('_body', $body);
+
         try {
-            $request = Http::timeout($resolved['timeout']);
+            $request = Http::timeout($outbound->timeout);
+
+            if ($outbound->bodyMode === 'form') {
+                $request = $request->asForm();
+            }
 
             if ($headers) {
                 $request = $request->withHeaders($headers);
@@ -185,13 +223,15 @@ class HttpRequestDriver implements FeatureDriver
                 'POST' => $body !== null ? $request->post($url, $body) : $request->post($url),
                 'PUT' => $request->put($url, $body ?? []),
                 'DELETE' => $request->delete($url),
-                default => $request->get($url, $query ?: []),
+                default => $outbound->paramsInBody
+                    ? $request->withBody($outbound->encodedBody(), $outbound->bodyContentType())->get($url)
+                    : $request->get($url, $query ?: []),
             };
         } catch (\Throwable $e) {
-            return FeatureResult::fail('请求上游失败：' . $e->getMessage());
-        }
+            $result = $transport->transportFailed($adapter, $e->getMessage(), $outbound, $third);
 
-        $payload = $response->json() ?? ['_raw' => $response->body()];
+            return FeatureResult::fail('请求上游失败：' . $result->message);
+        }
 
         if (! $response->successful()) {
             return FeatureResult::fail(
@@ -200,10 +240,18 @@ class HttpRequestDriver implements FeatureDriver
             );
         }
 
-        $template = (string) $context->config('reply_template', '{{_raw}}');
-        $message = $renderer->render($template, is_array($payload) ? $payload : [], $extra);
+        // 插件归一：业务码判定 + 字段别名。返回结构仍是模板可用的数组。
+        $result = $transport->parse($adapter, InboundResponse::fromHttp($response), $outbound, $third);
 
-        return FeatureResult::reply($message, is_array($payload) ? $payload : [], [
+        if (! $result->isOk()) {
+            return FeatureResult::fail($result->message, ['status' => $response->status()]);
+        }
+
+        $view = $result->toLegacyArray();
+        $template = (string) $context->config('reply_template', '{{_raw}}');
+        $message = $renderer->render($template, $view, $extra);
+
+        return FeatureResult::reply($message, $view, [
             'status' => $response->status(),
             'endpoint_code' => $endpoint->code,
         ]);

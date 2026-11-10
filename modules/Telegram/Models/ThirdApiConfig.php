@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Cache;
 /**
  * @property int $id
  * @property string $name
+ * @property string|null $adapter
  * @property string $api_url
  * @property string $token
  * @property string $public_key
@@ -37,6 +38,7 @@ class ThirdApiConfig extends Model
     protected $fillable = [
         'id',
         'name',
+        'adapter',
         'api_url',
         'token',
         'public_key',
@@ -56,6 +58,7 @@ class ThirdApiConfig extends Model
     protected array $fields = [
         'id',
         'name',
+        'adapter',
         'api_url',
         'token',
         'public_key',
@@ -71,6 +74,7 @@ class ThirdApiConfig extends Model
 
     protected array $form = [
         'name',
+        'adapter',
         'api_url',
         'token',
         'public_key',

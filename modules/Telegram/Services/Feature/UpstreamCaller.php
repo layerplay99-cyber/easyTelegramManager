@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Modules\Telegram\Models\ThirdApiConfig;
 use Modules\Telegram\Models\ThirdApiEndpoints;
+use Modules\Telegram\Services\Upstream\UpstreamRequest as OutboundRequest;
+use Modules\Telegram\Services\Upstream\UpstreamResponse as InboundResponse;
+use Modules\Telegram\Services\Upstream\UpstreamTransport;
 
 /**
  * 调上游接口（带签名）
@@ -66,33 +69,72 @@ class UpstreamCaller
         $path = $this->renderString($resolved['path'], $data + $params);
         $url = ThirdEndpointResolver::buildUrl($third, $path);
 
-        try {
-            $request = Http::timeout(ThirdEndpointResolver::normalizeTimeout(
+        // ---- 上游协议适配 ----
+        // 交互按钮的成功 / 失败会驱动会话状态机（finish / release 允许重试），
+        // 所以这里的 success 必须走插件的业务码判定，不能只看 HTTP 200。
+        $transport = app(UpstreamTransport::class);
+        $adapter = $transport->adapterFor($third);
+
+        $headers = (array) ($resolved['headers'] ?? []);
+        if ($third->token) {
+            $headers['Authorization'] = $third->token;
+        }
+
+        $outbound = new OutboundRequest(
+            endpointCode: $endpoint->code,
+            method: $method,
+            path: $path,
+            url: $url,
+            params: $params,
+            query: [],
+            headers: $headers,
+            pathParams: [],
+            timeout: ThirdEndpointResolver::normalizeTimeout(
                 $options['timeout'] ?? $resolved['timeout'] ?? null
-            ));
+            ),
+            bodyMode: 'form', // 这条链路历史上一直用 form 提交，保持不变
+        );
 
-            $headers = $resolved['headers'];
-            if ($third->token) {
-                $headers['Authorization'] = $third->token;
-            }
-            if ($headers) {
-                $request = $request->withHeaders($headers);
+        $outbound = $transport->prepare($adapter, $outbound, $third);
+
+        if ($outbound->path !== $path) {
+            $url = ThirdEndpointResolver::buildUrl($third, $outbound->path);
+        }
+
+        try {
+            $request = Http::timeout($outbound->timeout);
+
+            if ($outbound->bodyMode === 'form') {
+                $request = $request->asForm();
             }
 
-            $response = $method === 'POST'
-                ? $request->asForm()->post($url, $params)
-                : $request->get($url, $params);
+            if ($outbound->headers) {
+                $request = $request->withHeaders($outbound->headers);
+            }
+
+            $response = match (true) {
+                $outbound->isPost() => $request->post($url, $outbound->params),
+                $outbound->paramsInBody => $request
+                    ->withBody($outbound->encodedBody(), $outbound->bodyContentType())
+                    ->get($url),
+                default => $request->get($url, $outbound->params),
+            };
+
+            $inbound = InboundResponse::fromHttp($response);
+            $result = $transport->parse($adapter, $inbound, $outbound, $third);
 
             return [
-                'success' => $response->successful(),
+                'success' => $result->isOk(),
                 'http_code' => $response->status(),
-                'body' => $response->json(),
+                'body' => $result->isOk() ? $result->toLegacyArray() : $inbound->payload(),
                 'raw' => $response->body(),
                 'url' => $url,
-                'error' => $response->successful() ? '' : '上游返回 HTTP ' . $response->status(),
+                'error' => $result->isOk() ? '' : $result->message,
             ];
         } catch (\Throwable $e) {
-            return $this->failed($e->getMessage());
+            $result = $transport->transportFailed($adapter, $e->getMessage(), $outbound, $third);
+
+            return $this->failed($result->message);
         }
     }
 

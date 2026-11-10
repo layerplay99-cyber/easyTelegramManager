@@ -425,6 +425,11 @@ const zh = {
     saveFailed: '保存失败',
     refreshSuccess: '已刷新',
     refreshConfirm: '刷新会重新拉取上游及其已绑定功能，当前未保存的接口配置会丢失，确定继续吗？',
+    adapter: '上游适配器',
+    adapterTip: '按上游厂商选择协议插件：插件负责把平台标准请求翻译成该厂商的参数，并把厂商响应归一回平台标准。留空=直通（行为与旧版一致）。同一厂商的多个商户号共用一个插件。',
+    adapterPlaceholder: '直通（不适配）',
+    adapterDemo: '示例',
+    adapterDemoTip: '带「示例」标记的是教学插件，只用于学习如何编写，请勿在生产环境选中。',
     codeDefined: '代码定义（只读）',
     platformDefaultTip: '这里只能改平台级默认值（超时 / 启用 / 请求头 / 固定参数）。要改路径或方法，请到「上游接口配置」按上游覆盖。'
   },

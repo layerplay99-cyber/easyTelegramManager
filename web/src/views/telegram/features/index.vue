@@ -67,6 +67,20 @@
                         />
                     </template>
                 </el-table-column>
+                <el-table-column label="计费" width="120">
+                    <template #default="scope">
+                        <el-switch
+                            v-model="scope.row.access_level"
+                            active-value="paid"
+                            inactive-value="free"
+                            active-text="付费"
+                            inactive-text="免费"
+                            inline-prompt
+                            @change="() => handleAccessLevelChange(scope.row)"
+                            :loading="scope.row.accessLoading"
+                        />
+                    </template>
+                </el-table-column>
                 <el-table-column prop="created_at" :label="$t('system.createTime')" />
                 <el-table-column prop="updated_at" :label="$t('system.updateTime')" />
                 <el-table-column :label="$t('system.operation')" width="260">
@@ -158,8 +172,11 @@ const tableData = computed(() => {
             // 组件初始化时会把值纠正并触发一次 change，导致列表加载时
             // 自动对每条记录发一次 PUT telegram/features/{id}。
             enabled: item.enabled == 1 ? 1 : 0,
+            // 计费级别：只用 free / paid 两个值，避免空值把开关初始成错误状态
+            access_level: item.access_level === 'paid' ? 'paid' : 'free',
             category: categoryMap[item.category as keyof typeof categoryMap] || item.category,
-            switchLoading: false // 添加开关加载状态
+            switchLoading: false, // 添加开关加载状态
+            accessLoading: false
         }))
 })
 
@@ -178,6 +195,21 @@ const handleEnabledChange = async (row: any) => {
         Message.error(t('system.updateFailed'))
     } finally {
         row.switchLoading = false
+    }
+}
+
+// 计费级别切换（免费/付费）
+const handleAccessLevelChange = async (row: any) => {
+    row.accessLoading = true
+    try {
+        await http.put(`${api}/${row.id}`, { access_level: row.access_level })
+        Message.success('计费级别已更新')
+        search()
+    } catch (error) {
+        row.access_level = row.access_level === 'paid' ? 'free' : 'paid'
+        Message.error(t('system.updateFailed'))
+    } finally {
+        row.accessLoading = false
     }
 }
 

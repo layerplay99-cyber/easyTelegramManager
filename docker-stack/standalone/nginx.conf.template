@@ -1,0 +1,99 @@
+# ============================================================================
+# 独立部署（standalone）Nginx 站点配置模板
+# ----------------------------------------------------------------------------
+# 由 install.sh 渲染成 <安装目录>/docker/nginx-standalone.conf：
+#   __DOMAIN__      主域名（后台 + API + WebSocket）
+#   __SSL_LISTEN__  启用 --ssl 时替换成 443 监听与证书；否则替换为空
+#   __SITE_HOST__   官网子域名（site.__DOMAIN__），不想开官网就删掉第二个 server
+#
+# 路径约定（与 docker-compose.standalone.yml 一致）：
+#   项目根     → /var/www/html
+#   官网静态站 → /var/www/site
+# ============================================================================
+
+server {
+    listen 80;
+__SSL_LISTEN__
+    server_name __DOMAIN__;
+
+    client_max_body_size 50m;
+
+    # ---- 前端（构建产物由 install.sh 生成，Nginx 直接托管）----
+    location / {
+        root /var/www/html/web/dist;
+        try_files $uri $uri/ @spa;
+    }
+
+    # SPA 兜底。不能写成 try_files $uri $uri/ /index.html ——
+    # 当 dist/index.html 不存在（构建失败 / 被删）时，fallback 会再次命中 location /，
+    # 无限内部重定向 → 500 且日志刷屏。命名 location 里的 =404 不会回头，能干净报 404。
+    location @spa {
+        root /var/www/html/web/dist;
+        try_files /index.html =404;
+    }
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)$ {
+        root /var/www/html/web/dist;
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    # ---- 上传的媒体文件（storage:link）----
+    location /storage/ {
+        root /var/www/html/public;
+        expires 7d;
+    }
+
+    # ---- API：交给 php-fpm ----
+    location /api {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass   php:9000;
+        fastcgi_index  index.php;
+        fastcgi_param  SCRIPT_FILENAME /var/www/html/public$fastcgi_script_name;
+        include        fastcgi_params;
+    }
+
+    # ---- Reverb WebSocket：单域名方案，前端连 /app ----
+    location /app {
+        proxy_pass             http://reverb:8080;
+        proxy_http_version     1.1;
+        proxy_set_header       Upgrade $http_upgrade;
+        proxy_set_header       Connection "Upgrade";
+        proxy_set_header       Host $host;
+        proxy_read_timeout     3600s;
+        proxy_send_timeout     3600s;
+    }
+}
+
+# ---- 官网 / 下载站（纯静态，与后台完全隔离）----
+server {
+    listen 80;
+__SSL_LISTEN__
+    server_name __SITE_HOST__;
+
+    root /var/www/site;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # 安装器与发布包要能被 curl 直接拉到，按纯文本/二进制返回
+    location = /install.sh {
+        default_type text/plain;
+        charset utf-8;
+    }
+
+    location /downloads/ {
+        default_type application/octet-stream;
+        add_header Cache-Control "no-cache";
+    }
+
+    location ~* \.(css|js|svg|png|jpg|webp|ico|woff2?)$ {
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+}

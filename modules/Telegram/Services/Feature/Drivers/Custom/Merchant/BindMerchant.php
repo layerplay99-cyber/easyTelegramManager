@@ -10,6 +10,7 @@ use Modules\Telegram\Contracts\FeatureResult;
 use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\GroupConfigs;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
+use Modules\Telegram\Services\Feature\UpstreamResolver;
 use Modules\Telegram\Services\LogMessageService;
 use Modules\Telegram\Services\MerchantRouteService;
 use Modules\Telegram\Services\OperatorPolicy;
@@ -27,6 +28,13 @@ use Modules\Telegram\Services\Translate\LocalizedReply;
  * 不带参数 = 查看本群当前绑定。
  * 群内文案按「群设置 → 语种配置」取自 lang/{locale}/merchant.php，
  * 后台仍可填固定的 reply_template / not_exists_tip 覆盖（填了就不翻译）。
+ *
+ * 【示例看点 · 路线 A】（docs/feature-dev.md §2）
+ *   · 读命令实参用 $context->arg(0)，不用 value() —— 已存数据不能顶掉「本次输入」，
+ *     否则「查看绑定」会被当成重新绑定
+ *   · 上游确认与写路由用同一个 UpstreamResolver 解析，保证「校验」和「绑定」是同一条上游
+ *   · putData() 把商户号存进功能数据，其它功能可用 {{@merchant_id}} 引用
+ *   · 插件版对照：resources/plugin-examples/merchant-demo/（自包含、不依赖内部服务）
  */
 class BindMerchant extends BaseCustomFeature implements EndpointProvider
 {
@@ -56,8 +64,9 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
                     ['name' => 'merchant_id', 'required' => true, 'desc' => '商户号', 'map_to' => 'merchantId'],
                 ],
                 'response_schema' => [
-                    'exists' => '是否存在',
-                    'name' => '商户名称',
+                    'data' => [
+                        'id' => '上游返回的商户号（与输入的商户号一致才算存在）',
+                    ],
                 ],
                 'remark' => '绑定前先向上游确认商户号是否存在，不存在则拒绝绑定',
             ],
@@ -140,7 +149,7 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
                 'type' => 'select',
                 'source' => 'third_api_configs',
                 'required' => false,
-                'hint' => '留空则依次用「功能绑定上的上游 → 机器人默认上游」',
+                'hint' => '已废弃：实际承接上游由「功能绑定 → 机器人候选池」统一解析（UpstreamResolver），这里填的值不再生效',
             ],
             [
                 'key' => 'endpoint_code',
@@ -173,13 +182,7 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
     public function handle(FeatureContext $context): FeatureResult
     {
         $chatId = (string) $context->chatId;
-        $policy = app(OperatorPolicy::class);
         $routes = app(MerchantRouteService::class);
-
-        // 绑定关系决定了「通知发到哪、谁能在群里点按钮」，默认只给管理员
-        if ($context->config('require_admin', true) && ! $policy->isGroupAdmin($chatId, $context->userId, $context->bot)) {
-            return $this->localizedFail($this->t($context, 'bind.admin_only'));
-        }
 
         // 只认命令实参：不带参数就是「查看」，绝不能拿已存数据 / 群配置里兜底的
         // merchant_id 当成本次输入的商户号 —— 那会把「/bd」变成「/bd <商户号>」，
@@ -213,17 +216,19 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
             return $this->localizedFail($this->t($context, 'bind.check_failed') . $check['_error']);
         }
 
-        if (! $this->merchantExists($check)) {
+        if (! $this->merchantExists($check, $merchantId)) {
             return $this->localizedFail(
                 $this->customText($context, 'not_exists_tip') ?: $this->t($context, 'bind.not_exists')
             );
         }
 
-        // 上游：功能配置 > 绑定级 > 机器人级（与 callEndpoint 一致，
-        // 保证校验商户和记录路由用的是同一个上游）
-        $thirdConfigId = $context->config('upstream_id')
-            ?: $context->bind?->third_config_id
-            ?: $context->bot?->third_config_id;
+        // 与 callEndpoint() 用同一个解析器，保证「校验商户」和「写路由」是同一条上游。
+        // features.config.upstream_id 已废弃（跨机器人共享的全局配置），不能再优先用它，
+        // 否则会出现校验走 A、回调按商户号反查走 B。
+        $thirdConfigId = app(UpstreamResolver::class)->resolveId(
+            $context->bind,
+            $context->bot
+        );
 
         try {
             $routes->bind(
@@ -323,38 +328,22 @@ class BindMerchant extends BaseCustomFeature implements EndpointProvider
     }
 
     /**
-     * 从上游响应里判断商户是否存在
+     * 商户是否真的存在：上游返回结果里的商户号，必须等于命令输入的商户号
      *
-     * 各家上游返回的字段名不一样，这里按常见的几种写法兜一下：
-     *   {"exists": true} / {"exist": 1} / {"code": 0} / {"success": true}
-     * 你的上游是别的结构（比如 {"data": {...}} 或直接返回商户对象），
-     * 直接改这个方法里的判断即可，不用动 handle()。
+     * /bd 的语义就是「拿输入的号去上游查一次」，只有查回来的号与输入一致才算命中，
+     * 之后才走平台绑定（写 merchant_routes）。上游不给 id、或给的是另一个号，
+     * 都视为不存在，不能绑。
      *
-     * 判不出来时返回 true（放行）——宁可让真正存在的商户绑上，也不要因为
-     * 上游返回了个没见过的结构就把正常商户拦在外面。
+     * 只认平台标准字段 data.id：配了插件的上游由插件把厂商字段归一到这里；
+     * 留空 = 直通的上游若把 id 放在响应顶层，这里也兼容一次（原文不改）。
      *
      * @param array<string, mixed> $response
      */
-    protected function merchantExists(array $response): bool
+    protected function merchantExists(array $response, string $merchantId): bool
     {
-        $response = (array) ($response['data'] ?? $response);
+        $data = (array) ($response['data'] ?? $response);
+        $id = $data['id'] ?? null;
 
-        foreach (['exists', 'exist', 'valid', 'found'] as $key) {
-            if (array_key_exists($key, $response)) {
-                return (bool) $response[$key];
-            }
-        }
-
-        // 有些上游用 code：0 表示成功
-        if (array_key_exists('code', $response)) {
-            return (int) $response['code'] === 0;
-        }
-
-        if (array_key_exists('success', $response)) {
-            return (bool) $response['success'];
-        }
-
-        // 返回了内容但没有任何可判字段，视为存在
-        return $response !== [] && ! isset($response['_raw']);
+        return $id !== null && (string) $id === (string) $merchantId;
     }
 }

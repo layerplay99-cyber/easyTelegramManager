@@ -9,6 +9,7 @@ use Catch\Base\CatchModel as Model;
 use Catch\Enums\Status;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 use Modules\User\Models\Traits\UserRelations;
@@ -22,6 +23,8 @@ use Illuminate\Auth\Authenticatable;
  * @property string $password
  * @property int $creator_id
  * @property int $status
+ * @property \Illuminate\Support\Carbon|null $expired_at
+ * @property \Illuminate\Support\Carbon|null $expire_noticed_at
  * @property string $login_ip
  * @property int $login_at
  * @property int $created_at
@@ -33,6 +36,13 @@ class User extends Model implements AuthenticatableContract
     use DataRange;
 
     use Authenticatable, UserRelations, HasApiTokens;
+
+    /** 有效期字段用日期时间类型，不受 CatchModel 整型时间戳约定影响 */
+    protected $casts = [
+        'expired_at' => 'datetime',
+        'expire_noticed_at' => 'date',
+        'balance' => 'decimal:8',
+    ];
 
     protected $fillable = [
         'id',
@@ -47,6 +57,9 @@ class User extends Model implements AuthenticatableContract
         'two_factor_enabled_at',
         'creator_id',
         'status',
+        'expired_at',
+        'expire_noticed_at',
+        'balance',
         'department_id',
         'login_ip',
         'login_at',
@@ -80,12 +93,12 @@ class User extends Model implements AuthenticatableContract
      */
     protected $table = 'users';
 
-    protected array $fields = ['id', 'username', 'email', 'avatar', 'two_factor_enabled', 'creator_id', 'status', 'department_id', 'tenant_id', 'is_merchant_admin', 'created_at'];
+    protected array $fields = ['id', 'username', 'email', 'avatar', 'two_factor_enabled', 'creator_id', 'status', 'expired_at', 'balance', 'department_id', 'tenant_id', 'is_merchant_admin', 'created_at'];
 
     /**
      * @var array|string[]
      */
-    protected array $form = ['username', 'email', 'password', 'two_factor_enabled', 'department_id', 'tenant_id', 'is_merchant_admin'];
+    protected array $form = ['username', 'email', 'password', 'two_factor_enabled', 'department_id', 'tenant_id', 'is_merchant_admin', 'expired_at'];
 
     /**
      * 归属商户与商户超管标记只允许平台超管显式指定。
@@ -158,6 +171,35 @@ class User extends Model implements AuthenticatableContract
     {
 
         return $this->status == Status::Disable->value;
+    }
+
+    /**
+     * 商户账号是否已过有效期（expired_at 为空 = 永久有效）
+     */
+    public function isExpired(): bool
+    {
+        return $this->expired_at !== null && $this->expired_at->isPast();
+    }
+
+    /**
+     * 商户有效期缓存的 key（UpdateRouter 拦截用；改有效期后要清）
+     */
+    public static function expiryCacheKey(int $userId): string
+    {
+        return 'merchant_expired:' . $userId;
+    }
+
+    protected static function booted(): void
+    {
+        // 有效期变更/删除用户后立即清掉两类缓存（5 分钟 TTL）：
+        //   过期判定（指令链路拦截）+ 付费准入（付费功能校验）
+        $purge = function (self $user): void {
+            Cache::forget(self::expiryCacheKey((int) $user->id));
+            Cache::forget(\App\Support\ServiceExpiry::paidCacheKey((int) $user->id));
+        };
+
+        static::saved($purge);
+        static::deleted($purge);
     }
 
     public function hasTwoFactorEnabled(): bool

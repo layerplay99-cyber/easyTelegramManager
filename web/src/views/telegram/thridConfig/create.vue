@@ -17,6 +17,35 @@
       <el-form-item :label="$t('third.secretKey')" prop="secrept_key">
         <el-input v-model="formData.secrept_key" name="secrept_key" clearable />
       </el-form-item>
+      <el-form-item :label="$t('third.adapter')">
+        <el-select
+          v-model="formData.adapter"
+          clearable
+          filterable
+          class="w-full"
+          :loading="adapterLoading"
+          :placeholder="$t('third.adapterPlaceholder')"
+        >
+          <el-option
+            v-for="o in adapterOptions"
+            :key="o.value"
+            :label="o.label"
+            :value="o.value"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <span>
+                {{ o.label }}
+                <el-tag v-if="o.demo" size="small" type="warning" class="ml-1">
+                  {{ $t('third.adapterDemo') }}
+                </el-tag>
+              </span>
+              <span class="text-gray-400 text-xs">{{ o.description }}</span>
+            </div>
+          </el-option>
+        </el-select>
+        <div class="text-gray-400 text-xs mt-1">{{ $t('third.adapterTip') }}</div>
+        <div v-if="hasDemoAdapters" class="text-gray-400 text-xs mt-1">{{ $t('third.adapterDemoTip') }}</div>
+      </el-form-item>
       <el-form-item :label="$t('third.tenant')">
         <el-input :model-value="tenantLabel" disabled />
       </el-form-item>
@@ -110,7 +139,29 @@ onMounted(() => {
   close(() => emit('close'))
   loadMerchantOptions()
   loadBoundFeatures()
+  loadAdapterOptions()
 })
+
+// ---- 上游协议适配器下拉 ----
+// 复用已有的 telegram/features/options 路由（加一个 source 分支），不开新路由，
+// 避免开了 route:cache 的环境因没重新 cache 而报 route_not_found。
+const adapterOptions = ref<any[]>([])
+const adapterLoading = ref(false)
+const hasDemoAdapters = computed(() => adapterOptions.value.some(o => o.demo))
+
+const loadAdapterOptions = async () => {
+  adapterLoading.value = true
+  try {
+    const r = await http.get('telegram/features/options', {
+      params: { source: 'upstream_adapters' }
+    })
+    adapterOptions.value = Array.isArray(r.data?.data) ? r.data.data : []
+  } catch {
+    adapterOptions.value = []
+  } finally {
+    adapterLoading.value = false
+  }
+}
 
 // ---- 上游可绑定的功能 ----
 const upstreamFeatures = ref<any[]>([])

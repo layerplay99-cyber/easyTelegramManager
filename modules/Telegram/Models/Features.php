@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $handler
  * @property string|null $config
  * @property bool $enabled
+ * @property string $access_level free=免费 paid=需有效套餐
  * @property int $creator_id
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
@@ -54,6 +55,7 @@ class Features extends Model
         'handler',
         'config',
         'enabled',
+        'access_level',
         'needs_upstream',
         'creator_id',
         'created_at',
@@ -78,6 +80,7 @@ class Features extends Model
         'handler',
         'config',
         'enabled',
+        'access_level',
         'needs_upstream',
         'created_at',
         'updated_at'

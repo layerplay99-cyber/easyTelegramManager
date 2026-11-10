@@ -17,12 +17,34 @@ use Modules\Telegram\Http\Controllers\BotGroupGroupController;
 use Modules\Telegram\Http\Controllers\TelegramApiUserController;
 use Modules\Telegram\Http\Controllers\MessageTemplateController;
 use Modules\Telegram\Http\Controllers\MerchantsController;
+use Modules\Telegram\Http\Controllers\PlanOrdersController;
+use Modules\Telegram\Http\Controllers\PluginsController;
+use Modules\Telegram\Http\Controllers\PlansController;
 use Modules\Telegram\Http\Controllers\UpstreamBindingController;
 
 Route::prefix('telegram')->group(function(){
 
 	// 平台商户（租户）：只有平台超管能维护
 	Route::apiResource('merchants', MerchantsController::class);
+
+	// 套餐：具体路由必须注册在 apiResource('plan/orders') 之前，
+	// 否则 plan/orders/balance、plan/orders/purchase 会被 {plan_order} 抢先匹配成 show()
+	Route::get('plan/orders/balance', [PlanOrdersController::class, 'balance']);
+	Route::post('plan/orders/purchase', [PlanOrdersController::class, 'purchase']);
+	Route::post('plan/orders/adjust-balance', [PlanOrdersController::class, 'adjustBalance']);
+	Route::get('plan/orders/accounts', [PlanOrdersController::class, 'accounts']);
+	Route::apiResource('plans', PlansController::class);
+	Route::apiResource('plan/orders', PlanOrdersController::class);
+
+	// 功能插件：只给平台超管（控制器内校验）。
+	// 具体路由写在 {slug} 之前，避免 plugins/settings 被当成 slug。
+	Route::get('plugins/settings', [PluginsController::class, 'settings']);
+	Route::put('plugins/settings', [PluginsController::class, 'saveSettings']);
+	Route::get('plugins', [PluginsController::class, 'index']);
+	Route::post('plugins', [PluginsController::class, 'store']);
+	Route::get('plugins/{slug}', [PluginsController::class, 'show']);
+	Route::put('plugins/{slug}', [PluginsController::class, 'update']);
+	Route::delete('plugins/{slug}', [PluginsController::class, 'destroy']);
 
 	// 机器人 ↔ 多上游、上游 ↔ 功能
 	Route::get('bots/{id}/upstreams', [UpstreamBindingController::class, 'botUpstreams'])

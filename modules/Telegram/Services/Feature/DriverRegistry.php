@@ -195,6 +195,26 @@ class DriverRegistry
             $classes[] = 'Modules\\Telegram\\Services\\Feature\\Drivers\\' . $relative;
         }
 
+        // 上传安装的插件里的执行器：与功能类同目录扫描规则（排除 _disabled）
+        $pluginRoot = dirname(__DIR__, 2) . '/Plugins';
+
+        if (is_dir($pluginRoot)) {
+            foreach (File::directories($pluginRoot) as $dir) {
+                if (basename($dir) === '_disabled') {
+                    continue;
+                }
+
+                foreach (File::allFiles($dir) as $file) {
+                    if ($file->getExtension() !== 'php') {
+                        continue;
+                    }
+
+                    $relative = str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname());
+                    $classes[] = 'Modules\\Telegram\\Plugins\\' . basename($dir) . '\\' . $relative;
+                }
+            }
+        }
+
         return $classes;
     }
 

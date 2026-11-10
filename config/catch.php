@@ -150,6 +150,8 @@ return [
         'middlewares' => [
             \App\Http\Middleware\LocaleMiddleware::class,
             \Catch\Middleware\AuthMiddleware::class,
+            // 商户有效期：过期用户除登录白名单外全部接口拒绝（见 CheckMerchantExpired 注释）
+            \App\Http\Middleware\CheckMerchantExpired::class,
             \Catch\Middleware\JsonResponseMiddleware::class
         ],
 

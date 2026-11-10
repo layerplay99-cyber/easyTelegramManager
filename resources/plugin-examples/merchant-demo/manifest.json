@@ -1,0 +1,7 @@
+{
+    "slug": "merchant_demo",
+    "name": "商户三件套示例",
+    "version": "1.0.0",
+    "author": "平台示例",
+    "description": "路线 B 教学插件：/bmd 绑定商户号、/ymd 查余额、/cxm 查订单，演示多命令、参数、数据持久化与上游接口调用，与内部版 Drivers/Custom/Merchant 功能同构"
+}

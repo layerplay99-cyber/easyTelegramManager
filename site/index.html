@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EasyTG · Telegram 群与商户一体化管理台</title>
+<meta name="description" content="EasyTG 是面向 Telegram 群运营的一体化管理台：多机器人 / 多群、商户与上游对接、无代码功能配置、计费套餐与插件扩展，一条命令 Docker 部署。">
+<meta property="og:title" content="EasyTG · Telegram 群与商户一体化管理台">
+<meta property="og:description" content="多机器人多群管理、商户与上游对接、无代码功能、套餐计费、插件扩展。一条命令部署。">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%236366f1'/%3E%3Ctext x='16' y='22' font-size='16' font-family='sans-serif' font-weight='bold' text-anchor='middle' fill='white'%3EE%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="logo" href="/"><span class="logo-mark">E</span> EasyTG</a>
+    <button class="nav-toggle" id="navToggle" aria-label="展开菜单">菜单</button>
+    <nav class="nav-links" id="navLinks">
+      <a href="#features">功能</a>
+      <a href="#install">安装</a>
+      <a href="#pricing">价格</a>
+      <a href="/download.html">下载</a>
+      <a class="nav-cta" href="/download.html">立即安装</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <span class="eyebrow"><span class="dot"></span> v1.0 · Docker 一键部署 · 支持私有化</span>
+      <h1>把 Telegram 群运营<br><span class="grad">从脚本堆里捞出来</span></h1>
+      <p class="lead">
+        多机器人、多群、多商户、多上游，一个后台管完。功能不用写代码就能配，接口字段按厂商各自解构，
+        商户按套餐计费，新能力以插件形式上传安装——不用停机、不用改前端。
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href="/download.html">一条命令安装</a>
+        <a class="btn btn-ghost" href="#features">看看能做什么</a>
+      </div>
+      <div class="hero-meta">
+        <div><strong>20+</strong> 内置群功能</div>
+        <div><strong>3 类</strong> 归属通道（机器人 / 真人号 / 上游）</div>
+        <div><strong>1 条</strong> 命令完成部署</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>运营需要的东西，都在一个后台里</h2>
+        <p>不是把零散脚本拼起来，而是同一套「机器人 → 群 → 功能 → 上游」的数据模型。</p>
+      </div>
+
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="icon">🤖</div>
+          <h3>多机器人 / 多群</h3>
+          <p>一个群配一个机器人，按商户与业务线隔离；群语种、默认商户号、进群记录统一维护。</p>
+        </div>
+        <div class="card">
+          <div class="icon">🔌</div>
+          <h3>上游按厂商解构</h3>
+          <p>每个上游接口的字段映射写在自己的适配器里，返回值统一归一成标准结构，换上游不改功能代码。</p>
+        </div>
+        <div class="card">
+          <div class="icon">⚙️</div>
+          <h3>无代码功能配置</h3>
+          <p>功能表单由执行器自己声明：命令、参数、回复模板、接口配哪个上游，后台点选即可上线。</p>
+        </div>
+        <div class="card">
+          <div class="icon">💳</div>
+          <h3>商户与套餐计费</h3>
+          <p>商户有效期、余额、套餐自助购买；功能可标为付费，无套餐时执行与绑定都会被拦住。</p>
+        </div>
+        <div class="card">
+          <div class="icon">🧩</div>
+          <h3>插件扩展 + 审核</h3>
+          <p>第三方功能打包成 zip 上传，脚本审核 + 可选 AI 审核双重把关，装完即出现在功能列表。</p>
+        </div>
+        <div class="card">
+          <div class="icon">🔐</div>
+          <h3>签名与隔离</h3>
+          <p>入站头签名、出站 body 签名；数据按归属链隔离，超管与商户、账号与账号各有边界。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>一条命令装完</h2>
+        <p>目标机只需要 Docker（含 compose 插件）。安装包从本站拉取，全程不需要 git、不需要 Node。</p>
+      </div>
+
+      <div class="grid grid-2" style="align-items:start">
+        <div class="term">
+          <div class="term-bar"><span class="term-dots"><i></i><i></i><i></i></span> bash · root</div>
+          <div class="term-body"><span class="c"># 1. 下载安装器</span>
+curl -fsSL __ORIGIN__/install.sh -o /tmp/easytg.sh
+
+<span class="c"># 2. 指定域名安装（自动拉包、起容器、跑迁移）</span>
+sudo bash /tmp/easytg.sh --domain tg.example.com
+
+<span class="g">✔ 后台地址 https://tg.example.com</span></div>
+        </div>
+
+        <div>
+          <div class="steps">
+            <div class="step">
+              <h4>检查环境</h4>
+              <p>Docker / compose 版本、磁盘空间、端口占用；缺 Docker 可加 <code>--install-docker</code> 自动装。</p>
+            </div>
+            <div class="step">
+              <h4>拉包并生成配置</h4>
+              <p>下载对应版本安装包，校验 SHA256，解压到安装目录，按域名生成配置与随机密钥。</p>
+            </div>
+            <div class="step">
+              <h4>起容器并初始化</h4>
+              <p>MySQL / Redis / PHP / Nginx 全套自包含，等数据库就绪后自动建表、写入初始数据。</p>
+            </div>
+            <div class="step">
+              <h4>打开后台</h4>
+              <p>初始账号 <code>catchadmin / catchadmin</code>，登录后请立刻改密码。</p>
+            </div>
+          </div>
+          <div class="note" style="margin-top:14px">
+            需要单独的反代、已有共享 Nginx、或离线内网安装？完整参数见
+            <a href="/download.html" style="color:#a5b4fc">下载页</a>。
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>部署方式</h2>
+        <p>代码开源自部署，费用由你自己的运营模型决定；后台内的套餐价格由平台超管自行维护。</p>
+      </div>
+
+      <div class="price-grid">
+        <div class="price">
+          <h3>自部署</h3>
+          <div class="amount">¥0 <small>/ 永久</small></div>
+          <ul>
+            <li>全部功能，不限群数</li>
+            <li>单机 Docker 部署</li>
+            <li>社区支持</li>
+          </ul>
+          <a class="btn btn-ghost" href="/download.html">开始安装</a>
+        </div>
+
+        <div class="price featured">
+          <h3>商业运营</h3>
+          <div class="amount">按需 <small>/ 套餐</small></div>
+          <ul>
+            <li>商户有效期与余额</li>
+            <li>付费功能准入控制</li>
+            <li>商户自助购买套餐</li>
+            <li>上游多商户对接</li>
+          </ul>
+          <a class="btn btn-primary" href="/download.html">查看安装方式</a>
+        </div>
+
+        <div class="price">
+          <h3>私有化定制</h3>
+          <div class="amount">面议</div>
+          <ul>
+            <li>专属上游适配器</li>
+            <li>插件定制与审核策略</li>
+            <li>部署与运维交接</li>
+          </ul>
+          <a class="btn btn-ghost" href="/download.html#plugin">联系定制</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="cta">
+        <h2>十分钟，把第一个群接进来</h2>
+        <p>装好后台 → 建机器人 → 绑群 → 挑功能 → 上线。</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="/download.html">下载与安装</a>
+          <a class="btn btn-ghost" href="#install">看安装命令</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap footer-inner">
+    <span>© <span id="year">2026</span> EasyTG · Telegram 群与商户一体化管理台</span>
+    <span class="links">
+      <a href="/download.html">下载</a>
+      <a href="#features">功能</a>
+      <a href="#pricing">价格</a>
+    </span>
+  </div>
+</footer>
+
+<script src="/assets/app.js"></script>
+</body>
+</html>

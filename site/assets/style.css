@@ -1,0 +1,477 @@
+/* ============================================================================
+   EasyTG 官网样式
+   - 无构建、无 CDN、无外部字体：nginx 直接把 site/ 当静态根即可
+   - 深色为默认；系统偏好浅色时自动切换（prefers-color-scheme）
+   ========================================================================== */
+
+:root {
+    --bg: #0b0f19;
+    --bg-soft: #111827;
+    --panel: rgba(255, 255, 255, 0.04);
+    --border: rgba(255, 255, 255, 0.08);
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --brand: #6366f1;
+    --brand-2: #22d3ee;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --radius: 16px;
+    --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    --max: 1120px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 顶部光晕，纯 CSS，不依赖图片 */
+body::before {
+    content: "";
+    position: fixed;
+    inset: -30% 0 auto 0;
+    height: 70vh;
+    background:
+        radial-gradient(60% 60% at 20% 20%, rgba(99, 102, 241, 0.28), transparent 70%),
+        radial-gradient(50% 50% at 80% 0%, rgba(34, 211, 238, 0.18), transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+/* ---------------------------------------------------------------- 导航 */
+.nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    backdrop-filter: blur(14px);
+    background: rgba(11, 15, 25, 0.72);
+    border-bottom: 1px solid var(--border);
+}
+
+.nav-inner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 64px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.logo-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #0b0f19;
+}
+
+.nav-links {
+    display: flex;
+    gap: 22px;
+    margin-left: auto;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.nav-links a:hover { color: var(--text); }
+
+.nav-cta {
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--brand), #8b5cf6);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.nav-toggle {
+    display: none;
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 10px;
+}
+
+/* ---------------------------------------------------------------- Hero */
+.hero { padding: 84px 0 56px; }
+
+.eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.eyebrow .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.15);
+}
+
+h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    line-height: 1.15;
+    margin: 18px 0 14px;
+    letter-spacing: -0.02em;
+}
+
+h1 .grad {
+    background: linear-gradient(120deg, #a5b4fc, var(--brand-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.lead {
+    max-width: 720px;
+    color: var(--muted);
+    font-size: 17px;
+    margin: 0 0 28px;
+}
+
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 22px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    border: 1px solid transparent;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.btn:hover { transform: translateY(-1px); }
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--brand), #8b5cf6);
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.35);
+}
+
+.btn-ghost {
+    border-color: var(--border);
+    background: var(--panel);
+    color: var(--text);
+}
+
+.hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    margin-top: 34px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.hero-meta strong { color: var(--text); font-size: 18px; display: block; }
+
+/* ---------------------------------------------------------------- 通用区块 */
+section { padding: 64px 0; }
+
+.section-head { margin-bottom: 32px; }
+
+.section-head h2 {
+    font-size: clamp(24px, 3vw, 32px);
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+}
+
+.section-head p { margin: 0; color: var(--muted); }
+
+.grid { display: grid; gap: 18px; }
+
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.card {
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+}
+
+.card:hover { border-color: rgba(99, 102, 241, 0.35); }
+
+.card h3 { margin: 12px 0 6px; font-size: 17px; }
+.card p { margin: 0; color: var(--muted); font-size: 14px; }
+
+.icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(34, 211, 238, 0.14));
+    border: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------------- 安装命令 */
+.term {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #080c14;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+.term-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.term-dots { display: flex; gap: 6px; }
+.term-dots i {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #2a3444;
+    display: block;
+}
+.term-dots i:nth-child(1) { background: #f87171; }
+.term-dots i:nth-child(2) { background: #fbbf24; }
+.term-dots i:nth-child(3) { background: #34d399; }
+
+.term-body {
+    padding: 16px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.9;
+    overflow-x: auto;
+    white-space: pre;
+    color: #cbd5e1;
+}
+
+.term-body .c { color: #64748b; }
+.term-body .g { color: var(--ok); }
+
+.copy-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.copy-row code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: #cbd5e1;
+    overflow-x: auto;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.btn-copy {
+    flex: 0 0 auto;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 9px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.btn-copy:hover { border-color: var(--brand); }
+
+/* ---------------------------------------------------------------- 步骤 / 表格 */
+.steps { counter-reset: s; display: grid; gap: 14px; }
+
+.step {
+    position: relative;
+    padding: 16px 18px 16px 60px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--panel);
+}
+
+.step::before {
+    counter-increment: s;
+    content: counter(s);
+    position: absolute;
+    left: 18px;
+    top: 16px;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0b0f19;
+    background: linear-gradient(135deg, #a5b4fc, var(--brand-2));
+}
+
+.step h4 { margin: 0 0 4px; font-size: 15px; }
+.step p { margin: 0; color: var(--muted); font-size: 14px; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; background: rgba(255, 255, 255, 0.03); }
+tr:last-child td { border-bottom: 0; }
+
+.tag {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+}
+
+.tag-ok { color: var(--ok); border-color: rgba(52, 211, 153, 0.35); }
+.tag-warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.35); }
+
+.note {
+    border-left: 3px solid var(--brand);
+    padding: 12px 16px;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: 0 12px 12px 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+/* ---------------------------------------------------------------- 价格 */
+.price-grid { display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.price {
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.price.featured {
+    border-color: rgba(99, 102, 241, 0.55);
+    box-shadow: 0 20px 60px rgba(99, 102, 241, 0.18);
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.12), rgba(255, 255, 255, 0.02));
+}
+
+.price h3 { margin: 0; font-size: 16px; }
+.price .amount { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+.price .amount small { font-size: 13px; color: var(--muted); font-weight: 400; }
+.price ul { margin: 6px 0 14px; padding-left: 18px; color: var(--muted); font-size: 14px; }
+.price ul li { margin: 4px 0; }
+
+/* ---------------------------------------------------------------- CTA / 页脚 */
+.cta {
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 38px;
+    text-align: center;
+    background:
+        radial-gradient(60% 100% at 50% 0%, rgba(99, 102, 241, 0.22), transparent 70%),
+        var(--panel);
+}
+
+.cta h2 { margin: 0 0 10px; font-size: clamp(22px, 3vw, 30px); }
+.cta p { margin: 0 0 22px; color: var(--muted); }
+.cta .actions { justify-content: center; }
+
+footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 0 40px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.footer-inner { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.footer-inner .links { display: flex; gap: 18px; margin-left: auto; }
+
+/* ---------------------------------------------------------------- 响应式 */
+@media (max-width: 900px) {
+    .grid-3, .price-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+    .nav-links { display: none; }
+    .nav-links.open {
+        display: flex;
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        gap: 14px;
+        padding: 16px 24px 22px;
+        background: #0b0f19;
+        border-bottom: 1px solid var(--border);
+    }
+    .nav-toggle { display: block; }
+    .nav-cta { margin-left: 0; }
+    .hero { padding: 56px 0 40px; }
+    .grid-3, .price-grid { grid-template-columns: 1fr; }
+    .cta { padding: 26px 18px; }
+    section { padding: 48px 0; }
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg: #f8fafc;
+        --bg-soft: #ffffff;
+        --panel: rgba(15, 23, 42, 0.03);
+        --border: rgba(15, 23, 42, 0.1);
+        --text: #0f172a;
+        --muted: #55637a;
+        --shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+    }
+    .nav { background: rgba(248, 250, 252, 0.8); }
+    .term { background: #0b0f19; }         /* 终端永远深色 */
+    .term-body, .copy-row code { color: #cbd5e1; }
+    .copy-row { background: rgba(255, 255, 255, 0.04); }
+    .btn-copy { color: #e5e7eb; }
+    .logo-mark { color: #fff; }
+    .btn-primary { color: #fff; }
+}

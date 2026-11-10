@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>下载与安装 · EasyTG</title>
+<meta name="description" content="EasyTG 一键安装：一条命令拉取安装包，Docker 自包含部署 MySQL / Redis / PHP / Nginx，附插件开发模板下载。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%236366f1'/%3E%3Ctext x='16' y='22' font-size='16' font-family='sans-serif' font-weight='bold' text-anchor='middle' fill='white'%3EE%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="logo" href="/"><span class="logo-mark">E</span> EasyTG</a>
+    <button class="nav-toggle" id="navToggle" aria-label="展开菜单">菜单</button>
+    <nav class="nav-links" id="navLinks">
+      <a href="/#features">功能</a>
+      <a href="/#install">安装</a>
+      <a href="/#pricing">价格</a>
+      <a href="/download.html">下载</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" style="padding-bottom:34px">
+    <div class="wrap">
+      <span class="eyebrow"><span class="dot"></span> 当前版本 v1.0.0</span>
+      <h1>下载与安装</h1>
+      <p class="lead">
+        安装器会从本站拉取对应版本的安装包，校验后解压部署。目标机只需要 Docker 与 compose 插件，
+        不需要 git、Node，也不需要预装 PHP / MySQL。
+      </p>
+    </div>
+  </section>
+
+  <section style="padding-top:0">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>一键安装</h2>
+        <p>把 <code>tg.example.com</code> 换成你的域名；域名需要提前解析到这台服务器。</p>
+      </div>
+
+      <div class="term">
+        <div class="term-bar"><span class="term-dots"><i></i><i></i><i></i></span> 在目标服务器上执行（root）</div>
+        <div class="term-body"><span class="c"># 下载安装器</span>
+curl -fsSL __ORIGIN__/install.sh -o /tmp/easytg.sh
+
+<span class="c"># 安装（--domain 必填；默认装到 /opt/easytg）</span>
+sudo bash /tmp/easytg.sh --domain tg.example.com
+
+<span class="c"># 想先看看它会做什么，不落任何文件：</span>
+sudo bash /tmp/easytg.sh --domain tg.example.com --dry-run</div>
+        <div class="copy-row">
+          <code id="installCmd">curl -fsSL __ORIGIN__/install.sh -o /tmp/easytg.sh &amp;&amp; sudo bash /tmp/easytg.sh --domain tg.example.com</code>
+          <button class="btn-copy" data-copy-target="installCmd">复制</button>
+        </div>
+      </div>
+
+      <div class="note" style="margin-top:16px">
+        缺 Docker？加 <code>--install-docker</code>，安装器会用官方脚本装 Docker（Debian / Ubuntu）。
+        已有 Docker 的机器忽略此参数。
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>安装参数</h2>
+        <p>全部可选，也可用同名环境变量（如 <code>TG_DOMAIN=</code>）覆盖。</p>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>参数</th><th>默认值</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--domain</code></td><td>无（必填）</td><td>后台访问域名，写入 Nginx 与前端配置</td></tr>
+          <tr><td><code>--dir</code></td><td><code>/opt/easytg</code></td><td>安装目录，安装包解压到这里</td></tr>
+          <tr><td><code>--version</code></td><td><code>latest</code></td><td>安装版本，对应下载站的发布包</td></tr>
+          <tr><td><code>--port</code></td><td><code>80</code></td><td>HTTP 端口；启用 <code>--ssl</code> 时再监听 443</td></tr>
+          <tr><td><code>--ssl</code></td><td>关闭</td><td>启用 HTTPS（证书放 <code>/etc/nginx/ssl/&lt;域名&gt;/</code>）</td></tr>
+          <tr><td><code>--package</code></td><td>无</td><td>离线安装：指定本地 zip 包，跳过下载</td></tr>
+          <tr><td><code>--install-docker</code></td><td>关闭</td><td>缺 Docker 时自动安装</td></tr>
+          <tr><td><code>--dry-run</code></td><td>关闭</td><td>只打印将要执行的步骤</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>安装后</h2>
+        <p>安装器结束时会打印访问地址。首次登录请改密码。</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="steps">
+          <div class="step">
+            <h4>登录后台</h4>
+            <p>初始账号 <code>catchadmin</code> / 密码 <code>catchadmin</code>。</p>
+          </div>
+          <div class="step">
+            <h4>建机器人</h4>
+            <p>填 BotFather 拿到的 token，激活后用「查看状态」确认连通。</p>
+          </div>
+          <div class="step">
+            <h4>绑群 + 挑功能</h4>
+            <p>把机器人拉进群 → 后台绑定群 → 在功能列表勾选并配置命令。</p>
+          </div>
+          <div class="step">
+            <h4>接上游（可选）</h4>
+            <p>三方配置填上游地址与密钥，选定适配器；字段映射写在该厂商适配器里。</p>
+          </div>
+        </div>
+
+        <div>
+          <div class="term">
+            <div class="term-bar"><span class="term-dots"><i></i><i></i><i></i></span> 日常运维</div>
+            <div class="term-body"><span class="c"># 查看容器状态</span>
+cd /opt/easytg &amp;&amp; docker compose ps
+
+<span class="c"># 拉新版本并重建（保留数据）</span>
+sudo bash /opt/easytg/install.sh --update
+
+<span class="c"># 看 PHP 日志</span>
+docker compose logs -f php
+
+<span class="c"># 停止 / 卸载（数据卷保留）</span>
+docker compose down</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="plugin">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>插件开发模板</h2>
+        <p>想给平台加一个自己的功能？从这个最小样板开始，改完打包上传即可。</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="icon">📦</div>
+          <h3>demo_hello 插件模板</h3>
+          <p>包含 <code>manifest.json</code>、功能类与说明：<code>/hello 名字</code> 会记住并回问候，
+             演示参数、数据存储、后台配置字段与多语言回复。</p>
+          <div class="actions" style="margin-top:16px">
+            <a class="btn btn-primary" href="/downloads/plugin-template.zip" download>下载模板 (.zip)</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon">🛡️</div>
+          <h3>上传时会经过两道审核</h3>
+          <p>
+            <span class="tag tag-ok">脚本审核</span> 危险函数、内网地址、核心路径、命名空间前缀，硬性拦截，不可绕过。<br>
+            <span class="tag tag-warn">AI 审核</span> 后台开关控制，检查越权、密钥外发与后门逻辑，可强制安装。
+          </p>
+          <p style="margin-top:10px">
+            通过后自动进入「功能列表」，按正常流程绑定即可；停用会把代码移出扫描目录，卸载会一并清理功能与绑定。
+          </p>
+        </div>
+      </div>
+
+      <div class="note" style="margin-top:16px">
+        模板下载若返回 404，说明本站还没跑发布打包脚本：在源码目录执行
+        <code>bash scripts/package-release.sh</code> 生成。
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>常见问题</h2>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>服务器最低配置？</h3>
+          <p>2 核 2G 起步，40G 磁盘。识图 / 真人号（Telethon）会额外吃内存，建议 2 核 4G。</p>
+        </div>
+        <div class="card">
+          <h3>能装在内网 / 无外网吗？</h3>
+          <p>可以。把发布包与安装器拷到机器上，用 <code>--package /path/xxx.zip</code> 离线安装；
+             首次启动不额外下载依赖。</p>
+        </div>
+        <div class="card">
+          <h3>会不会覆盖已有数据？</h3>
+          <p>安装器只在空目录初始化；升级用 <code>--update</code>，只更新代码并跑增量迁移，数据库与媒体卷不动。</p>
+        </div>
+        <div class="card">
+          <h3>和已有 Nginx 冲突吗？</h3>
+          <p>默认自包含一套 Nginx。想复用宿主反代，用 <code>--port</code> 换端口后自行转发 80/443。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap footer-inner">
+    <span>© <span id="year">2026</span> EasyTG · Telegram 群与商户一体化管理台</span>
+    <span class="links">
+      <a href="/">首页</a>
+      <a href="/#features">功能</a>
+    </span>
+  </div>
+</footer>
+
+<script src="/assets/app.js"></script>
+</body>
+</html>

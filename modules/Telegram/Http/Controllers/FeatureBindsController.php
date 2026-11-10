@@ -3,11 +3,16 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Http\Controllers;
 
+use App\Support\ServiceExpiry;
 use Catch\Base\CatchController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Permissions\Support\MerchantContext;
+use Modules\Telegram\Models\Bots;
+use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
 use Modules\Telegram\Services\Feature\TelegramFeatureService;
+use Modules\User\Models\User;
 
 class FeatureBindsController extends CatchController
 {
@@ -106,6 +111,17 @@ class FeatureBindsController extends CatchController
             }
         }
 
+        // 付费功能：归属账号没有有效套餐时提前拒绝，避免「绑了也用不了」。
+        // 平台超管不受限（代客开通/验证场景）。
+        $paidError = $this->paidBindError($validated['feature_ids'] ?? [], $botId);
+
+        if ($paidError !== null) {
+            return response()->json([
+                'success' => false,
+                'message' => $paidError,
+            ], 422);
+        }
+
         $results = $this->telegramFeatureService->setBindFeature(
             featureBinds: $this->featureBinds,
             validated: $validated,
@@ -140,6 +156,47 @@ class FeatureBindsController extends CatchController
             'updated' => $updated,
             'deleted' => $deleted,
         ]);
+    }
+
+    /**
+     * 付费功能绑定前置校验，返回拒绝文案；null = 放行
+     *
+     * 判的是「机器人归属人在有效套餐期内」，与执行期 FeatureExecutor 的判定同源
+     * （ServiceExpiry::hasPaidAccess，5 分钟缓存）。
+     */
+    protected function paidBindError(array $featureItems, int $botId): ?string
+    {
+        if ($botId <= 0 || MerchantContext::isPlatformSuperAdmin()) {
+            return null;
+        }
+
+        $featureIds = array_values(array_unique(array_filter(array_map(
+            fn ($item) => (int) ($item['feature_id'] ?? 0),
+            $featureItems
+        ))));
+
+        if ($featureIds === []) {
+            return null;
+        }
+
+        $paidNames = Features::query()
+            ->whereIn('id', $featureIds)
+            ->where('access_level', 'paid')
+            ->pluck('name')
+            ->all();
+
+        if ($paidNames === []) {
+            return null;
+        }
+
+        $creatorId = (int) (Bots::query()->whereKey($botId)->value('creator_id') ?? 0);
+        $owner = $creatorId > 0 ? User::query()->find($creatorId) : null;
+
+        if ($owner !== null && ($owner->isSuperAdmin() || ServiceExpiry::hasPaidAccess($owner))) {
+            return null;
+        }
+
+        return '以下功能为付费功能，归属账号暂无有效套餐：' . implode('、', $paidNames);
     }
 
     public function show(int|string $id): mixed

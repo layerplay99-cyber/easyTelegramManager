@@ -1,0 +1,7 @@
+{
+    "slug": "demo_hello",
+    "name": "示例问候",
+    "version": "1.0.0",
+    "author": "你的名字",
+    "description": "插件模板：群内发送 /hello 名字，机器人记住并回问候，演示参数、数据存储与多语言回复"
+}

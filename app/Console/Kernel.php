@@ -15,7 +15,9 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // 服务到期提醒：到期前 7/3/1 天向商户名下机器人群推送续期提醒
+        // （部署环境需配置 cron：* * * * * php artisan schedule:run）
+        $schedule->command('merchant:expire-remind')->dailyAt('09:00');
     }
 
     /**

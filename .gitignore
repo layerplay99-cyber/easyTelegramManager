@@ -36,3 +36,8 @@ composer.lock
 /bootstrap/cache/*
 !/bootstrap/cache/.gitignore
 /.codebuddy
+# 发布产物（scripts/package-release.sh 生成）
+/dist/
+# 站点根的安装器副本与安装器生成的 nginx 配置
+/site/install.sh
+/docker/nginx-standalone.conf

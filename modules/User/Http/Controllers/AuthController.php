@@ -2,6 +2,7 @@
 
 namespace Modules\User\Http\Controllers;
 
+use App\Support\ServiceExpiry;
 use Catch\Base\CatchController as Controller;
 use Catch\Exceptions\FailedException;
 use Illuminate\Http\Request;
@@ -44,6 +45,11 @@ class AuthController extends Controller
 
         if ($user->isDisabled()) {
             throw new FailedException('账号被禁用，请联系管理员');
+        }
+
+        // 服务有效期：用户或所属商户任一过期（超管豁免）直接拒绝登录，提示续期
+        if (! $user->isSuperAdmin() && ServiceExpiry::expiredFor($user)) {
+            throw new FailedException('服务已到期，请联系平台管理员续期');
         }
 
         if (!Hash::check($password, $user->password)) {

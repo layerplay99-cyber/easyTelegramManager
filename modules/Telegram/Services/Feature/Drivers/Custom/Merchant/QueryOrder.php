@@ -23,10 +23,18 @@ use Modules\Telegram\Contracts\FeatureResult;
  *   · 字段名去 lang/{locale}/merchant.php 找译文，找不到的用原始字段名；
  *   · type / status 的英文枚举值翻译成中文/英文/越南语/泰语；
  *   · 要过滤字段就改 HIDDEN_FIELDS（人工在代码里处理）。
+ *
+ * 【示例看点 · 路线 A】（docs/feature-dev.md §2）
+ *   · 动态资源段（订单号）用 callEndpoint 的 $pathSuffix 追加：rawurlencode 后拼到
+ *     路径末尾，不写进 path 模板、不进 query —— 后台给每个上游配路径时不用带 {id}
+ *   · 上游返回什么显示什么：FIELD_ORDER 只定顺序，未收录字段按原顺序追加，天然兼容
+ *   · 继承 AbstractMerchantFeature，复用「解析商户号 + 调上游 + 多语回复」三件套；
+ *     configSchema / defaultConfig 用 commonConfigSchema() 一行生成
+ *   · 插件版对照：resources/plugin-examples/merchant-demo/
  */
 class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
 {
-    private const ENDPOINT = 'merchant.trade.query';
+    private static mixed $ENDPOINT = 'merchant.trade.query';
 
     /** 已知字段的显示顺序（不影响内容，上游多返回的字段会追加在后面） */
     private const FIELD_ORDER = [
@@ -125,13 +133,13 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
 
     public static function defaultConfig(): array
     {
-        return static::commonDefaultConfig(self::ENDPOINT);
+        return static::commonDefaultConfig(self::$ENDPOINT);
     }
 
     public static function configSchema(): array
     {
         return static::commonConfigSchema(
-            self::ENDPOINT,
+            self::$ENDPOINT,
             '默认 GET api/webhook/users/{merchant_id}/trades，订单号由代码追加；「上游接口配置」里若覆盖路径，末尾不要写 /{id}。回复字段名按群语种自动翻译'
         );
     }
@@ -150,20 +158,16 @@ class QueryOrder extends AbstractMerchantFeature implements EndpointProvider
             return $this->localizedFail($this->t($context, 'order.usage'));
         }
 
-        // 商户号走 path 里的 {merchant_id} 占位（与其它商户接口命名一致）；
-        // 订单号是资源 ID，在类里 rawurlencode 后追加到路径末尾：
-        //   api/webhook/users/1/trades + 202605487749548
-        // 两者都不进 GET 的 query，最终就是纯路径 URL。
         $data = $this->callUpstream(
             $context,
-            self::ENDPOINT,
+            self::$ENDPOINT,
             ['merchant_id' => $merchantId],
             'GET',
             rawurlencode($orderId)
         );
 
-        if (isset($data['_error'])) {
-            return $this->localizedFail($this->t($context, 'order.failed') . $data['_error']);
+        if( $data['data'] === [] ){
+            return $this->localizedReply($this->t($context, 'order.not_found', ['id' => $orderId]), $data);
         }
 
         $lines = [];

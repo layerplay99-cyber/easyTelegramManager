@@ -20,6 +20,13 @@ use Modules\Telegram\Services\Translate\LocalizedReply;
  *    会扫描 Services/ 下所有实现了该接口的类（包括抽象类），接口定义放在各自
  *    用到它的功能类里更清楚，删功能时定义也随之消失。
  *    抽象类也会被两个注册器的 isAbstract() 跳过，不会多出一个空功能。
+ *
+ * 【路线 A 示例组】本目录是「内部开发功能」的参考实现（docs/feature-dev.md §2）：
+ *   · BindMerchant        绑定类功能：上游确认 → 写本地路由 → 回写群配置
+ *   · GetMerchantBalance  查询类功能：声明接口 → callEndpoint → 模板/多语回复
+ *   · QueryOrder          进阶：路径后缀传订单号、动态字段渲染、复用本基类
+ * 同一功能的插件版（路线 B）在 resources/plugin-examples/merchant-demo/，
+ * 功能相同、写法自包含——对比着看就知道「内部功能 → 插件」要改哪些地方。
  */
 abstract class AbstractMerchantFeature extends BaseCustomFeature
 {

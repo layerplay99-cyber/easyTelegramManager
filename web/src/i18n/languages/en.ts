@@ -424,6 +424,11 @@ const en = {
     saveFailed: 'Failed to save',
     refreshSuccess: 'Refreshed',
     refreshConfirm: 'Refreshing reloads the upstream list and its bound features. Unsaved endpoint settings will be lost. Continue?',
+    adapter: 'Upstream adapter',
+    adapterTip: 'Pick the protocol plugin for this vendor: it translates standard requests into vendor params and normalizes vendor responses back to the platform standard. Empty = passthrough (legacy behaviour). Multiple merchant accounts of the same vendor share one plugin.',
+    adapterPlaceholder: 'Passthrough (no adapter)',
+    adapterDemo: 'Demo',
+    adapterDemoTip: 'Items marked "Demo" are teaching samples for learning how to write plugins. Do not select them in production.',
     codeDefined: 'Defined by code (read-only)',
     platformDefaultTip: 'Only platform-level defaults can be edited here. To change path or method, use the per-upstream endpoint config.'
   },

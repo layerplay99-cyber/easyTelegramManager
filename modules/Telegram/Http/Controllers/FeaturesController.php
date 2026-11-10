@@ -23,6 +23,7 @@ use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
 use Modules\Telegram\Services\Feature\DriverRegistry;
 use Modules\Telegram\Services\Feature\PlatformEndpointRegistry;
 use Modules\Telegram\Services\Feature\UpstreamResolver;
+use Modules\Telegram\Services\Upstream\UpstreamAdapterRegistry;
 use Modules\Telegram\Services\Ocr\OcrManager;
 use Modules\Telegram\Contracts\UpdateIntent;
 
@@ -312,6 +313,8 @@ class FeaturesController extends Controller
             // 回调消息转换器：全局代码资产，所有人都能看到有哪些，
             // 但「能不能给这个功能换」由归属链说了算（见 transformer / saveTransformer）
             'transformers' => TransformerRegistry::options(),
+            // 上游协议适配器：三方配置表单里按上游实例选，留空=直通
+            'upstream_adapters' => UpstreamAdapterRegistry::options(),
             default => [],
         };
 

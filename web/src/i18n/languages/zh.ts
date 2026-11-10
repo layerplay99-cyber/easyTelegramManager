@@ -145,7 +145,12 @@ const zh = {
     '/cms/setting/general': '常规',
     '/cms/setting/content': '内容',
     '/cms/setting/other': '其他',
-    '/cms/setting/personal': '个人'
+    '/cms/setting/personal': '个人',
+    '/plan': '套餐管理',
+    '/plan/planList': '套餐列表',
+    '/plan/planOrder': '套餐订单',
+    '/plugin': '插件管理',
+    '/plugin/pluginList': '插件列表'
   },
 
   bots: {

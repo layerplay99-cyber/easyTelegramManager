@@ -145,7 +145,12 @@ const th = {
     '/cms/setting/general': 'ทั่วไป',
     '/cms/setting/content': 'เนื้อหา',
     '/cms/setting/other': 'อื่นๆ',
-    '/cms/setting/personal': 'ส่วนตัว'
+    '/cms/setting/personal': 'ส่วนตัว',
+    '/plan': 'แพ็กเกจ',
+    '/plan/planList': 'รายการแพ็กเกจ',
+    '/plan/planOrder': 'คำสั่งซื้อแพ็กเกจ',
+    '/plugin': 'ปลั๊กอิน',
+    '/plugin/pluginList': 'รายการปลั๊กอิน'
   },
 
   bots: {

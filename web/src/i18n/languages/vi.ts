@@ -145,7 +145,12 @@ const vi = {
     '/cms/setting/general': 'Chung',
     '/cms/setting/content': 'Nội dung',
     '/cms/setting/other': 'Khác',
-    '/cms/setting/personal': 'Cá nhân'
+    '/cms/setting/personal': 'Cá nhân',
+    '/plan': 'Gói dịch vụ',
+    '/plan/planList': 'Danh sách gói',
+    '/plan/planOrder': 'Đơn hàng gói',
+    '/plugin': 'Plugin',
+    '/plugin/pluginList': 'Danh sách plugin'
   },
 
   bots: {

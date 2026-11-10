@@ -145,7 +145,12 @@ const en = {
     '/cms/setting/general': 'General',
     '/cms/setting/content': 'Content',
     '/cms/setting/other': 'Other',
-    '/cms/setting/personal': 'Personal'
+    '/cms/setting/personal': 'Personal',
+    '/plan': 'Plans',
+    '/plan/planList': 'Plan List',
+    '/plan/planOrder': 'Plan Orders',
+    '/plugin': 'Plugins',
+    '/plugin/pluginList': 'Plugin List'
   },
 
   bots: {

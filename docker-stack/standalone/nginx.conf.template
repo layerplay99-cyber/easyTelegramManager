@@ -2,13 +2,12 @@
 # 独立部署（standalone）Nginx 站点配置模板
 # ----------------------------------------------------------------------------
 # 由 install.sh 渲染成 <安装目录>/docker/nginx-standalone.conf：
-#   __DOMAIN__      主域名（后台 + API + WebSocket）
+#   __DOMAIN__      主域名（后台 + API + WebSocket + 官网路径）
 #   __SSL_LISTEN__  启用 --ssl 时替换成 443 监听与证书；否则替换为空
-#   __SITE_HOST__   官网子域名（site.__DOMAIN__），不想开官网就删掉第二个 server
 #
 # 路径约定（与 docker-compose.standalone.yml 一致）：
 #   项目根     → /var/www/html
-#   官网静态站 → /var/www/site
+#   官网静态站 → /var/www/site（对外路径 /site/，不占独立子域名）
 # ============================================================================
 
 server {
@@ -17,6 +16,19 @@ __SSL_LISTEN__
     server_name __DOMAIN__;
 
     client_max_body_size 50m;
+
+    # ---- 官网 / 下载站：主域路径 /site/（纯静态）----
+    # 必须用 ^~ 前缀匹配：否则 /site/assets/*.css 会被下面的静态资源正则吃掉，
+    # 拿 web/dist 的 root 去找 → 404。alias 把 /site/ 前缀映射到静态站根。
+    location = /site {
+        return 301 /site/;
+    }
+
+    location ^~ /site/ {
+        alias /var/www/site/;
+        index index.html;
+        try_files $uri $uri/ =404;
+    }
 
     # ---- 前端（构建产物由 install.sh 生成，Nginx 直接托管）----
     location / {
@@ -65,35 +77,5 @@ __SSL_LISTEN__
         proxy_set_header       Host $host;
         proxy_read_timeout     3600s;
         proxy_send_timeout     3600s;
-    }
-}
-
-# ---- 官网 / 下载站（纯静态，与后台完全隔离）----
-server {
-    listen 80;
-__SSL_LISTEN__
-    server_name __SITE_HOST__;
-
-    root /var/www/site;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ =404;
-    }
-
-    # 安装器与发布包要能被 curl 直接拉到，按纯文本/二进制返回
-    location = /install.sh {
-        default_type text/plain;
-        charset utf-8;
-    }
-
-    location /downloads/ {
-        default_type application/octet-stream;
-        add_header Cache-Control "no-cache";
-    }
-
-    location ~* \.(css|js|svg|png|jpg|webp|ico|woff2?)$ {
-        expires 7d;
-        add_header Cache-Control "public";
     }
 }

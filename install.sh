@@ -11,7 +11,7 @@
 #   install.sh  面向客户机，从下载站拉 zip，MySQL/Redis/Nginx 全部自包含
 #
 # 用法：
-#   curl -fsSL https://site.example.com/install.sh -o /tmp/easytg.sh
+#   curl -fsSL https://example.com/site/install.sh -o /tmp/easytg.sh
 #   sudo bash /tmp/easytg.sh --domain tg.example.com
 #
 #   sudo bash install.sh --domain tg.example.com --ssl      # 启用 HTTPS
@@ -62,7 +62,7 @@ usage() {
 telegram-bot 一键安装（自包含 Docker：MySQL / Redis / PHP / Nginx 全在这一套里）
 
 用法：
-  curl -fsSL <站点>/install.sh -o /tmp/easytg.sh
+  curl -fsSL <站点>/site/install.sh -o /tmp/easytg.sh
   sudo bash /tmp/easytg.sh --domain tg.example.com
 
 参数：
@@ -72,7 +72,7 @@ telegram-bot 一键安装（自包含 Docker：MySQL / Redis / PHP / Nginx 全�
   --port <端口>        HTTP 端口，默认 80
   --ssl                启用 HTTPS（证书放 /etc/nginx/ssl/<域名>/）
   --package <zip>      离线安装：使用本地发布包，不下载
-  --base-url <url>     下载站地址，默认从脚本所在位置推断
+  --base-url <url>     官网根地址（含 /site，如 https://x.com/site），默认按主域推断
   --install-docker     缺 Docker 时自动安装（Debian / Ubuntu）
   --skip-frontend      跳过前端构建（要求发布包已带 web/dist 且域名一致）
   --with-telethon      一并启动真人号（Telethon）服务
@@ -112,12 +112,13 @@ if [ "$BASE_URL" = "__SITE_URL__" ]; then
     BASE_URL=""
 fi
 
-# 安装器本身部署在站点根：<base>/install.sh，所以默认下载站就是它自己的 origin
+# 安装器部署在官网路径下：<origin>/site/install.sh，BASE_URL 即官网根（含 /site），
+# 拉包地址 = $BASE_URL/downloads/...
 if [ -z "$BASE_URL" ]; then
     if [ -f "$SCRIPT_DIR/site/install.sh" ] || [ -d "$SCRIPT_DIR/site/downloads" ]; then
         BASE_URL=""   # 本机源码目录直接跑，走 --package 或提示
     else
-        BASE_URL="https://site.${DOMAIN#site.}"
+        BASE_URL="https://${DOMAIN}/site"
     fi
 fi
 BASE_URL="${BASE_URL%/}"
@@ -412,7 +413,7 @@ render_nginx() {
     local out="$INSTALL_DIR/docker/nginx-standalone.conf"
 
     if [ "$DRY_RUN" = "1" ]; then
-        info "渲染 $out（server_name $DOMAIN / site.$DOMAIN）"
+        info "渲染 $out（server_name $DOMAIN，官网挂 /site/）"
         return 0
     fi
 
@@ -436,7 +437,7 @@ render_nginx() {
         /__SSL_LISTEN__/ { while ((getline line < sslfile) > 0) print line; next }
         { print }
     ' "$tpl" \
-        | sed -e "s|__DOMAIN__|${DOMAIN}|g" -e "s|__SITE_HOST__|site.${DOMAIN}|g" \
+        | sed -e "s|__DOMAIN__|${DOMAIN}|g" \
         > "$out"
 
     rm -f "$ssl_tmp"
@@ -582,7 +583,7 @@ summary() {
 ${green}✔ 安装完成${off}
 
   后台地址   ${scheme}://${DOMAIN}
-  官网/下载  ${scheme}://site.${DOMAIN}
+  官网/下载  ${scheme}://${DOMAIN}/site/
   安装目录   ${INSTALL_DIR}
   初始账号   catchadmin / catchadmin   ${yellow}（登录后请立刻改密码）${off}
 

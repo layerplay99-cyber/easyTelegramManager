@@ -27,17 +27,17 @@
 
 ```bash
 # 在目标服务器（root）执行；域名需先解析到本机
-curl -fsSL https://site.example.com/install.sh -o /tmp/easytg.sh
+curl -fsSL https://example.com/site/install.sh -o /tmp/easytg.sh
 sudo bash /tmp/easytg.sh --domain tg.example.com
 ```
 
 脚本按顺序做这些事，任何一步失败就停：
 
 1. 检查 `curl/unzip/docker/compose`；缺 Docker 可加 `--install-docker`
-2. 从下载站拉 `telegram-bot-<版本>.zip` 并核对 `.sha256`（站点没发布校验值时跳过）
+2. 从官网路径拉 `telegram-bot-<版本>.zip` 并核对 `.sha256`（站点没发布校验值时跳过）
 3. 解压到 `--dir`（默认 `/opt/easytg`），非空目录会拒绝执行，避免覆盖
 4. 生成 `.env`（APP_KEY、DB、Redis、Reverb、随机密钥）与 `web/.env.production`
-5. 渲染 `docker/nginx-standalone.conf`（主域名 + `site.<域名>` 两个 server）
+5. 渲染 `docker/nginx-standalone.conf`（单 server：后台 + API + 官网路径 `/site/`）
 6. 用一次性 `node:20-alpine` 重建前端
 7. `compose up -d mysql redis php` → 等 MySQL healthy → 起 nginx/queue/queue-ocr/reverb
 8. `catch:migrate user` → `app:install` → `storage:link` → `telegram:sync-features` → 缓存预热
@@ -47,9 +47,9 @@ sudo bash /tmp/easytg.sh --domain tg.example.com
 
 | 参数 | 用途 |
 | --- | --- |
-| `--ssl` | 启用 HTTPS（证书放 `/etc/nginx/ssl/<域名>/`，含官网子域名） |
+| `--ssl` | 启用 HTTPS（证书放 `/etc/nginx/ssl/<域名>/`） |
 | `--package /path/x.zip` | 离线安装，跳过下载 |
-| `--base-url https://站点` | 下载站地址（默认从脚本所在位置推断） |
+| `--base-url https://x.com/site` | 官网根地址（默认按 `https://<域名>/site` 推断） |
 | `--port 8080` | 换 HTTP 端口（宿主已有 Nginx 时用） |
 | `--skip-frontend` | 跳过前端构建（要求包内 `web/dist` 与当前域名一致） |
 | `--with-telethon` | 一并启动真人号（Telethon）服务 |
@@ -63,11 +63,14 @@ sudo bash /tmp/easytg.sh --domain tg.example.com
 
 `site/` 是一套纯静态站（无构建、无 CDN）：首页、下载页、`assets/`、`downloads/`。
 
-- 独立子域名（默认 `site.<DOMAIN>`），与后台完全隔离：后台 SPA 的 `try_files … /index.html`
-  会吃掉同域下的所有路径，混在一起官网必然白屏，所以分成两个 server 块。
-- `./deploy.sh site` 只生成/更新官网 vhost 并 reload；`SITE_ENABLED=0` 会移除该 vhost。
-- 页面里的安装命令用 `__ORIGIN__` 占位，`assets/app.js` 在运行时替换成当前站点地址，
-  换域名不用改 HTML。
+- **官网挂在主域路径 `/site/` 下**，不需要额外子域名和 DNS：nginx 用
+  `location ^~ /site/`（`^~` 保证优先于静态资源正则）把 `/site/` 映射到静态站根，
+  与后台 SPA 共用一个 server。SPA 前端路由不使用 `/site` 前缀，互不干扰。
+- `./deploy.sh site` 重新生成主域 vhost（含官网 location）并 reload；
+  `SITE_ENABLED=0` 或没有 `site/` 目录时，主域 vhost 不含官网入口。
+- 页面里的安装命令用 `__ORIGIN__/site/install.sh` 占位，`assets/app.js` 在运行时
+  替换成当前站点地址，换域名不用改 HTML；站内链接全部是相对路径，
+  官网挂在任何路径下都能工作。
 
 发布一个版本（在源码目录执行）：
 
@@ -76,32 +79,28 @@ bash scripts/package-release.sh --publish
 ```
 
 产出并复制到 `site/downloads/`：`telegram-bot-<版本>.zip`、`.sha256`、`latest.txt`、
-`plugin-template.zip`，同时把 `install.sh` 复制到 `site/` 根（`curl .../install.sh` 要用）。
+`plugin-template.zip`、`plugin-example-merchant-demo.zip`，同时把 `install.sh`
+复制到 `site/install.sh`（`curl .../site/install.sh` 要用）。
 
 - 默认**不含** `vendor` / `web/dist`：包小（约 3MB），安装时在容器里装依赖、构建前端；
   内网离线场景加 `--with-vendor --with-dist` 出大包，安装端配 `--skip-frontend`。
 - 重新发布后老版本包会被覆盖；要保留历史版本就手工把 `dist/*.zip` 归档。
+- 打包时设 `SITE_URL=https://你的站点/site` 可把官网根烧进 `site/install.sh`，
+  客户机 curl 后不用传 `--base-url`；不设则按安装域名推断。
 
-#### 官网在哪儿、`/site` 打不开是正常的
+#### 官网入口
 
-对外官网**只有 `site.<DOMAIN>` 一个入口**（首页 `/`、下载页 `/download.html`）。
-
-- 早期版本里曾有一套用 Blade 渲染的 `/site`、`/site/help/commands` 页面，那套从未接上路由
-  （`route:list` 里一直没有它，nginx 也没有对应 location），现已删除。因此：
-
-  | 访问 | 结果 |
-  | --- | --- |
-  | `https://site.<域名>/`、`/download.html` | 官网与下载页 |
-  | `https://<域名>/site`、`/site/help/commands` | 落到后台 SPA（前端 404 页），**不会**跳转到官网 |
-
-- **故意不做 301 跳转**：`/site` 从未对外提供过内容，没有外链和收录需要迁移；而 301 的目标
-  `site.<域名>` 依赖 DNS 已解析，客户只配了主域就会跳到一个打不开的域名，比留在 SPA 更糟。
-- 想把官网挂到主域的 `/site/` 子路径，要和后台 SPA 争路径、并改前端路由，属于结构改动，
-  当前不支持。需要官网就走子域名（`SITE_DOMAIN` 可改，默认 `site.<DOMAIN>`）。
+| 访问 | 结果 |
+| --- | --- |
+| `https://<域名>/site/` | 官网首页 |
+| `https://<域名>/site/download.html` | 下载页（安装命令、参数、FAQ） |
+| `https://<域名>/site/install.sh` | 安装器（curl 下载用） |
+| `https://<域名>/site/downloads/…` | 发布包 / 插件模板 / 示例插件 |
+| `https://<域名>/` | 后台 SPA |
 
 **一键安装的两个外部前提**（脚本会明确报错，不会静默失败）：
 
-1. `site.<域名>` 需要提前解析到本机——只影响官网访问，后台不受影响；
+1. `<域名>` 需提前解析到本机（后台与官网共用主域，一条解析全够）；
 2. 首次安装要能拉镜像、npm 源要可用（前端构建）；纯内网用 `--with-vendor --with-dist` 打包 +
    `--skip-frontend` 安装，代价是前端变量是打包机域名烧死的，换域名会白屏。
 

@@ -41,10 +41,9 @@ fi
 DOMAIN="${DOMAIN:-tg.dg7788.top}"
 
 # 官网 / 下载站（纯静态，目录 site/）
-#   独立子域名，和后台完全隔离：站点根 = 项目目录/site，不放 PHP
-#   不想开就设 SITE_ENABLED=0，已有 vhost 会在下次部署时被清理
+#   挂在主域路径 /site/ 下，不需要额外子域名和 DNS
+#   不想开就设 SITE_ENABLED=0，下次部署时主域 vhost 会去掉该 location
 SITE_ENABLED="${SITE_ENABLED:-1}"
-SITE_DOMAIN="${SITE_DOMAIN:-site.$DOMAIN}"
 
 # http / https。选 https 时把 ENABLE_SSL 设为 1 并填证书路径
 PROTO="${PROTO:-https}"
@@ -590,6 +589,23 @@ write_nginx_conf() {
     ssl_certificate_key $SSL_KEY;"
     fi
 
+    # 官网 location：site/ 目录在且 SITE_ENABLED=1 才生成
+    local site_block=""
+    if [ "$SITE_ENABLED" = "1" ] && [ -d "$PROJECT_HOST_DIR/site" ]; then
+        site_block="    # ---- 官网 / 下载站：主域路径 /site/（纯静态）----
+    # ^~ 保证优先于静态资源正则（否则 /site/assets/*.css 会被当成前端产物去找）
+    location = /site {
+        return 301 /site/;
+    }
+
+    location ^~ /site/ {
+        alias $CONTAINER_DIR/site/;
+        index index.html;
+        try_files \$uri \$uri/ =404;
+    }
+"
+    fi
+
     cat > "$STACK_ROOT/conf/nginx/sites/${PROJECT_DIR}.conf" <<EOF
 # 由 deploy.sh 自动生成，勿手改（改 deploy.env 后重跑 ./deploy.sh app）
 server {
@@ -599,6 +615,8 @@ $listen_block
     client_max_body_size 50m;
 
 $root_block
+
+$site_block
 
     # ---- API：交给 php-fpm ----
     location /api {
@@ -637,80 +655,12 @@ EOF
         log "HTTPS 已开启：请确保证书存在 $SSL_CERT / $SSL_KEY"
     fi
 
-    write_site_nginx_conf
-}
-
-# 官网 / 下载站 vhost：纯静态，独立子域名
-#
-# 为什么单独一个 server 而不是挂在后台的 / 下：
-#   官网要给客户看、要能被搜索引擎抓，后台是登录态 SPA；混在一个 vhost 里，
-#   「后台 SPA 的 fallback 到 index.html」会吃掉所有官网路径（/download 之类全白屏）。
-#   独立 server + 独立 root，两边互不影响，证书也可以各自配。
-#
-# root 用容器内路径 $CONTAINER_DIR/site（与 write_nginx_conf 里 web/dist 的写法一致）：
-# 共享 Nginx 把 PROJECTS_ROOT 原样挂进容器，写容器路径两边都能命中，
-# 写宿主路径只在「宿主目录 == 容器目录」时才成立，换部署方式就 404。
-write_site_nginx_conf() {
-    local conf="$STACK_ROOT/conf/nginx/sites/${PROJECT_DIR}-site.conf"
-
-    if [ "$SITE_ENABLED" != "1" ]; then
-        if [ -f "$conf" ]; then
-            log "SITE_ENABLED=0：移除官网 vhost $conf"
-            rm -f "$conf"
-        fi
-        return 0
-    fi
-
-    if [ ! -d "$PROJECT_HOST_DIR/site" ]; then
-        warn "没有 site/ 目录，跳过官网 vhost（要官网就把静态站放到 $PROJECT_HOST_DIR/site）"
-        return 0
-    fi
-
-    log "生成官网 vhost → $conf（server_name $SITE_DOMAIN）"
-
-    local listen_block="    listen 80;"
-    if [ "$ENABLE_SSL" = "1" ]; then
-        listen_block="    listen 80;
-    listen 443 ssl;
-    ssl_certificate     /etc/nginx/ssl/${SITE_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/nginx/ssl/${SITE_DOMAIN}/privkey.pem;"
-    fi
-
-    cat > "$conf" <<EOF
-# 由 deploy.sh 自动生成：官网 / 下载站（纯静态，勿手改）
-# 静态根（容器内路径）：$CONTAINER_DIR/site
-server {
-$listen_block
-    server_name $SITE_DOMAIN;
-
-    root $CONTAINER_DIR/site;
-    index index.html;
-
-    location / {
-        try_files \$uri \$uri/ =404;
-    }
-
-    # 安装器要能被 curl 直接拉走
-    location = /install.sh {
-        default_type text/plain;
-        charset utf-8;
-    }
-
-    # 发布包与插件模板
-    location /downloads/ {
-        default_type application/octet-stream;
-        add_header Cache-Control "no-cache";
-    }
-
-    location ~* \\.(css|js|svg|png|jpg|webp|ico|woff2?)\$ {
-        expires 7d;
-        add_header Cache-Control "public";
-    }
-}
-EOF
-
-    if [ "$ENABLE_SSL" = "1" ]; then
-        warn "官网 HTTPS 需要证书：/etc/nginx/ssl/${SITE_DOMAIN}/（没有就先让 nginx 监听 80）"
+    # 官网不再用独立子域：location ^~ /site/ 已直接写进主域 vhost（见 write_nginx_conf）。
+    # 清理旧的独立官网 vhost（历史遗留）
+    local legacy_site="$STACK_ROOT/conf/nginx/sites/${PROJECT_DIR}-site.conf"
+    if [ -f "$legacy_site" ]; then
+        log "清理旧的官网子域 vhost：${PROJECT_DIR}-site.conf（官网已并入主域 /site/）"
+        rm -f "$legacy_site"
     fi
 }
 
@@ -952,7 +902,7 @@ case "${1:-all}" in
     app)    fetch_code; deploy_app; show_status ;;
     update) update_app; show_status ;;
     build)  build_frontend ;;
-    site)   write_site_nginx_conf; reload_nginx ;;
+    site)   write_nginx_conf; reload_nginx ;;
     status) show_status ;;
     *)
         echo "用法: $0 {all|stack|app|update|build|site|status}"

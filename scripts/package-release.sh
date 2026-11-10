@@ -69,6 +69,8 @@ EXCLUDES=(
     "storage/*.key"
     "site/downloads/*.zip"
     "site/downloads/*.txt"
+    "site/downloads/*.sha256"
+    "site/install.sh"
     "dist/*"
     ".codebuddy/*"
     ".idea/*"
@@ -134,6 +136,22 @@ printf '%s\n' "$VERSION" > "$DIST/latest.txt"
 echo "    校验值：telegram-bot-$VERSION.zip.sha256"
 echo "    版本号：latest.txt → $VERSION"
 
+# 小产物随安装包分发：客户机装完后，自己官网的 /site/downloads 也要能下载
+# 插件模板、示例插件和安装器（给他们的客户用），否则全是 404。
+# 安装包自身与 sha256 不进包（自举）；打包进来的是未注入占位版的 install.sh，
+# 客户机官网的安装器按他们自己的域名推断官网根。
+mkdir -p "$ROOT/site/downloads"
+cp "$TEMPLATE_ZIP" "$ROOT/site/downloads/"
+cp "$EXAMPLE_ZIP" "$ROOT/site/downloads/"
+cp "$DIST/latest.txt" "$ROOT/site/downloads/latest.txt"
+cp "$ROOT/install.sh" "$ROOT/site/install.sh"
+zip -q "$PKG" \
+    site/downloads/plugin-template.zip \
+    site/downloads/plugin-example-merchant-demo.zip \
+    site/downloads/latest.txt \
+    site/install.sh
+echo "    随包分发：模板/示例/版本号/安装器"
+
 # ---------------------------------------------------------------- 发布到站点
 if [ "$PUBLISH" = "1" ]; then
     mkdir -p "$ROOT/site/downloads"
@@ -144,16 +162,16 @@ if [ "$PUBLISH" = "1" ]; then
     cp "$EXAMPLE_ZIP" "$ROOT/site/downloads/"
     cp "$DIST/latest.txt" "$ROOT/site/downloads/latest.txt"
 
-    # 安装器本身也要能被 curl 拉到：站点根放一份
+    # 安装器放进官网路径 site/install.sh（客户机 curl <主域>/site/install.sh）
     #
-    # 顺手把下载站地址烧进副本（__SITE_URL__）：客户机 curl 到的是 /tmp 里的脚本，
-    # 它无法知道自己来自哪个域名，不注入就只能靠猜 site.<域名>。
+    # 顺手把官网根地址烧进副本（__SITE_URL__，含 /site）：客户机 curl 到的是 /tmp 里的
+    # 脚本，它无法知道自己来自哪个域名；不注入就按安装时 --domain 推断 <域名>/site。
     if [ -n "${SITE_URL:-}" ]; then
         sed "s|__SITE_URL__|${SITE_URL%/}|" "$ROOT/install.sh" > "$ROOT/site/install.sh"
-        echo "    安装器已注入下载站：${SITE_URL%/}"
+        echo "    安装器已注入官网根：${SITE_URL%/}"
     else
         cp "$ROOT/install.sh" "$ROOT/site/install.sh"
-        echo "    提示：未设置 SITE_URL，安装器将按 site.<域名> 推断下载站"
+        echo "    提示：未设置 SITE_URL，安装器将按 https://<安装域名>/site 推断官网"
     fi
 
     chmod +x "$ROOT/site/install.sh"

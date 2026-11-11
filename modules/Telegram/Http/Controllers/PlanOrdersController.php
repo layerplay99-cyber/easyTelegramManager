@@ -84,14 +84,15 @@ class PlanOrdersController extends Controller
 
         if ($keyword !== '') {
             $query->where(function ($q) use ($keyword) {
-                $q->where('name', 'like', '%' . $keyword . '%')
+                // users 表的账号列是 username（没有 name 列）
+                $q->where('username', 'like', '%' . $keyword . '%')
                     ->orWhere('email', 'like', '%' . $keyword . '%')
                     // 直接贴账号 ID 也能搜到
                     ->orWhere('id', (int) $keyword);
             });
         }
 
-        $users = $query->limit(20)->get(['id', 'name', 'email', 'tenant_id', 'balance']);
+        $users = $query->limit(20)->get(['id', 'username', 'email', 'tenant_id', 'balance']);
 
         $merchantNames = Merchant::query()
             ->whereIn('id', $users->pluck('tenant_id')->filter()->unique()->all())
@@ -99,7 +100,7 @@ class PlanOrdersController extends Controller
 
         return $users->map(fn (User $u) => [
             'id' => (int) $u->id,
-            'name' => (string) $u->name,
+            'name' => (string) $u->username,
             'email' => (string) $u->email,
             'merchant_id' => (int) $u->tenant_id,
             'merchant_name' => $merchantNames[(int) $u->tenant_id] ?? '-',

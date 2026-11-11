@@ -2,6 +2,7 @@
 
 namespace Modules\User\Models;
 
+use App\Support\NullTimestamp;
 use Modules\Permissions\Models\Traits\DataRange;
 use Modules\Permissions\Support\MerchantContext;
 
@@ -113,7 +114,9 @@ class User extends Model implements AuthenticatableContract
             unset($data['tenant_id'], $data['is_merchant_admin']);
         }
 
-        return parent::filterData($data);
+        // expired_at / expire_noticed_at 是 integer 时间戳列：框架会把 null 转成 ''，
+        // 而 datetime cast 对空串原样返回，写进整型列直接 1366。空串还原成 NULL。
+        return NullTimestamp::clean(parent::filterData($data));
     }
 
     /**
@@ -198,7 +201,26 @@ class User extends Model implements AuthenticatableContract
             Cache::forget(\App\Support\ServiceExpiry::paidCacheKey((int) $user->id));
         };
 
-        static::saved($purge);
+        static::saved(function (self $user) use ($purge): void {
+            $purge($user);
+
+            // 平台用户首次归属商户（tenant_id 0 → X）时，把他名下的平台数据
+            // 一起过户给该商户。否则 DataScope 立刻收窄成 tenant_id = X，
+            // 他登录后看不到自己之前配置的机器人 / 群。
+            $previous = $user->getPrevious() ?? [];
+            $old = (int) ($previous['tenant_id'] ?? 0);
+            $new = (int) ($user->getAttribute('tenant_id') ?? 0);
+
+            if ($old === 0 && $new > 0) {
+                $moved = \App\Support\TenantDataTransfer::claimPlatformData((int) $user->id, $new);
+
+                if ($moved > 0) {
+                    // 本次请求后续查询要立刻看到新归属
+                    app(\Modules\Permissions\Support\DataScope::class)->flush();
+                }
+            }
+        });
+
         static::deleted($purge);
     }
 

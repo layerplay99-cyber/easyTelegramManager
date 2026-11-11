@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Telegram\Models;
 
+use App\Support\NullTimestamp;
 use Catch\Base\CatchModel as Model;
 use Illuminate\Support\Facades\Cache;
 use Modules\Permissions\Models\Traits\DataRange;
@@ -45,6 +46,15 @@ class Merchant extends Model
         'name' => 'like',
         'code' => 'like',
     ];
+
+    /**
+     * expired_at / expire_noticed_at 是 integer 时间戳列，框架默认把 null 转 ''，
+     * datetime cast 又对空串原样返回 → 写进整型列报 1366。空串还原成 NULL（永久有效）。
+     */
+    protected function filterData(array $data): array
+    {
+        return NullTimestamp::clean(parent::filterData($data));
+    }
 
     public function isExpired(): bool
     {

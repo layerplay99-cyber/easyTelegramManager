@@ -135,18 +135,22 @@ const ts = (value: number | null) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+// 响应体是 { code, message, data }，真实数据在 res.data.data（少解包一层
+// 会把响应体对象当列表遍历——选择套餐里的三条 undefined 就是它）
+const body = (res: any) => res?.data?.data
+
 const loadSummary = async () => {
   const res: any = await http.get('telegram/plan/orders/balance')
-  balance.value = res?.data?.balance ?? '0'
-  expiredAt.value = res?.data?.expired_at ?? ''
-  isSuperAdmin.value = !!res?.data?.is_super_admin
+  balance.value = body(res)?.balance ?? '0'
+  expiredAt.value = body(res)?.expired_at ?? ''
+  isSuperAdmin.value = !!body(res)?.is_super_admin
 }
 
 const searchAccounts = async (keyword: string) => {
   accountLoading.value = true
   try {
     const res: any = await http.get('telegram/plan/orders/accounts', { keyword })
-    accountOptions.value = res?.data ?? []
+    accountOptions.value = body(res) ?? []
   } catch {
     accountOptions.value = []
   } finally {
@@ -186,7 +190,7 @@ const submitAdjust = async () => {
       amount,
       remark: remark.trim()
     })
-    ElMessage.success(`调账成功，当前余额 ${res?.data?.balance ?? ''}`)
+    ElMessage.success(`调账成功，当前余额 ${body(res)?.balance ?? ''}`)
     adjustVisible.value = false
     search()
   } catch (e: any) {
@@ -198,7 +202,7 @@ const submitAdjust = async () => {
 
 const openPurchase = async () => {
   const res: any = await http.get('telegram/plans', { all: 1 })
-  plans.value = res?.data ?? []
+  plans.value = body(res) ?? []
   planId.value = undefined
   visible.value = true
 }

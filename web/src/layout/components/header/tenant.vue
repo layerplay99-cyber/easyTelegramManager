@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isSuperAdmin" class="flex items-center mr-2">
+  <div v-if="isSuperAdmin" class="flex items-center mr-2 min-w-0 shrink">
     <span class="tenant-label hidden xl:inline">{{ $t('merchant.scopeLabel') }}</span>
 
     <!-- 自己渲染当前选中值：el-select 的内部文字不跟随顶栏 currentColor，
@@ -104,8 +104,11 @@ const goMerchants = () => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  width: 10rem;
-  max-width: 10rem;
+  /* 顶栏空间有限（搜索/语言/主题 + 商户 + 个人），固定 10rem 会把个人入口挤出视口，
+     这里改成在 5.5~9rem 之间随可用宽度收缩，文案自带省略号 */
+  width: auto;
+  min-width: 5.5rem;
+  max-width: 9rem;
   height: 1.75rem;
   padding: 0 0.55rem;
   border: 1px solid var(--el-border-color);

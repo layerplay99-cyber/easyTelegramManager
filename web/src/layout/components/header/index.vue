@@ -10,8 +10,8 @@
         </div>
       </div>
 
-      <div class="flex w-52 sm:min-w-[18rem] flex-row item-center pl-1 sm:pl-0 justify-end sm:justify-between mr-4">
-        <div class="w-3/5 hidden sm:flex">
+      <div class="flex flex-1 min-w-0 flex-row items-center pl-1 sm:pl-0 justify-end gap-2 mr-4">
+        <div class="hidden sm:flex items-center shrink-0">
           <!-- 搜索 -->
           <MenuSearch />
           <!-- 多语言 -->

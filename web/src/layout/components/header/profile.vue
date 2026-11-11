@@ -1,5 +1,5 @@
 <template>
-  <div class="flex w-2/5 hover:cursor-pointer pl-1 pr-1">
+  <div class="flex shrink-0 items-center hover:cursor-pointer pl-1 pr-1">
     <el-dropdown size="large" placement="bottom-end" class="flex items-center justify-center hover:cursor-pointer w-full">
       <div class="flex lg:items-center">
         <img :src="userStore.getAvatar" class="w-7 h-7 rounded-full" />

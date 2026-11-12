@@ -220,8 +220,11 @@ const load = async () => {
   try {
     const { data } = await http.get(api, { params: { status: status.value || undefined } })
     // 响应只有一层：{ code, message, data: { data: [], total… } }
-    const payload = data.data || {}
-    list.value = payload.data || []
+    const payload = data.data
+    // 兼容两种响应：分页器顶层展开 { code, message, data: [行数组], total }
+    // 与双层 { code, message, data: { data: [行数组], total } }。
+    // 之前写死取 data.data.data，实际响应是前者 → 恒为 undefined，表格永远空白
+    list.value = Array.isArray(payload) ? payload : (payload?.data || [])
   } catch (e) {
     list.value = []
   } finally {

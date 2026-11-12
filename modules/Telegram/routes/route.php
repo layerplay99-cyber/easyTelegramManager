@@ -64,6 +64,8 @@ Route::prefix('telegram')->group(function(){
     // 因为新路由在开了 route:cache 的环境必须重新 cache 才生效，
     // 没跑就会「route_not_found_or_register」。这条保留给外部调用。
     Route::put('bots/{id}/third-config', [BotsController::class, 'updateThirdConfig']);
+    // 群成员（群编辑「设置客服」多选框数据源）：必须在 apiResource 之前注册
+    Route::get('bot/groups/{id}/members', [BotGroupsController::class, 'members']);
     Route::apiResource('bot/groups', BotGroupsController::class);
     Route::apiResource('bot/group/group', BotGroupGroupController::class);
     Route::apiResource('bot/group/config', GroupConfigController::class);

@@ -73,6 +73,32 @@ class ReplyTranslator
     }
 
     /**
+     * 单语翻译：把任意文本翻成目标语种（群内消息自动翻译用）
+     *
+     * 与 bilingual() 的区别：不追加原文，返回纯译文。
+     * 源语言用 AWS 的 auto 检测——群里什么语言进来的都有。
+     * 翻译关闭 / 失败 / 空文本一律返回原文字符串，调用方直接发即可。
+     */
+    public function translateTo(string $text, string $targetLanguage): string
+    {
+        $text = trim($text);
+
+        if ($text === '' || ! $this->enabled()) {
+            return $text;
+        }
+
+        $target = strtolower(trim($targetLanguage));
+
+        if ($target === '') {
+            return $text;
+        }
+
+        $translated = $this->fromAws($text, 'auto', $target);
+
+        return $translated !== '' ? $translated : $text;
+    }
+
+    /**
      * 功能配置里有没有这个语种的专属文案
      */
     protected function fromTemplate(array $config, string $language, array $data): string

@@ -207,7 +207,11 @@ class PluginManager
             DB::table('features_binds')->whereIn('feature_id', $ids)->delete();
             DB::table('feature_commands')->whereIn('feature_id', $ids)->delete();
             DB::table('feature_upstream_endpoints')->whereIn('feature_id', $ids)->delete();
-            Features::query()->whereIn('id', $ids)->delete();
+            DB::table('feature_hooks')->whereIn('feature_id', $ids)->delete();
+            DB::table('feature_data')->whereIn('feature_id', $ids)->delete();
+            // 直查直删：Features 模型带租户作用域，CLI / 非超管调用时
+            // whereIn 会被追加租户条件而删不掉（残留功能继续占着命令名）
+            DB::table('features')->whereIn('id', $ids)->delete();
         }
 
         foreach ([self::root(), self::disabledRoot()] as $base) {
@@ -471,7 +475,8 @@ class PluginManager
         // 所以先查冲突再同步——插件自己改 uuid() 即可避开。
         $keys = array_map(fn (string $class) => 'custom:' . $class::uuid(), $classes);
 
-        $conflict = Features::query()->whereIn('feature', $keys)->pluck('feature')->all();
+        // 直查：模型带租户作用域，CLI 安装会漏检冲突
+        $conflict = DB::table('features')->whereIn('feature', $keys)->pluck('feature')->all();
 
         if ($conflict !== []) {
             throw new FailedException(
@@ -507,7 +512,7 @@ class PluginManager
 
         app(CustomFeatureRegistry::class)->sync();
 
-        $ids = Features::query()->whereIn('feature', $keys)->pluck('id')->all();
+        $ids = DB::table('features')->whereIn('feature', $keys)->pluck('id')->all();
 
         $plugin->forceFill(['feature_ids' => array_values($ids)])->save();
     }

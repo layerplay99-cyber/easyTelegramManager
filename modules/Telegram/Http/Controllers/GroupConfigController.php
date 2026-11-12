@@ -3,6 +3,7 @@
 namespace Modules\Telegram\Http\Controllers;
 
 use Catch\Base\CatchController;
+use Catch\Exceptions\FailedException;
 use Illuminate\Http\Request;
 use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\BotGroups;
@@ -100,6 +101,50 @@ class GroupConfigController extends CatchController
 
         if (! isset($data['groupId']) && isset($data['group_id'])) {
             $data['groupId'] = $data['group_id'];
+        }
+
+        // ---- 基础能力开关与客服设置 ----
+        // 开关一律转 0/1（前端可能传 true/false 或 "1"/"0"）
+        foreach (['translate_enabled', 'ocr_enabled', 'notify_upstream'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $data[$field] = filter_var($data[$field], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+            }
+        }
+
+        // 关键词：去空白、去空串、去重
+        if (array_key_exists('service_keywords', $data)) {
+            $keywords = is_array($data['service_keywords']) ? $data['service_keywords'] : [];
+
+            $data['service_keywords'] = array_values(array_unique(array_filter(
+                array_map(fn ($k) => trim((string) $k), $keywords),
+                fn ($k) => $k !== ''
+            )));
+        }
+
+        // 客服：只留 id / username，username 去掉 @ 前缀
+        if (array_key_exists('customers', $data)) {
+            $customers = is_array($data['customers']) ? $data['customers'] : [];
+
+            $data['customers'] = array_values(array_filter(array_map(
+                fn ($c) => [
+                    'id' => (int) ($c['id'] ?? 0),
+                    'username' => ltrim(trim((string) ($c['username'] ?? '')), '@'),
+                ],
+                $customers
+            ), fn ($c) => $c['id'] > 0 || $c['username'] !== ''));
+        }
+
+        // 开启上游业务通知的前提：群已绑定商户号（只认 merchant_routes 路由表）
+        if (! empty($data['notify_upstream'])) {
+            $chatId = (string) (BotGroups::query()
+                ->whereKey((int) ($data['groupId'] ?? 0))
+                ->value('chat_id') ?? '');
+
+            $bound = $chatId === '' ? [] : app(MerchantRouteService::class)->forChat($chatId);
+
+            if ($bound === []) {
+                throw new FailedException('该群尚未绑定商户号，请先在群内用绑定命令绑定商户号后再开启业务通知');
+            }
         }
 
         return $data;

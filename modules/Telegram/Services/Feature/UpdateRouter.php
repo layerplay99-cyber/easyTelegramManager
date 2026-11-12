@@ -9,9 +9,11 @@ use Modules\Telegram\Contracts\UpdateIntent;
 use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
+use Modules\Telegram\Models\GroupConfigs;
 use App\Support\ServiceExpiry;
 use Modules\Telegram\Services\Bot\BotApiFactory;
 use Modules\Telegram\Services\LogMessageService;
+use Modules\Telegram\Services\PlainChatHandler;
 use Modules\User\Models\User as UserModel;
 
 /**
@@ -42,6 +44,7 @@ class UpdateRouter
         protected FeatureExecutor $executor,
         protected BotApiFactory $botApiFactory,
         protected LogMessageService $logMessageService,
+        protected PlainChatHandler $plainChatHandler,
     ) {
     }
 
@@ -74,14 +77,48 @@ class UpdateRouter
             return;
         }
 
-        // ---- 2) 纯闲聊文本：唯一允许过滤的情况 ----
+        // ---- 2) 纯闲聊文本：群开了翻译/客服关键词就处理，否则维持丢弃 ----
         if ($intent->isPlainChat()) {
+            if ((string) $intent->messageType === 'text') {
+                $this->plainChatHandler->handle(
+                    $this->botApiFactory->forBot($bot),
+                    $chatId,
+                    (string) $intent->text,
+                    $intent->username
+                );
+            }
+
             return;
         }
 
         // ---- 3) 斜杠命令：命令分发链路 ----
         if ($intent->isCommand()) {
             $this->routeCommand($bot, $update, $intent);
+
+            return;
+        }
+
+        // ---- 3.5) 图片：群开了自动识图 → 直接走识图功能（不参与功能分配） ----
+        if ($intent->type === 'photo' && GroupConfigs::forChat($chatId)?->ocr_enabled) {
+            $this->executor->callFeature(
+                'custom:ocrImage',
+                [
+                    'trigger' => 'message',
+                    'scope_type' => 'group',
+                    'payload' => [
+                        '__trigger' => 'message',
+                        'text' => $intent->text,
+                        'media_type' => 'photo',
+                        'file_id' => $intent->fileId,
+                        'message_id' => $intent->messageId,
+                        'username' => $intent->username,
+                    ],
+                ],
+                $bot,
+                $this->botApiFactory->forBot($bot),
+                $chatId,
+                $intent->userId
+            );
 
             return;
         }

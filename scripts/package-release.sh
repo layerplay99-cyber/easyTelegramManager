@@ -129,6 +129,21 @@ rm -rf "$TMP_EXAMPLE"
 
 echo "    示例插件：$EXAMPLE_ZIP"
 
+# ------------------------------------------------------ 商户支付（三方）正式插件
+# 内置的商户支付功能已下线，这批命令全部由该插件提供，后台上传 zip 即可安装
+MERCHANT_PAY_ZIP="$DIST/plugin-merchant-pay.zip"
+rm -f "$MERCHANT_PAY_ZIP"
+
+TMP_MERCHANT_PAY="$(mktemp -d)"
+mkdir -p "$TMP_MERCHANT_PAY/merchant_pay"
+cp "$ROOT/resources/plugins/merchant-pay/manifest.json" "$TMP_MERCHANT_PAY/merchant_pay/"
+cp "$ROOT/resources/plugins/merchant-pay/"*.php "$TMP_MERCHANT_PAY/merchant_pay/"
+
+( cd "$TMP_MERCHANT_PAY" && zip -rq "$MERCHANT_PAY_ZIP" merchant_pay )
+rm -rf "$TMP_MERCHANT_PAY"
+
+echo "    商户支付插件：$MERCHANT_PAY_ZIP"
+
 # ---------------------------------------------------------------- 校验与版本
 ( cd "$DIST" && sha256sum "telegram-bot-$VERSION.zip" > "telegram-bot-$VERSION.zip.sha256" )
 printf '%s\n' "$VERSION" > "$DIST/latest.txt"
@@ -143,6 +158,7 @@ echo "    版本号：latest.txt → $VERSION"
 mkdir -p "$ROOT/site/downloads"
 cp "$TEMPLATE_ZIP" "$ROOT/site/downloads/"
 cp "$EXAMPLE_ZIP" "$ROOT/site/downloads/"
+cp "$MERCHANT_PAY_ZIP" "$ROOT/site/downloads/"
 cp "$DIST/latest.txt" "$ROOT/site/downloads/latest.txt"
 cp "$ROOT/install.sh" "$ROOT/site/install.sh"
 zip -q "$PKG" \
@@ -160,6 +176,7 @@ if [ "$PUBLISH" = "1" ]; then
     cp "$DIST/telegram-bot-$VERSION.zip.sha256" "$ROOT/site/downloads/"
     cp "$TEMPLATE_ZIP" "$ROOT/site/downloads/"
     cp "$EXAMPLE_ZIP" "$ROOT/site/downloads/"
+    cp "$MERCHANT_PAY_ZIP" "$ROOT/site/downloads/"
     cp "$DIST/latest.txt" "$ROOT/site/downloads/latest.txt"
 
     # 安装器放进官网路径 site/install.sh（客户机 curl <主域>/site/install.sh）

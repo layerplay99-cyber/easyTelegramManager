@@ -12,7 +12,9 @@ use Modules\Telegram\Models\BotGroups;
 use Modules\Telegram\Models\FeatureHookRoutes;
 use Modules\Telegram\Models\FeatureHooks;
 use Modules\Telegram\Models\FeaturesBinds;
+use Modules\Telegram\Models\GroupConfigs;
 use Modules\Telegram\Services\Bot\BotApiFactory;
+use Modules\Telegram\Services\MerchantRouteService;
 use Modules\Telegram\Services\Feature\FeatureExecutor;
 use Modules\Telegram\Models\Bots;
 
@@ -88,6 +90,30 @@ class HookController extends CatchController
 
         $bot = $target['bot'];
         $chatId = $target['chat_id'];
+
+        // ---- 群级开关：未开启「上游业务通知」的群不收任何推送 ----
+        $groupConfig = $chatId === null ? null : GroupConfigs::forChat((string) $chatId);
+
+        if ($groupConfig && ! $groupConfig->notify_upstream) {
+            return response()->json([
+                'status' => 'ignored',
+                'message' => '该群未开启上游业务通知',
+            ]);
+        }
+
+        // ---- 只接受该群已绑定商户号的商户通知 ----
+        $notifyMerchant = $this->routeValue($hook, $payload);
+
+        if ($notifyMerchant !== null && $notifyMerchant !== '' && $chatId !== null) {
+            $bound = app(MerchantRouteService::class)->forChat((string) $chatId);
+
+            if ($bound !== [] && ! in_array((string) $notifyMerchant, array_map('strval', $bound), true)) {
+                return response()->json([
+                    'status' => 'ignored',
+                    'message' => '该群未绑定商户 ' . $notifyMerchant . '，拒绝投递',
+                ], 403);
+            }
+        }
 
         $result = $this->executor->execute(
             $feature,

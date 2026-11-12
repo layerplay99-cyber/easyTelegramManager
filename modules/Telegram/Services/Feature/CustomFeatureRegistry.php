@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Modules\Telegram\Services\Feature;
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Modules\Telegram\Models\FeatureCommands;
+use Modules\Telegram\Models\FeatureHooks;
 use Modules\Telegram\Models\FeatureUpstreamEndpoint;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
@@ -152,6 +154,20 @@ class CustomFeatureRegistry
             }
 
             $this->syncUpstreamEndpoints($feature->id, $class::upstreamEndpoints());
+
+            // webhook 型功能（如插件的业务通知）：自动生成回调令牌，
+            // 上游按 POST /api/hooks/{token} 投递，无需后台手工创建
+            if ($class::triggerName() === 'webhook') {
+                FeatureHooks::query()->firstOrCreate(
+                    ['feature_id' => $feature->id],
+                    [
+                        'token' => Str::random(32),
+                        'name' => $class::featureName() . ' 回调',
+                        'dedup_field' => '',
+                        'enabled' => true,
+                    ]
+                );
+            }
         }
 
         return $synced;

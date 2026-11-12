@@ -155,6 +155,22 @@ app(\Modules\Telegram\Services\Feature\FeatureExecutor::class)
 
 ---
 
+### 2.6 基础功能（category = base）：不参与分配，默认可用的能力
+
+`features.category = 'base'` 的功能**不需要在后台把功能绑定到机器人/群**，所有机器人、
+所有群默认可用（`FeatureExecutor` 对 base 跳过绑定校验），只在功能列表里控制上架开关。
+
+约定：继承 `Services/Feature/Drivers/Custom/Base/AbstractBaseFeature`（已固定
+`category=base`、`needsUpstream=false`、`group=基础`），实现 `key/uuid/featureName/
+featureDescription/commands/handle` 即可。
+
+现有基础功能：`/fy`（群内自动翻译开关）、`/okxr`、`/bnr`（交易所汇率）。
+群级能力开关注释在 `group_configs.translate_enabled / ocr_enabled / notify_upstream`，
+由后台「群编辑 → 基础能力」和命令两处控制。
+
+> 钱包四命令（`/tx /cz /yue /zd`）**不是** base：它们属于内置功能
+> `Drivers/Custom/Wallet/`（`category=bot`，需要绑上游配置），后台绑定到群后可用。
+
 ## 3. 路线 B：插件开发（不动核心，上传安装）
 
 ### 3.1 从模板与示例起步
@@ -164,11 +180,13 @@ app(\Modules\Telegram\Services\Feature\FeatureExecutor::class)
 | 材料 | 下载站 | 源码位置 | 内容 |
 | --- | --- | --- | --- |
 | 最小模板 `demo_hello` | `/downloads/plugin-template.zip` | `resources/plugin-template/` | 一个命令：参数、持久化、后台配置、失败提示 |
-| 商户三件套 `merchant_demo` | `/downloads/plugin-example-merchant-demo.zip` | `resources/plugin-examples/merchant-demo/` | **内部版商户功能的插件对照实现**：`/bmd` 绑定、`/ymd` 查余额、`/cxm` 查订单 |
+| 商户三件套 `merchant_demo` | `/downloads/plugin-example-merchant-demo.zip` | `resources/plugin-examples/merchant-demo/` | 教学示例：`/bmd` 绑定、`/ymd` 查余额、`/cxm` 查订单（与内部版同构的最小形态） |
+| **商户支付 `merchant_pay`** | `/downloads/plugin-merchant-pay.zip` | `resources/plugins/merchant-pay/` | **正式业务插件**：11 个命令 + 业务通知（webhook）+ 审批按钮（callback_query），替代已下线的内置商户功能 |
 
-`merchant_demo` 与内部示例 `Drivers/Custom/Merchant/`（`BindMerchant` / `GetMerchantBalance` /
-`QueryOrder`）功能同构，类头注释里有一张逐项差异表（命名空间、代码组织、商户号存储、
-接口 code 前缀）——两边对照着看，就知道一个功能「从内部搬成插件」要动哪里。
+`merchant_demo` 是「一个小功能怎么写成插件」的最小对照（单类三命令、商户号存 `putData`、
+接口 code 用 `demo.*`）。要看成规模的插件组织方式，直接读 `merchant_pay`：一个命令类按
+`$ctx->command` 分派 11 条命令、一个 webhook 类做业务通知、一个 callback_query 类处理审批按钮，
+三者共用同一份 `feature_data`（商户号、审批人）。
 
 ```
 demo_hello/

@@ -7,6 +7,7 @@ use Catch\Base\CatchController as Controller;
 use Illuminate\Http\Request;
 use Modules\Permissions\Support\DataScope;
 use Modules\Telegram\Models\BotGroups;
+use Modules\Telegram\Models\GroupMembers;
 use Modules\Telegram\Models\TelegramApiUsers;
 use Modules\Telegram\Services\Group\GroupCleanupService;
 
@@ -73,7 +74,7 @@ class BotGroupsController extends Controller
      */
     public function update(int|string $id, Request $request)
     {
-        // 群设置（目前是语种）：与下面「移动到分组」是两件事，分开处理
+        // 群设置（语种）：与下面「移动到分组」是两件事，分开处理
         if ($request->has('settings')) {
             $group = $this->model->firstBy($id);
 
@@ -120,6 +121,32 @@ class BotGroupsController extends Controller
      * @return mixed
      */
     /**
+     * 群成员列表（群编辑「设置客服」多选框的数据源，只取在群成员）
+     */
+    public function members(int|string $id): mixed
+    {
+        $group = $this->model->firstBy($id);
+
+        if (! $group) {
+            return [];
+        }
+
+        app(DataScope::class)->assertVisible($group);
+
+        return GroupMembers::query()
+            ->where('chat_id', (string) $group->chat_id)
+            ->where('status', 'member')
+            ->orderByDesc('joined_at')
+            ->limit(200)
+            ->get(['id', 'user_id', 'username'])
+            ->map(fn ($m) => [
+                'id' => (int) $m->user_id,
+                'username' => (string) $m->username,
+            ])
+            ->values();
+    }
+
+    /**
      * 只放行 settings.language，且必须是配置里登记过的语种
      *
      * @return array<string, string>
@@ -138,6 +165,7 @@ class BotGroupsController extends Controller
 
         return ['language' => $language];
     }
+
 
     /**
      * 删除群：硬删群本体，并清掉这个群的所有关联配置

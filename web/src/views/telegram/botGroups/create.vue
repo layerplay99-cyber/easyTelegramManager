@@ -20,6 +20,62 @@
             </div>
         </el-form-item>
 
+        <el-divider content-position="left">基础能力</el-divider>
+
+        <el-form-item label="自动翻译">
+            <div class="flex items-center gap-3">
+                <el-switch v-model="groupConfig.translate_enabled" />
+                <span class="text-xs text-gray-400">
+                    开启后群内文字消息自动翻译成群语种（群内也可用 /fy start、/fy stop 切换）
+                </span>
+            </div>
+        </el-form-item>
+
+        <el-form-item label="自动识图">
+            <div class="flex items-center gap-3">
+                <el-switch v-model="groupConfig.ocr_enabled" />
+                <span class="text-xs text-gray-400">
+                    开启后群内图片自动识别，图中文字拼接成字符串提交上游
+                </span>
+            </div>
+        </el-form-item>
+
+        <el-form-item label="业务通知">
+            <div class="flex items-center gap-3">
+                <el-switch v-model="groupConfig.notify_upstream" />
+                <span class="text-xs text-gray-400">
+                    接收上游业务通知（需先绑定商户号，且只接受该商户的通知）
+                </span>
+            </div>
+        </el-form-item>
+
+        <el-form-item label="客服人员">
+            <el-select v-model="customerKeys" multiple filterable placeholder="从群成员中选择" class="w-full">
+                <el-option
+                    v-for="m in members"
+                    :key="m.id"
+                    :label="m.username ? '@' + m.username : 'ID ' + m.id"
+                    :value="String(m.username || m.id)"
+                />
+            </el-select>
+            <div class="text-xs text-gray-400 mt-1">
+                消息命中客服关键词时 @ 这些人；群成员为空时请等机器人同步一次成员
+            </div>
+        </el-form-item>
+
+        <el-form-item label="客服关键词">
+            <el-select
+                v-model="groupConfig.service_keywords"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                :reserve-keyword="false"
+                placeholder="输入关键词后回车，可加多个"
+                class="w-full"
+            />
+        </el-form-item>
+
         <el-divider content-position="left">{{ $t('group.configTitle') }}</el-divider>
 
         <el-form-item :label="$t('group.merchantId')" prop="mid">
@@ -151,11 +207,38 @@ const groupConfig = ref<{
     mid: string
     welcome: string
     autoReply: Array<{ key: string; value: string }>
+    translate_enabled: boolean
+    ocr_enabled: boolean
+    notify_upstream: boolean
+    service_keywords: string[]
 }>({
     mid: '',
     welcome: '',
     autoReply: [],
+    translate_enabled: false,
+    ocr_enabled: false,
+    notify_upstream: false,
+    service_keywords: [],
 })
+
+// 客服人员：el-select 的多选值用 username（没有 username 用 id），提交时映射回 {id, username}
+const members = ref<Array<{ id: number; username: string }>>([])
+const customerKeys = ref<string[]>([])
+
+const loadMembers = async () => {
+    if (!props.primary) {
+        return
+    }
+
+    try {
+        const { data } = await http.get(`telegram/bot/groups/${props.primary}/members`)
+        // 响应体 { code, message, data }，列表在 data.data
+        const list = data?.data ?? data
+        members.value = Array.isArray(list) ? list : []
+    } catch {
+        members.value = []
+    }
+}
 
 const loadConfig = async () => {
     if (!props.primary) {
@@ -172,10 +255,27 @@ const loadConfig = async () => {
             autoReply: config?.autoReply
                 ? Object.entries(config.autoReply).map(([key, value]) => ({ key, value: String(value) }))
                 : [],
+            translate_enabled: !!config?.translate_enabled,
+            ocr_enabled: !!config?.ocr_enabled,
+            notify_upstream: !!config?.notify_upstream,
+            service_keywords: Array.isArray(config?.service_keywords) ? config.service_keywords : [],
         }
+
+        customerKeys.value = Array.isArray(config?.customers)
+            ? config.customers.map((c: any) => String(c?.username || c?.id || '')).filter(Boolean)
+            : []
     } catch {
         configId.value = null
-        groupConfig.value = { mid: '', welcome: '', autoReply: [] }
+        groupConfig.value = {
+            mid: '',
+            welcome: '',
+            autoReply: [],
+            translate_enabled: false,
+            ocr_enabled: false,
+            notify_upstream: false,
+            service_keywords: [],
+        }
+        customerKeys.value = []
     }
 }
 
@@ -217,11 +317,26 @@ const submitAll = async (formEl: any) => {
             return acc
         }, {} as Record<string, string>)
 
+        // 客服：username/id 键 → {id, username}，后端只认这两个字段
+        const customers = customerKeys.value.map((key) => {
+            const hit = members.value.find((m) => String(m.username || m.id) === key)
+
+            return {
+                id: hit?.id ?? (Number(key) || 0),
+                username: hit?.username ?? (isNaN(Number(key)) ? key : ''),
+            }
+        })
+
         await useGroup().createOrUpdateGroupConfig(configId.value || 0, {
             group_id: Number(props.primary),
             mid: groupConfig.value.mid,
             welcome: groupConfig.value.welcome,
             autoReply,
+            translate_enabled: groupConfig.value.translate_enabled ? 1 : 0,
+            ocr_enabled: groupConfig.value.ocr_enabled ? 1 : 0,
+            notify_upstream: groupConfig.value.notify_upstream ? 1 : 0,
+            service_keywords: groupConfig.value.service_keywords,
+            customers,
         } as any)
 
         emit('close')
@@ -233,5 +348,6 @@ const submitAll = async (formEl: any) => {
 }
 
 loadLanguages()
+loadMembers()
 loadConfig()
 </script>

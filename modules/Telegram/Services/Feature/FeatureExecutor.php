@@ -147,7 +147,11 @@ class FeatureExecutor
         // 私聊不是群，沿用机器人级白名单（见 FeaturesBinds::bindForSession）。
         $bind = null;
 
-        if ($chatId !== null && $bot !== null) {
+        // 基础功能（features.category = base，如帮助 / 翻译 / 汇率 / 钱包命令）：
+        // 不参与功能分配，所有机器人/群默认可用，跳过绑定校验与双开关
+        $isBase = (string) $feature->category === 'base';
+
+        if ($chatId !== null && $bot !== null && ! $isBase) {
             $bind = FeaturesBinds::bindForSession($bot->id, $chatId, $feature->id);
 
             // command 触发必须存在绑定；webhook / manual 不强制（可能无绑定直接执行）

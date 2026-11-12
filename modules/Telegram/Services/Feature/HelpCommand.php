@@ -6,6 +6,7 @@ namespace Modules\Telegram\Services\Feature;
 
 use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\FeatureCommands;
+use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
 
 /**
@@ -52,33 +53,66 @@ class HelpCommand
      */
     public function render(Bots $bot, int|string|null $chatId): string
     {
-        $featureIds = $this->boundFeatureIds($bot, $chatId);
+        $lines = [];
 
-        if ($featureIds === []) {
-            return '当前机器人还没有可用的指令，请先在后台「功能列表」里绑定功能并配置命令。';
-        }
-
-        $commands = FeatureCommands::query()
+        // ---- 基础功能：category = base，所有机器人/群默认可用，不占绑定 ----
+        $baseIds = Features::query()
+            ->where('category', 'base')
             ->where('enabled', true)
-            ->whereIn('feature_id', $featureIds)
+            ->pluck('id')
+            ->all();
+
+        $baseCommands = FeatureCommands::query()
+            ->where('enabled', true)
+            ->whereIn('feature_id', $baseIds)
             ->with('feature')
             ->orderBy('id')
             ->get()
             ->filter(fn ($c) => $c->feature && $c->feature->enabled);
 
-        if ($commands->isEmpty()) {
-            return '当前机器人还没有配置命令，请在后台「功能列表 → 命令」里添加。';
+        if ($baseCommands->isNotEmpty()) {
+            $lines[] = '基础功能：';
+
+            foreach ($baseCommands as $command) {
+                $lines[] = sprintf(
+                    '%s：指令"%s"，%s',
+                    $this->name($command),
+                    $this->usage($command),
+                    $this->description($command)
+                );
+            }
         }
 
-        $lines = ['可用指令：'];
+        // ---- 商户已配置的功能：本群绑定（群级勾选）的功能 ----
+        $boundIds = $this->boundFeatureIds($bot, $chatId);
+        $boundIds = array_values(array_diff($boundIds, $baseIds));
 
-        foreach ($commands as $command) {
-            $lines[] = sprintf(
-                '%s：指令"%s"，%s',
-                $this->name($command),
-                $this->usage($command),
-                $this->description($command)
-            );
+        if ($boundIds !== []) {
+            $boundCommands = FeatureCommands::query()
+                ->where('enabled', true)
+                ->whereIn('feature_id', $boundIds)
+                ->with('feature')
+                ->orderBy('id')
+                ->get()
+                ->filter(fn ($c) => $c->feature && $c->feature->enabled);
+
+            if ($boundCommands->isNotEmpty()) {
+                $lines[] = '';
+                $lines[] = '已配置功能：';
+
+                foreach ($boundCommands as $command) {
+                    $lines[] = sprintf(
+                        '%s：指令"%s"，%s',
+                        $this->name($command),
+                        $this->usage($command),
+                        $this->description($command)
+                    );
+                }
+            }
+        }
+
+        if ($lines === []) {
+            return '当前没有可用指令。基础功能随功能同步自动生效；商户功能需在后台绑定到本群。';
         }
 
         return implode("\n", $lines);

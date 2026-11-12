@@ -49,10 +49,25 @@ class GroupConfigs extends Model
         'customers',
         'welcome',
         'autoReply',
+        'translate_enabled',
+        'ocr_enabled',
+        'notify_upstream',
+        'service_keywords',
         'creator_id',
         'created_at',
         'updated_at',
         'deleted_at',
+    ];
+
+    /**
+     * customers 是 json 数组 [{id, username}, ...]（列是老 varchar，按 array cast 存 JSON 文本）
+     */
+    protected $casts = [
+        'customers' => 'array',
+        'service_keywords' => 'array',
+        'translate_enabled' => 'boolean',
+        'ocr_enabled' => 'boolean',
+        'notify_upstream' => 'boolean',
     ];
 
     protected array $fields = [
@@ -62,6 +77,10 @@ class GroupConfigs extends Model
         'customers',
         'welcome',
         'autoReply',
+        'translate_enabled',
+        'ocr_enabled',
+        'notify_upstream',
+        'service_keywords',
         'created_at',
         'updated_at',
     ];
@@ -72,6 +91,10 @@ class GroupConfigs extends Model
         'customers',
         'welcome',
         'autoReply',
+        'translate_enabled',
+        'ocr_enabled',
+        'notify_upstream',
+        'service_keywords',
     ];
 
     public array $searchable = [

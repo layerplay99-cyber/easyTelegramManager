@@ -28,6 +28,7 @@
       <el-table-column prop="author" label="作者" width="120">
         <template #default="scope">{{ scope.row.author || '-' }}</template>
       </el-table-column>
+      <el-table-column label="归属商户" width="120"><template #default="scope"><el-tag v-if="(scope.row.manifest || {}).merchant_id" type="warning" size="small">{{ scope.row.manifest.merchant_id }}</el-tag><el-tag v-else type="success" size="small">官方</el-tag></template></el-table-column>
       <el-table-column label="状态" width="110">
         <template #default="scope">
           <el-tag v-if="scope.row.status === 'installed'" type="success" size="small">已启用</el-tag>

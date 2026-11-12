@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Modules\Telegram\Http\Controllers;
 
 use Catch\Base\CatchController as Controller;
+use Catch\Exceptions\FailedException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -95,6 +96,20 @@ class FeaturesController extends Controller
         return $this->model->setBeforeGetList(function ($query) use ($request) {
             if ($category = $request->input('category')) {
                 $query->where('category', $category);
+            }
+
+            // 触发方式筛选（driver key，如 command / webhook / callback_query）
+            if ($driver = trim((string) $request->input('driver', ''))) {
+                $query->where('driver', $driver);
+            }
+
+            // 归属商户筛选：official=全局默认实现（merchant_id 为空），
+            // 其它值按 features.merchant_id 精确匹配（商户定制实现）
+            $merchant = trim((string) $request->input('merchant_id', ''));
+            if ($merchant === 'official') {
+                $query->where(fn ($q) => $q->whereNull('merchant_id')->orWhere('merchant_id', ''));
+            } elseif ($merchant !== '') {
+                $query->where('merchant_id', $merchant);
             }
 
             if ($request->query('mode') === 'multiple') {
@@ -210,6 +225,23 @@ class FeaturesController extends Controller
      */
     public function update(int|string $id, Request $request): mixed
     {
+        // 插件停用期间，其功能不允许在功能列表单独开启——
+        // 插件代码已移入 _disabled 目录，功能开了也执行不了，只会误导配置人
+        if ((int) $request->input('enabled') === 1) {
+            $disabledPlugin = \Modules\Telegram\Models\Plugin::query()
+                ->where('status', \Modules\Telegram\Models\Plugin::STATUS_DISABLED)
+                ->get(['id', 'slug', 'feature_ids'])
+                ->first(function ($plugin) use ($id) {
+                    return in_array((int) $id, (array) ($plugin->feature_ids ?? []), true);
+                });
+
+            if ($disabledPlugin !== null) {
+                throw new FailedException(
+                    "该功能属于已停用的插件「{$disabledPlugin->slug}」，请先在插件管理里启用插件，再开启功能"
+                );
+            }
+        }
+
         return $this->model->updateBy($id, $request->all());
     }
 

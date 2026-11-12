@@ -11,12 +11,14 @@
                         <el-option v-for="item in enabled" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                 </el-form-item>
+                <el-form-item label="分类" prop="category"><el-select v-model="(query as any).category" placeholder="全部" clearable style="width: 140px"><el-option label="基础功能" value="base" /><el-option label="钱包" value="wallet" /><el-option label="商户支付" value="merchant" /><el-option label="定制功能" value="custom" /></el-select></el-form-item><el-form-item label="触发方式" prop="driver"><el-select v-model="(query as any).driver" placeholder="全部" clearable style="width: 160px"><el-option v-for="d in driverOptions" :key="d.value" :label="d.label" :value="d.value" /></el-select></el-form-item><el-form-item label="归属商户" prop="merchant_id"><el-select v-model="(query as any).merchant_id" placeholder="全部" clearable style="width: 170px" filterable allow-create default-first-option><el-option label="官方（默认实现）" value="official" /></el-select></el-form-item>
             </template>
         </Search>
         <div class="table-default">
             <Operate :show="open" />
             <el-table :data="tableData" class="mt-3" v-loading="loading">
                 <el-table-column prop="name" :label="$t('feature.field.name')" />
+                <el-table-column label="归属商户" width="140"><template #default="scope"><el-tag v-if="scope.row.merchant_id" type="warning" size="small">{{ scope.row.merchant_id }}</el-tag><el-tag v-else type="success" size="small">官方</el-tag></template></el-table-column>
                   <el-table-column prop="category" :label="$t('feature.field.category')" />
                       <!-- 执行器：取代旧的「功能类型/请求类型/数据来源」三个枚举 -->
                             <el-table-column prop="driver_label" :label="$t('feature.driverLabel')" width="180">
@@ -148,6 +150,8 @@ const enabled = [
     { label: t('system.disabled'), value: 0 }
 ]
 
+const driverOptions = [ { label: "命令（群内 /指令）", value: "command" }, { label: "回调按钮", value: "callback_query" }, { label: "三方推送", value: "webhook" } ]
+
 // 归属映射（列表已改用 driver/trigger，旧的 type/requestType/location 列已移除）
 const categoryMap = {
     'system': t('feature.categories.system'),
@@ -192,7 +196,8 @@ const handleEnabledChange = async (row: any) => {
     } catch (error) {
         // 如果更新失败，恢复原状态
         row.enabled = row.enabled === 1 ? 0 : 1
-        Message.error(t('system.updateFailed'))
+        const msg = (error as any)?.response?.data?.message || t('system.updateFailed')
+        Message.error(msg)
     } finally {
         row.switchLoading = false
     }
@@ -207,7 +212,8 @@ const handleAccessLevelChange = async (row: any) => {
         search()
     } catch (error) {
         row.access_level = row.access_level === 'paid' ? 'free' : 'paid'
-        Message.error(t('system.updateFailed'))
+        const msg = (error as any)?.response?.data?.message || t('system.updateFailed')
+        Message.error(msg)
     } finally {
         row.accessLoading = false
     }

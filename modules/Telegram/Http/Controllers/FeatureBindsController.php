@@ -11,6 +11,7 @@ use Modules\Permissions\Support\MerchantContext;
 use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
+use Modules\Telegram\Models\GroupConfigs;
 use Modules\Telegram\Services\Feature\TelegramFeatureService;
 use Modules\User\Models\User;
 
@@ -55,7 +56,20 @@ class FeatureBindsController extends CatchController
 
     public function store(Request $request): mixed
     {
-        return $this->featureBinds->storeBy($request->all());
+        $data = $request->all();
+
+        // 单条绑定走同一套商户归属校验（与 superStore 口径一致）
+        $merchantError = $this->merchantBindError(
+            [["feature_id" => $data["feature_id"] ?? 0]],
+            (int) ($data["bot_id"] ?? 0),
+            (int) ($data["chat_id"] ?? 0)
+        );
+
+        if ($merchantError !== null) {
+            throw new \Catch\Exceptions\FailedException($merchantError);
+        }
+
+        return $this->featureBinds->storeBy($data);
     }
 
     /**
@@ -111,6 +125,21 @@ class FeatureBindsController extends CatchController
             }
         }
 
+        // 商户归属校验：商户定制功能只能绑到绑定了同一商户号的群；
+        // 机器人级绑定一律拒绝（商户功能按群商户号路由，机器人级配了也不生效）
+        $merchantError = $this->merchantBindError(
+            $validated['feature_ids'] ?? [],
+            $botId,
+            $chatId
+        );
+
+        if ($merchantError !== null) {
+            return response()->json([
+                'success' => false,
+                'message' => $merchantError,
+            ], 422);
+        }
+
         // 付费功能：归属账号没有有效套餐时提前拒绝，避免「绑了也用不了」。
         // 平台超管不受限（代客开通/验证场景）。
         $paidError = $this->paidBindError($validated['feature_ids'] ?? [], $botId);
@@ -156,6 +185,58 @@ class FeatureBindsController extends CatchController
             'updated' => $updated,
             'deleted' => $deleted,
         ]);
+    }
+
+    /**
+     * 商户归属校验：商户定制功能（features.merchant_id 非空）只能绑到
+     * 绑定了同一商户号的群；机器人级绑定一律拒绝——商户功能按群商户号路由，
+     * 机器人级配了也不生效。返回拒绝文案；null = 放行。
+     */
+    protected function merchantBindError(array $featureItems, int $botId, int $chatId): ?string
+    {
+        $featureIds = array_values(array_unique(array_filter(array_map(
+            fn ($item) => (int) ($item["feature_id"] ?? 0),
+            $featureItems
+        ))));
+
+        if ($featureIds === []) {
+            return null;
+        }
+
+        $merchants = Features::query()
+            ->whereIn("id", $featureIds)
+            ->whereNotNull("merchant_id")
+            ->where("merchant_id", "!=", "")
+            ->pluck("merchant_id", "id");
+
+        if ($merchants->isEmpty()) {
+            return null;
+        }
+
+        if ($chatId === 0) {
+            $names = Features::query()->whereIn("id", array_keys($merchants->all()))->pluck("name")->all();
+
+            return "商户定制功能（" . implode("、", $names) . "）请在群级绑定：这类功能按群的商户号路由，机器人级绑定不生效";
+        }
+
+        $groupMid = "";
+        try {
+            $groupMid = trim((string) (GroupConfigs::merchantIdOf($chatId) ?? ""));
+        } catch (\Throwable) {
+            // 配置读不出来按「群没绑商户」处理
+        }
+
+        foreach ($merchants as $featureId => $mid) {
+            if ($mid === $groupMid) {
+                continue;
+            }
+
+            $name = (string) (Features::query()->whereKey((int) $featureId)->value("name") ?? $featureId);
+
+            return "功能「{$name}」属于商户 {$mid}，当前群绑定的商户是 " . ($groupMid !== "" ? $groupMid : "（未绑定，先用 /bd 绑定）") . "，不允许绑定其它商户的插件功能";
+        }
+
+        return null;
     }
 
     /**

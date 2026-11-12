@@ -133,9 +133,12 @@ class PluginManager
                 $plugin = $this->persist($manifest, $namespace, $audit, $aiReview, $targetDir, $operatorId);
                 $this->syncFeatures($plugin);
             } catch (\Throwable $e) {
-                // 装了一半：目录与记录都撤掉，避免「磁盘有代码、库里没登记」
+                // 装了一半：目录与记录都撤掉，避免「磁盘有代码、库里没登记」。
+                // 必须物理删除——Eloquent delete() 是软删（deleted_at=时间戳），
+                // 残留行会让列表查不到这个 slug（SoftDelete scope 过滤掉），
+                // 用户看到的就是「上传成功了，插件列表里面没有」
                 File::deleteDirectory($targetDir);
-                Plugin::query()->where('slug', $manifest['slug'])->delete();
+                DB::table('feature_plugins')->where('slug', $manifest['slug'])->delete();
 
                 throw new FailedException('安装失败：' . $e->getMessage());
             }
@@ -423,6 +426,9 @@ class PluginManager
             'file_count' => $audit['stats']['php_files'] ?? 0,
             'size' => (int) ($audit['stats']['bytes'] ?? 0),
             'installed_by' => $operatorId,
+            // CatchAdmin 软删约定 deleted_at=0 为未删；不显式给值的话，
+            // 换个默认值非 0 的库环境新装插件就直接是「软删」态，列表查不到
+            'deleted_at' => 0,
         ];
 
         // 这里必须用表操作：slug 唯一索引可能被一条「软删除」的历史行占着，

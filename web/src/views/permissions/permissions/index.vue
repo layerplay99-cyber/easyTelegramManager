@@ -33,14 +33,13 @@
         </el-table-column>
         <el-table-column prop="hidden" :label="$t('permission.display')" width="120">
           <template #default="scope">
-            <!-- hidden: 0=显示 / 1=隐藏（与 InstallApp::ensureMenusVisible 一致）。
-                 这里不能用通用 Status 组件：它的值是 Status.ENABLE(1)/DISABLE(2)，
-                 与 hidden 的 0/1 语义错位，切换时会把 hidden 写成非法值，菜单直接错乱。
-                 后端 enable() 是 toggleBy($id,'hidden')，只取反，不接收值。 -->
+            <!-- hidden 统一框架语义：1=显示(Enable) / 2=隐藏(Disable)。
+                 后端 withPermissions() 把 isHidden()（hidden==2）挂成布尔给前端过滤侧栏；
+                 enable() 按 1↔2 切换。历史上的 0/1 语义已由迁移归一。 -->
             <el-switch
               :model-value="scope.row.hidden"
-              :active-value="0"
-              :inactive-value="1"
+              :active-value="1"
+              :inactive-value="2"
               :active-text="$t('permission.show')"
               :inactive-text="$t('permission.hide')"
               :loading="scope.row.hiddenLoading"

@@ -110,31 +110,39 @@ class InstallApp extends Command
     }
 
     /**
-     * 统一修正菜单可见性。
+     * 统一修正菜单可见性（幂等，且不得覆盖管理员手动隐藏的菜单）。
      *
-     * 前端菜单渲染逻辑（web/src/layout/components/Menu/index.vue）：
-     *     if (!menu.meta?.hidden) { 渲染该菜单 }
-     * 即 **hidden 为真 → 菜单不显示**。
+     * 统一用 CatchAdmin 框架语义：hidden = 1(Enable，显示) / 2(Disable，隐藏)。
+     * UserRelations::withPermissions() 会把 isHidden()（hidden==2）的布尔值
+     * 挂到权限对象上，前端 meta.hidden 再据此过滤侧栏。
      *
-     * 而各模块的 MenusSeeder 里 hidden 默认就是 1，导入后菜单「存在于库但不可见」，
-     * 表现为：父菜单在、所有子菜单消失（或整个模块菜单消失）。
-     * 这里统一把目录(1)/页面(2)的 hidden 置 0，保证菜单可见。
+     * 历史上这里按 0=显示/1=隐藏 全表强刷，与框架语义错位，导致：
+     *   ① 菜单管理点「隐藏」（toggleBy 1↔2）写成 1，后端判为「显示」→ 隐藏无效；
+     *   ② 每次 app:install 把管理员手动隐藏的 hidden=2 又刷回 0 → 隐藏被覆盖。
+     * 迁移 2026_11_13_000001 已把存量 0 归一为 1，这里只兜底非法值 0，
+     * 不再动 1/2（管理员的真实设置）。
+     *
      * 按钮(3)不在菜单里显示，不受影响。
      */
     private function ensureMenusVisible(): void
     {
-        // ① 目录(1)/页面(2) 统一可见
-        DB::table('permissions')->whereIn('type', [1, 2])->update(['hidden' => 0]);
+        // ① 历史非法值 0 → 1（显示）。不动 1/2，保留管理员设置
+        DB::table('permissions')
+            ->whereIn('type', [1, 2])
+            ->where('hidden', 0)
+            ->update(['hidden' => 1]);
 
         // ② route 含 :param 的是「下钻页」（如 system 的 dictionary/values/:id、
         //    develop 的 generate/:schema），只能从上级页面点某条记录进入。
         //    作为菜单直连会因缺少参数而空白/报错，因此隐藏，不出现在侧边栏。
+        //    只处理 1（seed 新装时默认显示）；已经是 2 的保持隐藏，避免反复写库。
         DB::table('permissions')
             ->whereIn('type', [1, 2])
             ->where('route', 'like', '%:%')
-            ->update(['hidden' => 1]);
+            ->where('hidden', 1)
+            ->update(['hidden' => 2]);
 
-        $this->line('  菜单可见性已修正（目录/页面 hidden=0，下钻页 hidden=1）');
+        $this->line('  菜单可见性已修正（框架语义 1=显示 / 2=隐藏，保留手动隐藏设置）');
     }
 
     /**

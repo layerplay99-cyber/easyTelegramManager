@@ -6,8 +6,8 @@ namespace Modules\Telegram\Plugins\MerchantPay;
 
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
-use Modules\Telegram\Models\GroupAdmins;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
+use Modules\Telegram\Services\OperatorPolicy;
 
 /**
  * 商户支付插件 · 审批按钮回调（callback_query）
@@ -139,26 +139,20 @@ class MerchantPayApprovalFeature extends BaseCustomFeature
     }
 
     /**
-     * 审批权限：配置里的审批人 或 群管理员
+     * 审批权限：/trsq 设的白名单优先（管理员始终放行），没设过就只认群管理员
+     *
+     * 判定统一走 OperatorPolicy：管理员身份问机器人 getChatMember（实时），
+     * 白名单与 /trsq 写的是同一份数据，不各存一套。
      */
     protected function canApprove(FeatureContext $context, int|string|null $chatId, int $userId, string $operator): bool
     {
-        $approvers = array_map(
-            fn ($v) => ltrim((string) $v, '@'),
-            (array) $context->value('approvers', [])
-        );
-
-        if ($operator !== '' && in_array(ltrim($operator, '@'), $approvers, true)) {
-            return true;
-        }
-
         if ($chatId === null || $userId <= 0) {
             return false;
         }
 
-        return GroupAdmins::query()
-            ->where('chat_id', (string) $chatId)
-            ->where('user_id', $userId)
-            ->exists();
+        $policy = app(OperatorPolicy::class);
+        $settings = $policy->settings((string) $chatId);
+
+        return $policy->allows($settings, (string) $chatId, $userId, $operator, $context->bot);
     }
 }

@@ -226,6 +226,40 @@ class OperatorPolicy
     }
 
     /**
+     * 全量同步群管理员到 group_admins（官方 getChatAdministrators 口径）
+     *
+     * 判定本身不读这张表（见 isGroupAdminLive），但后台「群管理员」列表、
+     * 以及问不到官方时的兜底判定要用。/trsq 执行成功时顺手拉一次。
+     *
+     * @return int 写入的管理员条数
+     */
+    public function syncAdmins(string $chatId, Bots $bot): int
+    {
+        try {
+            $admins = app(BotApiFactory::class)->forBot($bot)->getChatAdministrators(['chat_id' => $chatId]);
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        $count = 0;
+
+        foreach ((array) $admins as $admin) {
+            $user = is_array($admin) ? ($admin['user'] ?? []) : ($admin->user ?? null);
+            $userId = (int) (is_array($user) ? ($user['id'] ?? 0) : ($user->id ?? 0));
+            $status = strtolower((string) (is_array($admin) ? ($admin['status'] ?? '') : ($admin->status ?? '')));
+
+            if ($userId <= 0 || ! in_array($status, self::ADMIN_STATUSES, true)) {
+                continue;
+            }
+
+            $this->rememberAdmin($chatId, $userId, $status, $admin);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
      * 把 /trsq 后面写的 @用户名 解析成 telegram user id（查本群成员）
      *
      * 用户名随时可改，能用 id 就用 id；这里只是给「只记得用户名」的场景兜底。

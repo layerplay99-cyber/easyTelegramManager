@@ -7,9 +7,9 @@ namespace Modules\Telegram\Plugins\MerchantPay;
 use Modules\Telegram\Contracts\EndpointProvider;
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
-use Modules\Telegram\Models\GroupAdmins;
 use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
 use Modules\Telegram\Services\MerchantRouteService;
+use Modules\Telegram\Services\OperatorPolicy;
 
 /**
  * 商户支付插件 · 命令组（三方支付业务）
@@ -449,7 +449,12 @@ class MerchantPayCommandFeature extends BaseCustomFeature implements EndpointPro
 
     /**
      * /trsq @用户1 @用户2：保存审批人员，并推给上游
-     * 默认仅群管理员可用（群管理员台账 group_admins）
+     *
+     * 谁能用：群主 / 管理员，以机器人 getChatMember 的实时结果为准（OperatorPolicy），
+     * 判定通过时顺手回填 group_admins；执行完再全量同步一次管理员台账。
+     *
+     * 保存到哪：OperatorPolicy 的群级白名单（feature_data feature_id=0），
+     * 审批按钮的权限判定与它同一份数据，后台「审批人员」配置也是同一处。
      */
     protected function setApprovers(FeatureContext $context): FeatureResult
     {
@@ -459,18 +464,26 @@ class MerchantPayCommandFeature extends BaseCustomFeature implements EndpointPro
             return $this->fail($this->notBoundTip($context));
         }
 
-        if (! $this->isGroupAdmin($context)) {
+        $chatId = (string) $context->chatId;
+        $policy = app(OperatorPolicy::class);
+
+        if (! $policy->isGroupAdmin($chatId, $context->userId, $context->bot)) {
             return $this->fail((string) $context->config('admin_only_tip', '该命令仅群管理员可用'));
         }
 
-        $operators = $this->parseOperators(implode(' ', $context->args));
+        $tokens = array_values(array_filter(array_map('trim', $context->args)));
+        $operators = $this->parseOperators(implode(' ', $tokens));
 
         if ($operators === []) {
-            return $this->fail('用法：/trsq @用户1 @用户2');
+            return $this->fail('用法：/trsq @用户1 @用户2（@ 后面跟群成员用户名或用户 ID）');
         }
 
-        // 平台侧保存：交易通知按它决定推送给谁、谁能点按钮
-        $this->putData($context, ['approvers' => $operators]);
+        // 群成员表能查到的存 user_id（用户名随时会改），查不到的按用户名兜底
+        $targets = $policy->parseTargets($chatId, $tokens);
+        $policy->save($chatId, $targets['ids'], $targets['names']);
+
+        // 顺手把群管理员全量同步进 group_admins（后台列表 / 兜底判定用）
+        $adminCount = $context->bot ? $policy->syncAdmins($chatId, $context->bot) : 0;
 
         $data = $this->callEndpoint(
             'pay.operator.set',
@@ -483,7 +496,13 @@ class MerchantPayCommandFeature extends BaseCustomFeature implements EndpointPro
             return $this->fail('已保存到平台，但推送上游失败：' . $data['_error']);
         }
 
-        return $this->reply('审批人员已设置：' . implode('、', array_map(fn ($o) => '@' . $o, $operators)));
+        $message = '审批人员已设置：' . implode('、', array_map(fn ($o) => '@' . $o, $operators));
+
+        if ($adminCount > 0) {
+            $message .= sprintf('（已同步群管理员 %d 人）', $adminCount);
+        }
+
+        return $this->reply($message);
     }
 
     // ---------------------------------------------------------------- 凭证 / 补单
@@ -573,18 +592,6 @@ class MerchantPayCommandFeature extends BaseCustomFeature implements EndpointPro
     protected function notBoundTip(FeatureContext $context): string
     {
         return (string) $context->config('not_bound_tip', '本群尚未绑定商户，请先发送 /bd 商户代码');
-    }
-
-    protected function isGroupAdmin(FeatureContext $context): bool
-    {
-        if (! $context->chatId || ! $context->userId) {
-            return false;
-        }
-
-        return GroupAdmins::query()
-            ->where('chat_id', (string) $context->chatId)
-            ->where('user_id', (int) $context->userId)
-            ->exists();
     }
 
     /**

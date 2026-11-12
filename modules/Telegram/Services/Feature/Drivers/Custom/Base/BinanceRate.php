@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace Modules\Telegram\Services\Feature\Drivers\Custom\Base;
 
 /**
- * 币安汇率（/bnr 币种）
+ * 币安 C2C 汇率（/bnr [法币]）
  *
- * USDT → 币种，卖家（asks）由低到高取前 10 档。
- * 数据源：币安公开行情 GET /api/v3/depth（现货盘口）。
+ * USDT → 法币的卖家挂单，价格由低到高前 10 条。
+ * 数据源：币安 C2C 商家挂单 POST /bapi/c2c/v2/friendly/c2c/adv/search
+ * （tradeType=BUY 表示「我要买 U」，返回的是卖家出价，取最低的 10 个）
  */
 class BinanceRate extends AbstractRateFeature
 {
-    private const DEPTH_URL = 'https://api.binance.com/api/v3/depth';
+    private const SEARCH_URL = 'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search';
 
     public static function key(): string
     {
@@ -26,7 +27,7 @@ class BinanceRate extends AbstractRateFeature
 
     public static function featureDescription(): string
     {
-        return '查询币安上 USDT → 币种的卖家报价（由低到高前 10 档）。用法：/bnr BTC';
+        return '查询币安 C2C 上 USDT → 法币的卖家报价（由低到高前 10 条）。用法：/bnr CNY（默认 CNY）';
     }
 
     public static function uuid(): string
@@ -39,10 +40,10 @@ class BinanceRate extends AbstractRateFeature
         return [
             [
                 'command' => '/bnr',
-                'usage' => '/bnr <币种代码>',
-                'description' => '获取币安汇率（USDT→币种卖家价前10）',
+                'usage' => '/bnr [法币]',
+                'description' => '获取币安 C2C 汇率（USDT→法币卖家价前10，默认 CNY）',
                 'params' => [
-                    ['name' => 'coin', 'required' => true],
+                    ['name' => 'fiat', 'required' => false, 'hint' => '默认 CNY'],
                 ],
             ],
         ];
@@ -53,13 +54,51 @@ class BinanceRate extends AbstractRateFeature
         return 'bnr';
     }
 
-    protected function fetchAsks(string $coin, int $limit): array
+    protected function fetchOffers(string $fiat, int $limit): array
     {
-        $data = $this->getJson(self::DEPTH_URL, [
-            'symbol' => $coin . self::QUOTE,
-            'limit' => $limit,
+        $json = $this->requestJson('POST', self::SEARCH_URL, [
+            'asset' => self::ASSET,
+            'fiat' => $fiat,
+            'merchantCheck' => false,
+            'page' => 1,
+            'payTypes' => [],
+            'publisherType' => null,
+            'rows' => 20,
+            'tradeType' => 'BUY',
+            'transAmount' => '',
+        ], [
+            'Content-Type' => 'application/json',
         ]);
 
-        return $this->normalizeLevels($data['asks'] ?? [], $limit);
+        if ((string) ($json['code'] ?? '') !== '000000') {
+            throw new \RuntimeException((string) ($json['message'] ?? '币安返回异常'));
+        }
+
+        $offers = [];
+
+        foreach ((array) ($json['data'] ?? []) as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $adv = (array) ($item['adv'] ?? []);
+            $advertiser = (array) ($item['advertiser'] ?? []);
+
+            $price = (float) ($adv['price'] ?? 0);
+
+            if ($price <= 0) {
+                continue;
+            }
+
+            $offers[] = [
+                'price' => $price,
+                'available' => (float) ($adv['surplusAmount'] ?? $adv['tradableQuantity'] ?? 0),
+                'min' => (float) ($adv['minSingleTransAmount'] ?? 0),
+                'max' => (float) ($adv['maxSingleTransAmount'] ?? 0),
+                'merchant' => (string) ($advertiser['nickName'] ?? ''),
+            ];
+        }
+
+        return array_slice($this->sortAsc($offers), 0, $limit);
     }
 }

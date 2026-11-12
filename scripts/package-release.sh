@@ -96,7 +96,9 @@ rm -f "$PKG"
 zip -rq "$PKG" . "${EXCLUDE_ARGS[@]}"
 
 SIZE="$(du -h "$PKG" | cut -f1)"
-echo "    安装包：$PKG（$SIZE）"
+# 变量用 ${} 包住：macOS 自带 bash 3.2 在 C locale 下会把紧跟的全角字符
+# 续字节当成变量名（$PKG（ → 找变量 PKG（），报 unbound variable
+echo "    安装包：${PKG}（${SIZE}）"
 
 # ---------------------------------------------------------------- 插件模板
 TEMPLATE_ZIP="$DIST/plugin-template.zip"

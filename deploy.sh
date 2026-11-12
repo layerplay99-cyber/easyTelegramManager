@@ -867,7 +867,7 @@ update_app() {
 
     log "同步功能与平台接口"
     php_exec "php artisan telegram:sync-features"
-    php_exec "chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache"
+    php_exec "chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache $CONTAINER_DIR/modules/Telegram/Plugins"
 
     build_frontend
 

@@ -717,7 +717,7 @@ update_app() {
     run_install
     php_exec "php artisan optimize:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache"
     php_exec "php artisan telegram:sync-features"
-    php_exec "chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache"
+    php_exec "chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache $CONTAINER_DIR/modules/Telegram/Plugins"
     build_frontend
     app_compose restart queue reverb
     reload_nginx

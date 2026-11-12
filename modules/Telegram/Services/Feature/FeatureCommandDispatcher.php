@@ -7,7 +7,9 @@ namespace Modules\Telegram\Services\Feature;
 use Modules\Telegram\Contracts\UpdateIntent;
 use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\FeatureCommands;
+use Modules\Telegram\Models\GroupConfigs;
 use Modules\Telegram\Services\Bot\BotApiFactory;
+use Modules\Telegram\Services\Feature\CommandSlots;
 
 /**
  * 斜杠命令分发（统一标准链路）
@@ -58,14 +60,27 @@ class FeatureCommandDispatcher
             return $this->sendHelp($bot, $chatId);
         }
 
-        $featureCommand = FeatureCommands::query()
+        // 固定命令槽位下同名命令可能有多份实现（官方默认 + 各商户定制），
+        // 拿全部候选，由商户号路由挑出本群该用的那一份
+        $candidates = FeatureCommands::query()
             ->whereRaw('LOWER(command) = ?', [$command])
             ->where('enabled', true)
             ->with('feature')
-            ->first();
+            ->get()
+            ->filter(fn (FeatureCommands $fc) => $fc->feature?->enabled);
 
-        if (! $featureCommand?->feature?->enabled) {
+        if ($candidates->isEmpty()) {
             return false;
+        }
+
+        $featureCommand = $candidates->count() === 1
+            ? $candidates->first()
+            : $this->resolveForChat($candidates, $chatId);
+
+        if ($featureCommand === null) {
+            $this->noImplementationTip($bot, $chatId);
+
+            return true;
         }
 
         $this->executor->execute(
@@ -76,6 +91,9 @@ class FeatureCommandDispatcher
                 'params' => is_array($featureCommand->params) ? $featureCommand->params : [],
                 'command' => $command,
                 'scope_type' => 'group',
+                // 槽位命令按群的商户号路由，路由命中即视为绑定（见 FeatureExecutor）：
+                // 不再要求后台给每个群单独绑一遍 100 商户 × 11 命令的组合
+                'slot_routed' => CommandSlots::is($command),
             ],
             $bot,
             $this->botApiFactory->forBot($bot),
@@ -84,6 +102,66 @@ class FeatureCommandDispatcher
         );
 
         return true;
+    }
+
+    /**
+     * 多份实现时按本群商户号路由
+     *
+     *   群绑定了商户号 → 优先该商户的定制实现（features.merchant_id 匹配）
+     *   没有定制 / 没绑商户 → 回落全局默认实现（merchant_id 为空，官方插件）
+     *
+     * 返回 null = 连默认实现都没有：要么群没绑商户、要么商户没传这个命令
+     * 的实现。交给 noImplementationTip() 给可操作的提示。
+     */
+    protected function resolveForChat($candidates, int|string|null $chatId): ?FeatureCommands
+    {
+        $merchantId = '';
+
+        try {
+            $merchantId = trim((string) (GroupConfigs::merchantIdOf($chatId) ?? ''));
+        } catch (\Throwable) {
+            // 配置读不出来按「没绑商户」处理，回落默认实现
+        }
+
+        if ($merchantId !== '') {
+            $matched = $candidates->first(
+                fn (FeatureCommands $fc) => trim((string) ($fc->feature->merchant_id ?? '')) === $merchantId
+            );
+
+            if ($matched !== null) {
+                return $matched;
+            }
+        }
+
+        return $candidates->first(
+            fn (FeatureCommands $fc) => trim((string) ($fc->feature->merchant_id ?? '')) === ''
+        );
+    }
+
+    /**
+     * 路由不到任何实现时的提示
+     */
+    protected function noImplementationTip(Bots $bot, int|string|null $chatId): void
+    {
+        $merchantId = '';
+
+        try {
+            $merchantId = trim((string) (GroupConfigs::merchantIdOf($chatId) ?? ''));
+        } catch (\Throwable) {
+        }
+
+        $tip = $merchantId !== ''
+            ? "本群商户 {$merchantId} 没有该命令的定制实现，且无默认实现；请让商户上传对应插件"
+            : '该命令需要商户实现：请先在群内使用 /bd 绑定商户';
+
+        try {
+            $this->botApiFactory->forBot($bot)->sendMessage([
+                'chat_id' => $chatId,
+                'text' => $tip,
+            ]);
+        } catch (\Throwable) {
+            // 提示发不出去不影响分发结果
+        }
     }
 
     /**
@@ -138,15 +216,15 @@ class FeatureCommandDispatcher
 
     private function chatId(mixed $update): int|string|null
     {
-        return $update->getMessage()?->chat->id
-            ?? $update->callbackQuery()->message->chat->id
+        return $update?->getMessage()?->chat->id
+            ?? $update?->callbackQuery()->message->chat->id
             ?? null;
     }
 
     private function fromId(mixed $update): ?int
     {
-        return $update->getMessage()?->from->id
-            ?? $update->callbackQuery()->from->id
+        return $update?->getMessage()?->from->id
+            ?? $update?->callbackQuery()->from->id
             ?? null;
     }
 }

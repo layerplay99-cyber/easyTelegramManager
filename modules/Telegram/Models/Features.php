@@ -51,6 +51,8 @@ class Features extends Model
         'trigger',
         'location',
         'feature',
+        // 商户定制实现归属：空 = 全局默认实现；非空 = 该商户号专属实现（固定命令槽位）
+        'merchant_id',
         'description',
         'handler',
         'config',
@@ -76,6 +78,7 @@ class Features extends Model
         'trigger',
         'location',
         'feature',
+        'merchant_id',
         'description',
         'handler',
         'config',

@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Modules\Telegram\Models\FeatureCommands;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\Plugin;
+use Modules\Telegram\Services\Feature\CommandSlots;
 use Modules\Telegram\Services\Feature\CustomFeatureRegistry;
 use Modules\Telegram\Services\Feature\DriverRegistry;
 use ZipArchive;
@@ -82,7 +83,7 @@ class PluginManager
             $namespace = 'Modules\\Telegram\\Plugins\\' . Str::studly($manifest['slug']);
             $targetDir = self::root() . '/' . Str::studly($manifest['slug']);
 
-            $this->assertNotInstalled($manifest['slug'], $targetDir);
+            $this->clearStaleInstall($manifest['slug'], $targetDir);
 
             // ---- 1) 脚本审核 ----
             $audit = $this->auditor->scan($root, $namespace);
@@ -359,25 +360,23 @@ class PluginManager
             'version' => (string) ($data['version'] ?? ''),
             'author' => (string) ($data['author'] ?? ''),
             'description' => (string) ($data['description'] ?? ''),
+            // 固定命令槽位：商户定制实现的归属。空 = 全局默认实现（官方插件）；
+            // 非空 = features.merchant_id，运行时按群的商户号路由到这份实现
+            'merchant_id' => trim((string) ($data['merchant_id'] ?? '')),
         ];
     }
 
-    protected function assertNotInstalled(string $slug, string $targetDir): void
+    /**
+     * 同 slug 重传 = 升级（覆盖），不再要求「先卸载旧版本」
+     *
+     * 旧目录直接清掉（新代码马上要落盘到同一位置）；表行留给 persist()
+     * 按 slug 更新。旧版本的 features/commands/binds 由 syncFeatures()
+     * 按 uuid 幂等更新——升级前后命令、绑定、后台配置都保留。
+     */
+    protected function clearStaleInstall(string $slug, string $targetDir): void
     {
-        if (is_dir($targetDir) || is_dir(self::disabledRoot() . '/' . Str::studly($slug))) {
-            throw new FailedException("插件目录已存在：{$slug}，请先卸载旧版本");
-        }
-
-        // 用表查询而不是模型查询：slug 上有唯一索引，软删除的行同样占位，
-        // 模型查询带 deleted_at=0 会看不到它，导致「看着没装、一插就撞唯一键」。
-        $exists = DB::table('feature_plugins')
-            ->where('slug', $slug)
-            ->where('status', '!=', Plugin::STATUS_REJECTED)
-            ->exists();
-
-        if ($exists) {
-            throw new FailedException("插件已安装：{$slug}，请先卸载旧版本");
-        }
+        File::deleteDirectory($targetDir);
+        File::deleteDirectory(self::disabledRoot() . '/' . Str::studly($slug));
     }
 
     /**
@@ -462,6 +461,13 @@ class PluginManager
 
     /**
      * 同步该插件的功能到 features 表，并记录 id
+     *
+     * 命令体系（固定槽位）：
+     *   · 槽位命令（CommandSlots，/ye /cx 这类业务命令）不全局唯一——
+     *     官方插件一份全局默认实现（features.merchant_id 空），每个商户
+     *     一份定制实现（manifest.merchant_id），同一商户同一命令只有一个，
+     *     重传覆盖；运行时按群的商户号路由。
+     *   · 其它命令仍然全局唯一，装第二个就报错，防止通用命令被稀释。
      */
     protected function syncFeatures(Plugin $plugin): void
     {
@@ -471,12 +477,32 @@ class PluginManager
             throw new FailedException('插件里没有可用的功能类（需继承 BaseCustomFeature）');
         }
 
-        // 功能标识 = custom:{uuid}（默认取短类名）。撞名会覆盖已有功能的后台配置与绑定，
-        // 所以先查冲突再同步——插件自己改 uuid() 即可避开。
+        // 功能标识 = custom:{uuid}（默认取短类名）
         $keys = array_map(fn (string $class) => 'custom:' . $class::uuid(), $classes);
 
-        // 直查：模型带租户作用域，CLI 安装会漏检冲突
-        $conflict = DB::table('features')->whereIn('feature', $keys)->pluck('feature')->all();
+        // manifest.merchant_id：商户定制实现的归属（空 = 全局默认实现）
+        $merchantId = trim((string) ($plugin->manifest['merchant_id'] ?? ''));
+
+        // 本插件升级前已占用的功能：uuid 相同 = 重传升级，不算冲突
+        $ownIds = DB::table('features')->whereIn('feature', $keys)->pluck('id')->all();
+
+        // 升级时被移除的功能类：旧 feature 连命令一起删，不留占坑的僵尸
+        $previousIds = array_values(array_diff((array) ($plugin->feature_ids ?? []), $ownIds));
+
+        if ($previousIds !== []) {
+            DB::table('feature_commands')->whereIn('feature_id', $previousIds)->delete();
+            DB::table('feature_upstream_endpoints')->whereIn('feature_id', $previousIds)->delete();
+            DB::table('feature_hooks')->whereIn('feature_id', $previousIds)->delete();
+            DB::table('feature_data')->whereIn('feature_id', $previousIds)->delete();
+            DB::table('features')->whereIn('id', $previousIds)->delete();
+        }
+
+        // 直查：模型带租户作用域，CLI 安装会漏检冲突。
+        // ownIds 是本插件升级前的功能（uuid 相同），属于重传升级，不算冲突
+        $conflict = DB::table('features')->whereIn('feature', $keys)
+            ->when($ownIds !== [], fn ($q) => $q->whereNotIn('id', $ownIds))
+            ->pluck('feature')
+            ->all();
 
         if ($conflict !== []) {
             throw new FailedException(
@@ -484,35 +510,128 @@ class PluginManager
             );
         }
 
-        // 命令名在 feature_commands 里全局唯一。syncCommand 用 firstOrCreate 按 command
-        // 找已有行，被占用的命令会「静默拿不到」——功能装上了、命令发出去却没反应，
-        // 排查极难。所以安装前明确报错，让插件换个命令名。
-        $commands = [];
+        $slotCommands = [];
+        $plainCommands = [];
 
         foreach ($classes as $class) {
             foreach ((array) $class::commands() as $command) {
-                $code = trim((string) ($command['command'] ?? ''));
+                // 与 dispatcher 的 parseName 同口径：去斜杠、小写
+                $code = strtolower(ltrim(trim((string) ($command['command'] ?? '')), '/'));
 
-                if ($code !== '') {
-                    $commands[] = $code;
+                if ($code === '') {
+                    continue;
+                }
+
+                if (CommandSlots::is($code)) {
+                    $slotCommands[] = $code;
+                } else {
+                    $plainCommands[] = $code;
                 }
             }
         }
 
-        $occupied = FeatureCommands::query()
-            ->whereIn('command', array_values(array_unique($commands)))
-            ->pluck('command')
-            ->all();
+        // 1) 非槽位命令：全局唯一（排除本插件升级前自己的行）
+        if ($plainCommands !== []) {
+            $occupied = FeatureCommands::query()
+                ->whereIn('command', array_values(array_unique($plainCommands)))
+                ->when($ownIds !== [], fn ($q) => $q->whereNotIn('feature_id', $ownIds))
+                ->pluck('command')
+                ->all();
 
-        if ($occupied !== []) {
-            throw new FailedException(
-                '命令已被其它功能占用：/' . implode('、/', $occupied) . '（请修改插件 commands() 的 command 后重新打包）'
-            );
+            if ($occupied !== []) {
+                throw new FailedException(
+                    '命令已被其它功能占用：/' . implode('、/', $occupied) . '（请修改插件 commands() 的 command 后重新打包）'
+                );
+            }
+        }
+
+        // 2) 槽位命令：同商户已有别的实现 → 整体替换（绑定迁移过来）；
+        //    其它商户的同名实现并存不动 —— 命令固定，实现按商户隔离
+        $replacedBinds = [];
+
+        if ($slotCommands !== []) {
+            $replacedIds = DB::table('feature_commands as fc')
+                ->join('features as f', 'f.id', '=', 'fc.feature_id')
+                ->whereIn('fc.command', array_values(array_unique($slotCommands)))
+                ->where(function ($q) use ($merchantId) {
+                    $merchantId === ''
+                        ? $q->whereNull('f.merchant_id')
+                        : $q->where('f.merchant_id', $merchantId);
+                })
+                ->when($ownIds !== [], fn ($q) => $q->whereNotIn('fc.feature_id', $ownIds))
+                ->distinct()
+                ->pluck('fc.feature_id')
+                ->all();
+
+            if ($replacedIds !== []) {
+                // 旧实现上开着的群绑定记下来，装好新功能后原样迁过去
+                $replacedBinds = DB::table('features_binds')
+                    ->whereIn('feature_id', $replacedIds)
+                    ->get(['bot_id', 'chat_id', 'third_config_id', 'config', 'enabled', 'creator_id', 'tenant_id'])
+                    ->all();
+
+                // 旧实现所在的插件整个下线：目录不删的话，CustomFeatureRegistry::sync()
+                // 还能扫到旧类，把刚删掉的功能和命令行重新建回来（覆盖变并存）
+                $staleRows = DB::table('feature_plugins')
+                    ->where('status', '!=', Plugin::STATUS_REJECTED)
+                    ->get(['slug', 'feature_ids']);
+
+                foreach ($staleRows as $row) {
+                    $oldIds = json_decode((string) $row->feature_ids, true) ?: [];
+
+                    if (array_intersect($oldIds, $replacedIds) !== []) {
+                        File::deleteDirectory(self::root() . '/' . Str::studly($row->slug));
+                        File::deleteDirectory(self::disabledRoot() . '/' . Str::studly($row->slug));
+                        DB::table('feature_plugins')->where('slug', $row->slug)->delete();
+                    }
+                }
+
+                foreach (['feature_commands', 'feature_upstream_endpoints', 'feature_hooks', 'feature_data', 'features_binds'] as $table) {
+                    DB::table($table)->whereIn('feature_id', $replacedIds)->delete();
+                }
+
+                DB::table('features')->whereIn('id', $replacedIds)->delete();
+            }
         }
 
         app(CustomFeatureRegistry::class)->sync();
 
         $ids = DB::table('features')->whereIn('feature', $keys)->pluck('id')->all();
+
+        // 商户归属写入（syncFeature 不感知 manifest，由安装器统一落库）
+        if ($merchantId !== '') {
+            DB::table('features')->whereIn('id', $ids)->update(['merchant_id' => $merchantId]);
+        }
+
+        // 被覆盖实现在哪些群开着，新实现就在哪些群接着用（后台随时可关）
+        foreach ($replacedBinds as $bind) {
+            foreach ($ids as $id) {
+                $exists = DB::table('features_binds')
+                    ->where('feature_id', $id)
+                    ->where('bot_id', $bind->bot_id)
+                    ->where('chat_id', $bind->chat_id)
+                    ->where('deleted_at', 0)
+                    ->exists();
+
+                if ($exists) {
+                    continue;
+                }
+
+                DB::table('features_binds')->insert([
+                    'bot_id' => $bind->bot_id,
+                    'chat_id' => $bind->chat_id,
+                    'feature_id' => $id,
+                    'third_config_id' => $bind->third_config_id,
+                    'config' => $bind->config,
+                    'enabled' => $bind->enabled,
+                    'creator_id' => $bind->creator_id,
+                    'created_at' => time(),
+                    'updated_at' => time(),
+                    'deleted_at' => 0,
+                    'tenant_id' => $bind->tenant_id,
+                ]);
+            }
+        }
 
         $plugin->forceFill(['feature_ids' => array_values($ids)])->save();
     }

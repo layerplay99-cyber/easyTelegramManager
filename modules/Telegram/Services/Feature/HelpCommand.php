@@ -6,6 +6,7 @@ namespace Modules\Telegram\Services\Feature;
 
 use Modules\Telegram\Models\Bots;
 use Modules\Telegram\Models\FeatureCommands;
+use Modules\Telegram\Models\GroupConfigs;
 use Modules\Telegram\Models\Features;
 use Modules\Telegram\Models\FeaturesBinds;
 
@@ -54,6 +55,7 @@ class HelpCommand
     public function render(Bots $bot, int|string|null $chatId): string
     {
         $lines = [];
+        $shown = [];
 
         // ---- 基础功能：category = base，所有机器人/群默认可用，不占绑定 ----
         $baseIds = Features::query()
@@ -74,6 +76,7 @@ class HelpCommand
             $lines[] = '基础功能：';
 
             foreach ($baseCommands as $command) {
+                $shown[$command->command] = true;
                 $lines[] = sprintf(
                     '%s：指令"%s"，%s',
                     $this->name($command),
@@ -101,6 +104,7 @@ class HelpCommand
                 $lines[] = '已配置功能：';
 
                 foreach ($boundCommands as $command) {
+                    $shown[$command->command] = true;
                     $lines[] = sprintf(
                         '%s：指令"%s"，%s',
                         $this->name($command),
@@ -108,6 +112,54 @@ class HelpCommand
                         $this->description($command)
                     );
                 }
+            }
+        }
+
+        // ---- 商户业务命令（固定槽位 /ye /cx …）----
+        // 同名命令可能同时存在官方默认实现和各商户定制实现，展示「本群实际
+        // 会执行」的那一份：绑了商户号就优先定制实现，没有定制的命令回落默认。
+        try {
+            $merchantId = trim((string) (GroupConfigs::merchantIdOf($chatId) ?? ''));
+        } catch (\Throwable) {
+            $merchantId = '';
+        }
+
+        $slotCommands = FeatureCommands::query()
+            ->where('enabled', true)
+            ->whereIn('command', array_keys(CommandSlots::LIST))
+            ->with('feature')
+            ->get()
+            ->filter(fn ($c) => $c->feature && $c->feature->enabled);
+
+        $custom = $slotCommands->filter(
+            fn ($c) => trim((string) ($c->feature->merchant_id ?? '')) !== ''
+            && trim((string) $c->feature->merchant_id) === $merchantId
+        );
+
+        $picked = $slotCommands->filter(
+            fn ($c) => trim((string) ($c->feature->merchant_id ?? '')) === ''
+        );
+
+        // 群绑了商户号：有定制的命令用定制版，没定制的命令才列默认实现
+        if ($merchantId !== '') {
+            $picked = $custom->merge($picked->reject(
+                fn ($c) => $custom->contains(fn ($k) => $k->command === $c->command)
+            ));
+        }
+
+        $picked = $picked->reject(fn ($c) => isset($shown[$c->command]));
+
+        if ($picked->isNotEmpty()) {
+            $lines[] = '';
+            $lines[] = $merchantId !== '' ? "商户业务命令（商户 {$merchantId}）：" : '商户业务命令（绑定商户后可用）：';
+
+            foreach ($picked as $command) {
+                $lines[] = sprintf(
+                    '%s：指令"%s"，%s',
+                    $this->name($command),
+                    $this->usage($command),
+                    $this->description($command)
+                );
             }
         }
 

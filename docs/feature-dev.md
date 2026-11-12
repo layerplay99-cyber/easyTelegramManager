@@ -171,6 +171,22 @@ featureDescription/commands/handle` 即可。
 > 钱包四命令（`/tx /cz /yue /zd`）**不是** base：它们属于内置功能
 > `Drivers/Custom/Wallet/`（`category=bot`，需要绑上游配置），后台绑定到群后可用。
 
+### 2.7 固定命令槽位：命令固定，实现按商户隔离
+
+业务命令（`/bd /jb /ye /xq /yj /xe /cx /trsq /pz /ht /bud`，定义在
+`Services/Feature/CommandSlots.php`）是平台固定的「槽位」，**不归任何一个功能独占**：
+
+- `features.merchant_id` 为空 = 全局默认实现（官方 `merchant_pay` 插件，全局唯一）；
+- `merchant_id` 非空 = 某商户的定制实现（插件 `manifest.json` 里写 `"merchant_id": "M200"`），
+  同一商户同一命令只有一个，重传覆盖（连旧插件一起下线、群绑定迁移到新实现）；
+- 运行时 `FeatureCommandDispatcher` 按群的商户号（`group_configs.mid`）路由：
+  优先该商户的定制实现 → 没有就回落全局默认实现；
+- 槽位命令「装了即用」（分发命中即视为绑定），不要求后台逐群绑功能；
+- **非槽位命令仍然全局唯一**，装第二个报「命令已被其它功能占用」。
+
+`feature_commands` 的命令名统一无斜杠小写（dispatcher 按 parseName 口径匹配）；
+`uniq_feature_command` 唯一索引已移除（同命令多商户并存的前提）。
+
 ## 3. 路线 B：插件开发（不动核心，上传安装）
 
 ### 3.1 从模板与示例起步

@@ -236,26 +236,48 @@ class CustomFeatureRegistry
      * 库里没有该命令时才按代码声明创建；已存在（含后台改过的）一律不动，
      * 避免每次同步把后台配置覆盖回去。
      */
+    /**
+     * 同步命令：按「本功能自己的命令行」幂等，不再是全局按命令名查
+     *
+     * 固定命令槽位（CommandSlots）之后，同一命令（如 /ye）可以同时存在
+     * 多行——官方一份全局默认实现，每个商户一份定制实现。所以查找条件
+     * 必须是 command + feature_id，而不是全局 command：
+     * 老的 firstOrCreate(['command' => …]) 会在别的商户已占行时把本功能的
+     * 命令挂到别人名下（或被别人挡住），是「命令被先装者占满」的根源。
+     *
+     * 代码声明只作兜底默认值：本功能的行已存在（后台改过的）就不动；
+     * 全局唯一性由 PluginManager 安装时的冲突检查负责，不在这一层。
+     */
     protected function syncCommand(int $featureId, array $command): void
     {
-        if (empty($command['command'])) {
+        // 统一无斜杠小写：分发器按 parseName()（去斜杠小写）匹配，存量 '/fy'
+        // 这类带斜杠的行在分发里永远命中不了（本迁移会修正存量数据）
+        $code = strtolower(ltrim(trim((string) ($command['command'] ?? '')), '/'));
+
+        if ($code === '' || ! preg_match('/^[a-z0-9_]{1,32}$/', $code)) {
             return;
         }
 
-        FeatureCommands::query()->firstOrCreate(
-            ['command' => $command['command']],
-            [
-                'feature_id' => $featureId,
-                'command' => $command['command'],
-                'usage' => $command['usage'] ?? null,
-                'description' => $command['description'] ?? null,
-                'scope' => $command['scope'] ?? 'group',
-                'permission' => $command['permission'] ?? 'all',
-                'params' => $command['params'] ?? [],
-                'reply_template' => $command['reply_template'] ?? null,
-                'enabled' => true,
-            ]
-        );
+        $exists = FeatureCommands::query()
+            ->where('command', $code)
+            ->where('feature_id', $featureId)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        FeatureCommands::query()->create([
+            'feature_id' => $featureId,
+            'command' => $code,
+            'usage' => $command['usage'] ?? null,
+            'description' => $command['description'] ?? null,
+            'scope' => $command['scope'] ?? 'group',
+            'permission' => $command['permission'] ?? 'all',
+            'params' => $command['params'] ?? [],
+            'reply_template' => $command['reply_template'] ?? null,
+            'enabled' => true,
+        ]);
     }
 
     /**

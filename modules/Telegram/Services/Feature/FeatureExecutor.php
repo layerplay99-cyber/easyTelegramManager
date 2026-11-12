@@ -151,7 +151,15 @@ class FeatureExecutor
         // 不参与功能分配，所有机器人/群默认可用，跳过绑定校验与双开关
         $isBase = (string) $feature->category === 'base';
 
-        if ($chatId !== null && $bot !== null && ! $isBase) {
+        // 商户定制实现（features.merchant_id 非空，固定命令槽位）：
+        // 分发器按群的商户号路由进来即视为绑定（merchant_routes 就是绑定），
+        // 不再要求后台给每个群单独绑一遍 —— 100 个商户 × 11 条命令的绑定
+        // 量没有意义，群绑了商户号就等于开了全部槽位命令。
+        // 全局默认实现经 slot_routed 标记走同一逻辑（装了即用，后台可关）。
+        $isMerchantScoped = trim((string) ($feature->merchant_id ?? '')) !== ''
+            || (bool) ($options['slot_routed'] ?? false);
+
+        if ($chatId !== null && $bot !== null && ! $isBase && ! $isMerchantScoped) {
             $bind = FeaturesBinds::bindForSession($bot->id, $chatId, $feature->id);
 
             // command 触发必须存在绑定；webhook / manual 不强制（可能无绑定直接执行）

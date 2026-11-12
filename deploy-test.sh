@@ -621,8 +621,10 @@ ensure_writable_dirs() {
         $CONTAINER_DIR/storage/framework/testing \
         $CONTAINER_DIR/storage/framework/views \
         $CONTAINER_DIR/storage/logs \
-        && chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache \
-        && chmod -R ug+rwX $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache"
+        $CONTAINER_DIR/modules/Telegram/Plugins \
+        $CONTAINER_DIR/storage/app/plugins \
+        && chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache $CONTAINER_DIR/modules/Telegram/Plugins \
+        && chmod -R ug+rwX $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache $CONTAINER_DIR/modules/Telegram/Plugins"
 }
 
 # CatchAdmin 安装 / 升级（见 docs/deployment.md 第 3 节）
@@ -686,8 +688,9 @@ deploy_app() {
     log "同步功能与平台接口"
     php_exec "php artisan telegram:sync-features"
 
-    # 上面是 root 执行的，缓存文件会变成 root 属主，php-fpm(www-data) 写不了
-    php_exec "chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache"
+    # 上面是 root 执行的，缓存文件会变成 root 属主，php-fpm(www-data) 写不了；
+    # 插件落盘目录一起补（后台 HTTP 上传插件走 www-data）
+    php_exec "chown -R www-data:www-data $CONTAINER_DIR/storage $CONTAINER_DIR/bootstrap/cache $CONTAINER_DIR/modules/Telegram/Plugins"
 
     build_frontend
 

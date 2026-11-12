@@ -551,8 +551,10 @@ init_app() {
     info "刷新缓存"
     php_exec "php artisan optimize:clear >/dev/null && php artisan config:cache && php artisan route:cache && php artisan view:cache" || warn "缓存预热失败（不影响使用）"
 
-    # root 跑 artisan 会留下 root 属主的缓存文件，php-fpm 是 www-data
-    php_exec "chown -R www-data:www-data storage bootstrap/cache" || true
+    # root 跑 artisan 会留下 root 属主的缓存文件，php-fpm 是 www-data；
+    # 插件安装要往 modules/Telegram/Plugins/{slug} 落盘（后台 HTTP 上传走 www-data），
+    # 不给属主会报 mkdir(): Permission denied
+    php_exec "mkdir -p modules/Telegram/Plugins && chown -R www-data:www-data storage bootstrap/cache modules/Telegram/Plugins" || true
 }
 
 restart_workers() {

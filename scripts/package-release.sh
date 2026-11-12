@@ -67,6 +67,9 @@ EXCLUDES=(
     "storage/framework/sessions/*"
     "storage/framework/views/*"
     "storage/*.key"
+    # 运行时缓存：本机路由/包发现缓存含本机路径，部署机要重新生成，
+    # 带进包里会让 Laravel 启动时优先读旧缓存（路由不生效的老坑）
+    "bootstrap/cache/*.php"
     "site/downloads/*.zip"
     "site/downloads/*.txt"
     "site/downloads/*.sha256"

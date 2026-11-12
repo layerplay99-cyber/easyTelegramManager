@@ -71,6 +71,21 @@ class PluginManager
     {
         $this->assertPackage($file);
 
+        // 提前给可操作的错误，而不是让 www-data 在深处撞出裸的 mkdir(): Permission denied
+        // （部署机常见：CLI 用 root 建过这两个目录，php-fpm 的 www-data 写不进）
+        foreach (['解压工作区' => storage_path('app/plugins'), '插件落盘' => self::root()] as $label => $dir) {
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+
+            if (! is_writable($dir)) {
+                throw new FailedException(
+                    "{$label}目录不可写：{$dir}。请让 php-fpm 运行用户（www-data）拥有它，"
+                    . '例如：chown -R www-data:www-data storage/app/plugins ' . self::root()
+                );
+            }
+        }
+
         $workspace = storage_path('app/plugins/' . (string) Str::uuid());
         File::ensureDirectoryExists($workspace);
 

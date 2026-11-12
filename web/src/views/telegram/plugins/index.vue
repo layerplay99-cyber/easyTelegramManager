@@ -242,7 +242,9 @@ const upload = async (file: File, forced: boolean) => {
   uploadName.value = file.name
 
   try {
-    await http.post(api, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+    // 安装要跑脚本审核 + AI 审核（AI 单次最长 120s），全局 10s 超时不够；
+    // 后端 PHP 已无执行时限，网关 fastcgi_read_timeout 配到 180s
+    await http.post(api, form, { timeout: 180000 })
     Message.success('插件已安装，功能已同步到功能列表')
     load()
   } finally {

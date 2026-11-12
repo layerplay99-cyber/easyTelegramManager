@@ -80,10 +80,11 @@ class Request {
    *
    * @param path
    * @param data
+   * @param config 单次请求覆盖项（如 timeout：插件上传要跑审核，10s 不够）
    */
-  public post(path: string, data: object = {}) {
+  public post(path: string, data: object = {}, config: AxiosRequestConfig = {}) {
     this.init()
-    return this.request.post(this.baseURL + path, data)
+    return this.request.post(this.baseURL + path, data, config)
   }
 
   /**

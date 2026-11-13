@@ -6,7 +6,6 @@ namespace Modules\Telegram\Plugins\MerchantPay;
 
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
-use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
 
 /**
  * 商户支付插件 · 业务通知（webhook）
@@ -23,7 +22,7 @@ use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
  * 自定义解构点：normalize() —— 上游返回什么字段由开发人员在这里映射，
  * 映射后的标准字段：type / order_id / amount / currency / status / trade_id。
  */
-class MerchantPayNotifyFeature extends BaseCustomFeature
+class MerchantPayNotifyFeature extends MerchantPayFeature
 {
     public static function key(): string
     {
@@ -101,7 +100,8 @@ class MerchantPayNotifyFeature extends BaseCustomFeature
         $payloadMerchant = (string) ($row['merchant_id'] ?? '');
 
         if ($payloadMerchant !== '') {
-            $bound = trim((string) $context->value('merchant_id', ''));
+            // 与 11 条命令共用同一份绑定（merchant_routes），不再各自读 feature_data
+            $bound = (string) ($this->merchantId($context) ?? '');
 
             if ($bound !== '' && $bound !== $payloadMerchant) {
                 return FeatureResult::fail("该群绑定的是商户 {$bound}，忽略商户 {$payloadMerchant} 的通知");

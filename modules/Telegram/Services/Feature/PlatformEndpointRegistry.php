@@ -146,6 +146,31 @@ class PlatformEndpointRegistry
                 . str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname());
         }
 
+        // 上传安装的插件：插件类也能声明平台接口规范（谁用谁声明）。
+        // 以前只扫 Services/，插件里的 EndpointProvider 形同虚设——
+        // feature_upstream_endpoints 引用了 pay.* 这类 code，third_api_endpoints
+        // 里却没有对应定义，后台「上游接口配置」选不到、callEndpoint 直接报
+        // 「平台接口不存在」。扫描规则与 CustomFeatureRegistry::discover() 一致。
+        // 抽象类也在这里汇总（同一个 endpoints() 定义按 code 去重，重复无害）。
+        $pluginRoot = dirname(__DIR__, 2) . '/Plugins';
+
+        if (is_dir($pluginRoot)) {
+            foreach (File::directories($pluginRoot) as $dir) {
+                if (basename($dir) === '_disabled') {
+                    continue;
+                }
+
+                foreach (File::allFiles($dir) as $file) {
+                    if ($file->getExtension() !== 'php') {
+                        continue;
+                    }
+
+                    $classes[] = 'Modules\\Telegram\\Plugins\\' . basename($dir) . '\\'
+                        . str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname());
+                }
+            }
+        }
+
         return $classes;
     }
 

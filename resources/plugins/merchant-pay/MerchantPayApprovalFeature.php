@@ -6,7 +6,6 @@ namespace Modules\Telegram\Plugins\MerchantPay;
 
 use Modules\Telegram\Contracts\FeatureContext;
 use Modules\Telegram\Contracts\FeatureResult;
-use Modules\Telegram\Services\Feature\Drivers\BaseCustomFeature;
 use Modules\Telegram\Services\OperatorPolicy;
 
 /**
@@ -20,7 +19,7 @@ use Modules\Telegram\Services\OperatorPolicy;
  *   2. 推送到上游审批接口（pay.approve）
  *   3. 群内就地编辑消息反馈结果（原按钮消息改成「已同意/已驳回 by @xxx」）
  */
-class MerchantPayApprovalFeature extends BaseCustomFeature
+class MerchantPayApprovalFeature extends MerchantPayFeature
 {
     public static function key(): string
     {
@@ -65,6 +64,11 @@ class MerchantPayApprovalFeature extends BaseCustomFeature
         return [];
     }
 
+    public static function upstreamEndpoints(): array
+    {
+        return ['pay.approve'];
+    }
+
     public static function defaultConfig(): array
     {
         return ['scope_type' => 'group'];
@@ -72,7 +76,9 @@ class MerchantPayApprovalFeature extends BaseCustomFeature
 
     public static function configSchema(): array
     {
-        return [];
+        return array_merge(parent::configSchema(), [
+            static::replySchema('审批结果：交易 {{trade_id}} 已{{label}}（操作人 @{{operator}}）', '可用变量：{{trade_id}} {{label}} {{operator}}'),
+        ]);
     }
 
     public function handle(FeatureContext $context): FeatureResult
@@ -95,9 +101,10 @@ class MerchantPayApprovalFeature extends BaseCustomFeature
             return FeatureResult::fail('你没有审批权限');
         }
 
-        $merchantId = trim((string) $context->value('merchant_id', ''));
+        // 与 11 条命令共用同一份绑定（merchant_routes）
+        $merchantId = $this->merchantId($context);
 
-        if ($merchantId === '') {
+        if ($merchantId === null) {
             return FeatureResult::fail('本群尚未绑定商户，无法提交审批');
         }
 
@@ -125,7 +132,11 @@ class MerchantPayApprovalFeature extends BaseCustomFeature
                 $context->telegram->sendMessage([
                     'chat_id' => $chatId,
                     'text' => $ok
-                        ? "审批结果：交易 {$tradeId} 已{$label}（操作人 @{$operator}）"
+                        ? $this->renderReply(
+                            $context,
+                            '审批结果：交易 {{trade_id}} 已{{label}}（操作人 @{{operator}}）',
+                            ['trade_id' => $tradeId, 'label' => $label, 'operator' => $operator]
+                        )
                         : "审批结果：交易 {$tradeId} {$label}提交失败，请重试",
                 ]);
             } catch (\Throwable) {

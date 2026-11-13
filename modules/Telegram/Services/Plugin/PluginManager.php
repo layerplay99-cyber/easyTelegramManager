@@ -511,6 +511,9 @@ class PluginManager
         $previousIds = array_values(array_diff((array) ($plugin->feature_ids ?? []), $ownIds));
 
         if ($previousIds !== []) {
+            // 绑定关系也要清：功能行都没了，留着的 features_binds 会变成
+            // 指向不存在功能的僵尸数据（后台看到、执行期匹配不到）
+            DB::table('features_binds')->whereIn('feature_id', $previousIds)->delete();
             DB::table('feature_commands')->whereIn('feature_id', $previousIds)->delete();
             DB::table('feature_upstream_endpoints')->whereIn('feature_id', $previousIds)->delete();
             DB::table('feature_hooks')->whereIn('feature_id', $previousIds)->delete();
